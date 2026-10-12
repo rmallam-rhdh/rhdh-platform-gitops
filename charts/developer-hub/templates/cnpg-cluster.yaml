@@ -1,0 +1,26 @@
+{{- if .Values.database.cnpg.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.database.cnpg.name }}
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cnpg
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  instances: {{ .Values.database.cnpg.instances }}
+  {{- if .Values.database.cnpg.imageName }}
+  imageName: {{ .Values.database.cnpg.imageName | quote }}
+  {{- end }}
+  storage:
+    size: {{ .Values.database.cnpg.storage | quote }}
+    {{- if .Values.database.cnpg.storageClass }}
+    storageClass: {{ .Values.database.cnpg.storageClass | quote }}
+    {{- end }}
+  postgresql:
+    parameters:
+      max_connections: {{ .Values.database.cnpg.maxConnections | quote }}
+{{- end }}

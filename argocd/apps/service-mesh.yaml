@@ -1,0 +1,48 @@
+# Lab overlay: redhat-operators (no snapshot catalog), no Vault mesh CA.
+# For a bank DC with snapshot + Vault CA, change path to
+# components/service-mesh/overlays/production
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openshift-service-mesh
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: service-mesh
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam/rhdh-platform-gitops
+    targetRevision: main
+    path: components/service-mesh/overlays/lab
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-operators
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: operators.coreos.com
+      kind: Subscription
+      jsonPointers:
+        - /status
+    - group: sailoperator.io
+      kind: Istio
+      jqPathExpressions:
+        - .status
+    - group: sailoperator.io
+      kind: IstioCNI
+      jqPathExpressions:
+        - .status
+    - group: sailoperator.io
+      kind: ZTunnel
+      jqPathExpressions:
+        - .status

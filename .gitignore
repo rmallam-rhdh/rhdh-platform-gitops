@@ -1,0 +1,10 @@
+.DS_Store
+*.swp
+*.tgz
+charts/*/charts/
+charts/*/tmpcharts/
+scripts/__pycache__/
+*.pyc
+.env
+*secret*.local.yaml
+rhdh-secrets.yaml

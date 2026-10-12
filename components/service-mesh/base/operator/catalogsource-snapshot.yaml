@@ -1,0 +1,23 @@
+---
+# Custom CatalogSource required for servicemeshoperator3 and kiali-ossm (stable-3.2).
+# The standard redhat-operators catalog only carries OSSM 2.x (Maistra).
+# This snapshot catalog carries OSSM 3.x (Sail Operator) packages.
+# Image tag: pinned to OCP 4.20 snapshot — update when upgrading the cluster.
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: redhat-operators-snapshot
+  namespace: openshift-marketplace
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: service-mesh
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"   # must exist before any Subscription
+spec:
+  displayName: Red Hat Operators (Snapshot)
+  publisher: "Red Hat Demo Platform"
+  sourceType: grpc
+  image: quay.io/rhpds/olm_snapshot_redhat_catalog:v4.21_2026_05_25
+  updateStrategy:
+    registryPoll:
+      interval: 30m

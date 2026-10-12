@@ -1,0 +1,298 @@
+# Deploy only the RHDH instance (operators and tools already exist)
+
+Use **`values.yaml`**, not `values-demo.yaml`. The demo overlay is pinned to ROSA `rosa-89s85`.
+
+Assumption: RHDH operator, ESO, Vault (KV v2), Postgres (or you use the bundled DB), Jenkins, Sonar, GitOps, Kiali, and SaaS tools already exist. This chart only creates the Backstage CR, plugin ConfigMaps, RBAC, and ExternalSecret.
+
+Install:
+
+```bash
+helm upgrade --install rhdh charts/developer-hub \
+  --namespace rhdh \
+  -f charts/developer-hub/values.yaml \
+  -f charts/developer-hub/values-cluster.yaml
+```
+
+Put cluster-specific URL and flag overrides in `values-cluster.yaml` (do not commit secrets).
+
+Vault layout this chart expects:
+
+```text
+<kv-mount>/rhdh/<vault-key>
+  value: <string>
+```
+
+Lab mount is `secrets`. ESO maps `rhdh/<vault-key>` property `value` → Kubernetes Secret `rhdh-secrets` env `<ENV>`.
+
+---
+
+## 1. Where tool URLs are set
+
+Two places. Do not mix them up.
+
+| What | Where you set it |
+|---|---|
+| Hub’s own public URL | Helm `app.baseUrl` and `app.clusterBaseDomain` |
+| Plugin → Jenkins / Jira / Vault / … | **Vault** (because `values.yaml` uses `${ENV}`) |
+| Hosts Hub is allowed to call | Helm `app.readingAllow` (must list every SaaS hostname) |
+| Which Jira project / Dynatrace service an *app* shows | That app’s `catalog-info.yaml`, not the chart |
+
+### Helm — Hub URL (required)
+
+`charts/developer-hub/values.yaml` (or `values-cluster.yaml`):
+
+```yaml
+app:
+  clusterBaseDomain: apps.YOURCLUSTER.openshiftapps.com
+  baseUrl: https://backstage-developer-hub-rhdh.apps.YOURCLUSTER.openshiftapps.com
+```
+
+Entra redirect URI is `{baseUrl}/api/auth/microsoft/handler/frame`.
+
+### Helm — allowlist (required for SaaS)
+
+`app.readingAllow` in the same file. Add a `host:` entry for every tool Hub will HTTP-call. `values.yaml` only has GitHub / Microsoft / Snyk / Bitbucket. You must add yours, for example:
+
+```yaml
+app:
+  readingAllow:
+    - host: github.com
+    - host: raw.githubusercontent.com
+    - host: api.github.com
+    - host: login.microsoftonline.com
+    - host: graph.microsoft.com
+    - host: YOUR.atlassian.net          # Jira Cloud
+    - host: xxxx.apps.dynatrace.com     # Dynatrace UI
+    - host: xxxx.live.dynatrace.com     # Dynatrace API
+    - host: sso.dynatrace.com
+    - host: kiali-istio-system.apps.YOURCLUSTER.openshiftapps.com
+```
+
+In-cluster tools (`jenkins.jenkins.svc`, `sonarqube.sonarqube.svc`, `vault.vault.svc`) do not need to be listed.
+
+### Vault — plugin connection URLs
+
+`values.yaml` already points plugins at env vars. **Put the URL in Vault**, not in the chart:
+
+| Plugin | Helm field (do not change) | Env in `rhdh-secrets` | Vault path | Example value |
+|---|---|---|---|---|
+| Jenkins | `plugins.jenkins.instances[0].baseUrl` | `JENKINS_BASE_URL` | `rhdh/jenkins-base-url` | `http://jenkins.jenkins.svc` |
+| Argo CD | `plugins.argocd.instances[0].url` | `ARGOCD_URL` | `rhdh/argocd-url` | `https://openshift-gitops-server-openshift-gitops.apps.YOURCLUSTER.openshiftapps.com` |
+| SonarQube | `plugins.sonarqube.baseUrl` | `SONARQUBE_BASE_URL` | `rhdh/sonarqube-base-url` | `http://sonarqube.sonarqube.svc:9000` |
+| Jira | `plugins.jira.baseUrl` | `JIRA_BASE_URL` | `rhdh/jira-base-url` | `https://YOUR.atlassian.net` |
+| Vault plugin | `plugins.vault.baseUrl` | `VAULT_ADDR` | `rhdh/vault-addr` | `http://vault.vault.svc:8200` |
+| Kiali | `plugins.kiali.url` | `KIALI_URL` | `rhdh/kiali-url` | `https://kiali-istio-system.apps.YOURCLUSTER.openshiftapps.com` |
+| Dynatrace UI | `plugins.dynatrace.url` | `DYNATRACE_URL` | `rhdh/dynatrace-url` | `https://xxxx.apps.dynatrace.com` |
+| ServiceNow | `plugins.servicenow.baseUrl` | `SERVICENOW_BASE_URL` | `rhdh/servicenow-base-url` | real URL or stub |
+| Artifactory | `plugins.artifactory.baseUrl` | `ARTIFACTORY_BASE_URL` | `rhdh/artifactory-base-url` | real URL or stub |
+| APIC | `plugins.apic.baseUrl` / `url` | `APIC_BASE_URL` / `APIC_API_URL` | `rhdh/apic-base-url` / `rhdh/apic-api-url` | real URL or stub |
+| Kubernetes API | `plugins.kubernetes.url` | `KUBE_API_URL` | `rhdh/kube-api-url` | `https://kubernetes.default.svc` |
+
+If Jira’s site changes later: update Vault `rhdh/jira-base-url` **and** `app.readingAllow`. Do not hunt through plugin YAML.
+
+### Helm — two URL fields that Vault does not cover
+
+Set these in `values-cluster.yaml`:
+
+```yaml
+plugins:
+  kubernetes:
+    clusterName: YOURCLUSTER          # display name only
+  dynatrace:
+    # Classic problems API (not the apps UI host)
+    apiTarget: https://xxxx.live.dynatrace.com/api/v2
+  jira:
+    product: cloud                    # or leave empty for Jira DC
+    authorization: "${JIRA_TOKEN}"    # Cloud. Omit for DC (Bearer)
+```
+
+LDAP URL (if you keep LDAP catalog): `catalog.ldap.target`.
+
+---
+
+## 2. Secrets to push (Vault key → env var)
+
+Every row becomes one key in Secret `rhdh-secrets`. ESO field is `secretKey` = **Env**. Vault object is `secrets/rhdh/<Vault key>` with property **`value`**.
+
+```bash
+vault kv put secrets/rhdh/jira-token value='…'
+```
+
+### Must have (Hub process)
+
+| Env (`rhdh-secrets`) | Vault key | What to put |
+|---|---|---|
+| `BACKEND_SECRET` | `backend-secret` | random hex, 32+ bytes |
+| `AUTH_SESSION_SECRET` | `auth-session-secret` | random hex, 32+ bytes |
+| `GITHUB_TOKEN` | `github-token` | PAT that can create repos + read catalog |
+
+### Login (Entra)
+
+| Env | Vault key | What to put |
+|---|---|---|
+| `AZURE_TENANT_ID` | `azure-tenant-id` | Directory (tenant) ID |
+| `AZURE_CLIENT_ID` | `azure-client-id` | App registration client ID |
+| `AZURE_CLIENT_SECRET` | `azure-client-secret` | App registration secret |
+
+Skip these three only if you turn Microsoft login off.
+
+### In-cluster tools
+
+| Env | Vault key | What to put |
+|---|---|---|
+| `JENKINS_BASE_URL` | `jenkins-base-url` | `http://jenkins.jenkins.svc` |
+| `JENKINS_USERNAME` | `jenkins-username` | Jenkins user |
+| `JENKINS_API_TOKEN` | `jenkins-api-token` | Jenkins API token |
+| `JENKINS_BASIC_AUTH_B64` | `jenkins-basic-auth-b64` | `base64(username:apiToken)` |
+| `SONARQUBE_BASE_URL` | `sonarqube-base-url` | `http://sonarqube.sonarqube.svc:9000` |
+| `SONARQUBE_API_KEY` | `sonarqube-api-key` | Sonar token |
+| `ARGOCD_URL` | `argocd-url` | GitOps server URL (see table in §1) |
+| `ARGOCD_TOKEN` | `argocd-token` | Argo CD bearer token |
+| `VAULT_ADDR` | `vault-addr` | URL **Hub pods** use to reach Vault |
+| `VAULT_TOKEN` | `vault-list-token` | Token for the **Vault plugin tab** (LIST on `secrets/metadata/rhdh`, not ESO’s token) |
+| `KIALI_URL` | `kiali-url` | Public Kiali route |
+| `KUBE_API_URL` | `kube-api-url` | `https://kubernetes.default.svc` |
+| `KUBE_SA_TOKEN` | `kube-sa-token` | empty if Hub uses in-cluster SA (`values-demo` does this) |
+| `KUBE_CA_DATA` | `kube-ca-data` | empty if in-cluster |
+| `CLUSTER_BASE_DOMAIN` | `cluster-base-domain` | `apps.YOURCLUSTER.openshiftapps.com` |
+
+### SaaS
+
+| Env | Vault key | What to put |
+|---|---|---|
+| `JIRA_BASE_URL` | `jira-base-url` | `https://YOUR.atlassian.net` |
+| `JIRA_TOKEN` | `jira-token` | **Cloud:** `Basic ` + base64(`email:apiToken`). **DC:** the PAT (chart sends Bearer unless you set `plugins.jira.authorization`) |
+| `DYNATRACE_URL` | `dynatrace-url` | `https://xxxx.apps.dynatrace.com` |
+| `DYNATRACE_ACCESS_TOKEN` | `dynatrace-access-token` | classic token `dt0c01.…` with `entities.read` + `problems.read` |
+| `DYNATRACE_CLIENT_ID` | `dynatrace-client-id` | OAuth client, or `stub` if no DQL |
+| `DYNATRACE_CLIENT_SECRET` | `dynatrace-client-secret` | OAuth secret, or `stub` |
+| `DYNATRACE_ACCOUNT_URN` | `dynatrace-account-urn` | `urn:dtaccount:…`, or `stub` |
+
+### Unused plugins (still required — ESO fails if a key is missing)
+
+| Env | Vault key | Safe stub |
+|---|---|---|
+| `SNYK_TOKEN` | `snyk-token` | `stub` (or set `plugins.snyk.mocked: true`) |
+| `SNYK_ORG_SLUG` | `snyk-org-slug` | `stub` |
+| `ARTIFACTORY_BASE_URL` | `artifactory-base-url` | stub base URL |
+| `ARTIFACTORY_TOKEN` | `artifactory-token` | `stub` |
+| `SERVICENOW_BASE_URL` | `servicenow-base-url` | stub base URL |
+| `SERVICENOW_USERNAME` | `servicenow-username` | `stub` |
+| `SERVICENOW_PASSWORD` | `servicenow-password` | `stub` |
+| `APIC_BASE_URL` | `apic-base-url` | stub |
+| `APIC_API_URL` | `apic-api-url` | stub |
+| `APIC_API_KEY` | `apic-api-key` | `stub` |
+| `APIC_CLIENT_ID` | `apic-client-id` | `stub` |
+| `APIC_SECRET` | `apic-secret` | `stub` |
+| `BITBUCKET_USERNAME` | `bitbucket-username` | `stub` |
+| `BITBUCKET_APP_PASSWORD` | `bitbucket-app-password` | `stub` |
+| `BITBUCKET_SERVER_HOST` | `bitbucket-server-host` | `bitbucket.example.invalid` |
+| `BITBUCKET_SERVER_TOKEN` | `bitbucket-server-token` | `stub` |
+| `LDAP_BIND_PASSWORD` | `ldap-bind-password` | real bind password, or `stub` if you disable LDAP |
+| `OAUTH_CLIENT_ID` | `oauth-client-id` | `stub` (OIDC login is off) |
+| `OAUTH_CLIENT_SECRET` | `oauth-client-secret` | `stub` |
+| `GITHUB_OAUTH_CLIENT_ID` | `github-oauth-client-id` | `stub` (GitHub login is off) |
+| `GITHUB_OAUTH_CLIENT_SECRET` | `github-oauth-client-secret` | `stub` |
+| `KEYCLOAK_PLUGIN_CLIENT_ID` | `keycloak-plugin-client-id` | `stub` |
+| `KEYCLOAK_PLUGIN_CLIENT_SECRET` | `keycloak-plugin-client-secret` | `stub` |
+
+ESO will not become Ready until **every** key in `secrets.keys` exists in Vault.
+
+After writing keys:
+
+```bash
+oc -n rhdh annotate externalsecret rhdh-secrets force-sync="$(date +%s)" --overwrite
+```
+
+**Vault plugin tab:** after `VAULT_ADDR` + `VAULT_TOKEN` sync, open a catalog Component with `vault.io/secrets-path: rhdh`. You will see **names** under `secrets/rhdh`, not values. It does not work until that token can LIST `secrets/metadata/rhdh`.
+
+---
+
+## 3. Other Helm changes so the chart only deploys the RHDH instance
+
+Create `values-cluster.yaml`:
+
+```yaml
+# Operators already installed.
+operator:
+  enabled: false
+
+# Do not create a CNPG Cluster. Use bundled Postgres OR an existing Secret.
+database:
+  cnpg:
+    enabled: false
+  external:
+    enabled: false          # true if you already have a Postgres Secret
+instance:
+  replicas: 1
+  database:
+    enableLocalDb: true     # false if external.enabled is true
+
+createNamespace: true
+namespace: rhdh
+
+secrets:
+  mode: eso                 # requires ClusterSecretStore vault-secret-store
+  eso:
+    storeName: vault-secret-store
+    storeKind: ClusterSecretStore
+    vaultPrefix: rhdh       # must match Vault path prefix
+
+app:
+  title: Developer Hub
+  organization: YourOrg
+  clusterBaseDomain: apps.YOURCLUSTER.openshiftapps.com
+  baseUrl: https://backstage-developer-hub-rhdh.apps.YOURCLUSTER.openshiftapps.com
+  readingAllow:
+    # copy the list from section 1, with your hosts
+
+auth:
+  environment: production
+  signInPage:
+    - microsoft
+  microsoft:
+    domainHint: yourtenant.onmicrosoft.com
+
+catalog:
+  ldap:
+    enabled: false          # set true only if OpenLDAP (or corporate LDAP) is in-cluster
+  demoKitchenSink:
+    enabled: true           # optional: one entity that has every plugin annotation
+  locations: []             # or point at YOUR golden-path raw GitHub URLs
+
+plugins:
+  kubernetes:
+    clusterName: YOURCLUSTER
+    url: https://kubernetes.default.svc
+    skipTLSVerify: true
+    serviceAccountToken: ""
+    caData: ""
+  jira:
+    product: cloud
+    authorization: "${JIRA_TOKEN}"
+  dynatrace:
+    apiTarget: https://xxxx.live.dynatrace.com/api/v2
+  snyk:
+    mocked: true            # until you have a real SNYK_TOKEN
+  vault:
+    secretEngine: secrets   # must match the KV mount name
+    kvVersion: 2
+```
+
+What this chart will then create in `rhdh`:
+
+- Backstage CR `developer-hub`
+- ConfigMaps: app-config, dynamic-plugins, RBAC, branding
+- ExternalSecret `rhdh-secrets`
+- Route to the Hub
+- Plugin packages: Kubernetes, Jenkins, Argo, Sonar, Snyk, Jira, Artifactory, Vault, ServiceNow, Kiali, Dynatrace, APIC, TechDocs, Tekton, notifications (all `enabled: true` in `values.yaml`)
+
+What it will **not** create: RHDH operator, CNPG operator, Vault, ESO, Jenkins, Sonar, Kiali, GitOps.
+
+Also required **outside** Helm:
+
+1. `ClusterSecretStore` named `vault-secret-store` pointing at the same Vault.
+2. Entra redirect URI = `{baseUrl}/api/auth/microsoft/handler/frame`.
+3. Catalog tabs still need entity annotations (`jira/project-key`, `kiali.io/namespace`, `dynatrace.com/dynatrace-entity-id`, `vault.io/secrets-path`). The golden-path templates already stamp those.
+
+Do not helm-install with `-f values-demo.yaml` on a new cluster: it hardcodes this lab’s Hub URL, Jira site, Dynatrace tenant, and Argo route.

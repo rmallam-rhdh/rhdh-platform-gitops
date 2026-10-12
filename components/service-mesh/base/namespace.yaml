@@ -1,0 +1,26 @@
+---
+# Istio control-plane namespace (Sail Operator / OSSM3)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    istio-discovery: enabled   # required when discoverySelectors are set — istiod must see this namespace
+---
+# Istio CNI plugin namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-cni
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+---
+# ZTunnel ambient proxy namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ztunnel
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    istio.io/dataplane-mode: ambient

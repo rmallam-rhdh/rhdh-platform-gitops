@@ -1,0 +1,33 @@
+{{- if .Values.instance.extraFiles.catalogInfo }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rhdh-catalog-info
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  catalog-info.yaml: |
+    apiVersion: backstage.io/v1alpha1
+    kind: System
+    metadata:
+      name: acme-platform
+      description: Acme Internal Developer Platform
+    spec:
+      owner: group:default/platform-team
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: Component
+    metadata:
+      name: {{ include "rhdh.fullname" . }}
+      description: Red Hat Developer Hub
+      annotations:
+        backstage.io/kubernetes-id: {{ include "rhdh.fullname" . }}
+        argocd/app-name: openshift-developer-hub
+        argocd/app-namespace: openshift-gitops
+    spec:
+      type: service
+      lifecycle: production
+      owner: group:default/platform-team
+      system: acme-platform
+{{- end }}

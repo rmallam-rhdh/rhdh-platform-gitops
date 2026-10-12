@@ -1,0 +1,330 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-rhdh
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  app-config.yaml: |
+    app:
+      title: {{ .Values.app.title | quote }}
+      baseUrl: {{ include "rhdh.baseUrl" . | quote }}
+    organization:
+      name: {{ .Values.app.organization | quote }}
+    backend:
+      baseUrl: {{ include "rhdh.baseUrl" . | quote }}
+      listen:
+        port: 7007
+        host: 0.0.0.0
+      cors:
+        origin: {{ include "rhdh.baseUrl" . | quote }}
+        methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+        credentials: true
+      csp:
+        upgrade-insecure-requests: false
+      reading:
+        allow:
+{{ .Values.app.readingAllow | toYaml | nindent 10 }}
+      {{- if .Values.database.external.enabled }}
+      database:
+        client: pg
+        pluginDivisionMode: schema
+        connection:
+          host: ${POSTGRES_HOST}
+          port: ${POSTGRES_PORT}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          database: ${POSTGRES_DB}
+          ssl:
+            rejectUnauthorized: {{ .Values.database.external.ssl.rejectUnauthorized }}
+      {{- end }}
+    signInPage:
+{{ .Values.auth.signInPage | toYaml | nindent 6 }}
+    auth:
+      environment: {{ .Values.auth.environment | quote }}
+      session:
+        secret: "${BACKEND_SECRET}"
+      providers:
+        {{- if .Values.auth.guest.enabled }}
+        guest:
+          userEntityRef: {{ .Values.auth.guest.userEntityRef | quote }}
+          dangerouslyAllowOutsideDevelopment: {{ .Values.auth.guest.dangerouslyAllowOutsideDevelopment }}
+        {{- end }}
+        {{- if .Values.auth.microsoft.enabled }}
+        microsoft:
+          development:
+            clientId: {{ .Values.auth.microsoft.clientId | quote }}
+            clientSecret: {{ .Values.auth.microsoft.clientSecret | quote }}
+            tenantId: {{ .Values.auth.microsoft.tenantId | quote }}
+            domainHint: {{ .Values.auth.microsoft.domainHint | quote }}
+            signIn:
+              resolvers:
+                - resolver: emailMatchingUserEntityProfileEmail
+                - resolver: emailLocalPartMatchingUserEntityName
+                  dangerouslyAllowSignInWithoutUserInCatalog: true
+          production:
+            clientId: {{ .Values.auth.microsoft.clientId | quote }}
+            clientSecret: {{ .Values.auth.microsoft.clientSecret | quote }}
+            tenantId: {{ .Values.auth.microsoft.tenantId | quote }}
+            domainHint: {{ .Values.auth.microsoft.domainHint | quote }}
+            signIn:
+              resolvers:
+                - resolver: emailMatchingUserEntityProfileEmail
+                - resolver: emailLocalPartMatchingUserEntityName
+                  dangerouslyAllowSignInWithoutUserInCatalog: true
+        {{- end }}
+        {{- if .Values.auth.oidc.enabled }}
+        oidc:
+          production:
+            prompt: login
+            metadataUrl: {{ .Values.auth.oidc.metadataUrl | quote }}
+            clientId: {{ .Values.auth.oidc.clientId | quote }}
+            clientSecret: {{ .Values.auth.oidc.clientSecret | quote }}
+            signIn:
+              resolvers:
+                - resolver: preferredUsernameMatchingUserEntityName
+                - resolver: emailMatchingUserEntityProfileEmail
+        {{- end }}
+        {{- if .Values.auth.github.enabled }}
+        github:
+          production:
+            clientId: {{ .Values.auth.github.clientId | quote }}
+            clientSecret: {{ .Values.auth.github.clientSecret | quote }}
+            signIn:
+              resolvers:
+                - resolver: usernameMatchingUserEntityName
+        {{- end }}
+    integrations:
+      {{- if .Values.integrations.github.enabled }}
+      github:
+        - host: {{ .Values.integrations.github.host | quote }}
+          token: {{ .Values.integrations.github.token | quote }}
+      {{- end }}
+      {{- if .Values.integrations.bitbucketCloud.enabled }}
+      bitbucketCloud:
+        - username: {{ .Values.integrations.bitbucketCloud.username | quote }}
+          appPassword: {{ .Values.integrations.bitbucketCloud.appPassword | quote }}
+      {{- end }}
+      {{- if .Values.integrations.bitbucketServer.enabled }}
+      bitbucketServer:
+        - host: {{ .Values.integrations.bitbucketServer.host | quote }}
+          token: {{ .Values.integrations.bitbucketServer.token | quote }}
+      {{- end }}
+    catalog:
+      rules:
+        - allow: [Component, System, API, Group, User, Resource, Location, Template, Domain]
+      providers:
+        {{- if .Values.catalog.ldap.enabled }}
+        ldapOrg:
+          default:
+            target: {{ .Values.catalog.ldap.target | quote }}
+            bind:
+              dn: {{ .Values.catalog.ldap.bindDn | quote }}
+              secret: {{ .Values.catalog.ldap.bindSecret | quote }}
+            schedule:
+              frequency: { minutes: 5 }
+              timeout: { minutes: 2 }
+              initialDelay: { seconds: 15 }
+            users:
+              - dn: {{ .Values.catalog.ldap.usersDn | quote }}
+                options:
+                  filter: (objectClass=inetOrgPerson)
+                  paged: true
+                map:
+                  rdn: uid
+                  name: uid
+                  displayName: cn
+                  email: mail
+                set:
+                  metadata.namespace: default
+            groups:
+              - dn: {{ .Values.catalog.ldap.groupsDn | quote }}
+                options:
+                  filter: (objectClass=groupOfNames)
+                  paged: true
+                map:
+                  rdn: cn
+                  name: cn
+                  description: description
+                  displayName: cn
+                  members: member
+                set:
+                  metadata.namespace: default
+        {{- end }}
+        {{- if .Values.catalog.keycloak.enabled }}
+        keycloakOrg:
+          default:
+            baseUrl: {{ .Values.catalog.keycloak.baseUrl | quote }}
+            realm: {{ .Values.catalog.keycloak.realm | quote }}
+            loginRealm: {{ .Values.catalog.keycloak.realm | quote }}
+            clientId: {{ .Values.catalog.keycloak.clientId | quote }}
+            clientSecret: {{ .Values.catalog.keycloak.clientSecret | quote }}
+            schedule:
+              frequency: { minutes: 5 }
+              timeout: { minutes: 3 }
+              initialDelay: { seconds: 15 }
+        {{- end }}
+        {{- if .Values.catalog.msgraph.enabled }}
+        microsoftGraphOrg:
+          default:
+            tenantId: {{ .Values.catalog.msgraph.tenantId | quote }}
+            clientId: {{ .Values.catalog.msgraph.clientId | quote }}
+            clientSecret: {{ .Values.catalog.msgraph.clientSecret | quote }}
+            userFilter: {{ .Values.catalog.msgraph.userFilter | quote }}
+            groupFilter: {{ .Values.catalog.msgraph.groupFilter | quote }}
+            schedule:
+              frequency: { hours: 1 }
+              timeout: { minutes: 50 }
+        {{- end }}
+      locations:
+        {{- range .Values.catalog.locations }}
+        - type: {{ .type | quote }}
+          target: {{ .target | quote }}
+          rules:
+            - allow: {{ .allow | toJson }}
+        {{- end }}
+    {{- if .Values.plugins.kubernetes.enabled }}
+    kubernetes:
+      serviceLocatorMethod:
+        type: multiTenant
+      clusterLocatorMethods:
+        - type: config
+          clusters:
+            - name: {{ .Values.plugins.kubernetes.clusterName | quote }}
+              url: {{ .Values.plugins.kubernetes.url | quote }}
+              authProvider: {{ .Values.plugins.kubernetes.authProvider | quote }}
+              skipTLSVerify: {{ .Values.plugins.kubernetes.skipTLSVerify }}
+              {{- if .Values.plugins.kubernetes.serviceAccountToken }}
+              serviceAccountToken: {{ .Values.plugins.kubernetes.serviceAccountToken | quote }}
+              {{- end }}
+              {{- if .Values.plugins.kubernetes.caData }}
+              caData: {{ .Values.plugins.kubernetes.caData | quote }}
+              {{- end }}
+    {{- end }}
+    {{- if .Values.plugins.jenkins.enabled }}
+    jenkins:
+      instances:
+{{ .Values.plugins.jenkins.instances | toYaml | nindent 8 }}
+    {{- end }}
+    {{- if .Values.plugins.argocd.enabled }}
+    argocd:
+      appLocatorMethods:
+        - type: config
+          instances:
+{{ .Values.plugins.argocd.instances | toYaml | nindent 12 }}
+    {{- end }}
+    {{- if .Values.plugins.techdocs.enabled }}
+    techdocs:
+      builder: {{ .Values.plugins.techdocs.builder | quote }}
+      generator:
+        runIn: local
+      publisher:
+        type: {{ .Values.plugins.techdocs.publisher | quote }}
+    {{- end }}
+    {{- if .Values.plugins.sonarqube.enabled }}
+    sonarqube:
+      baseUrl: {{ .Values.plugins.sonarqube.baseUrl | quote }}
+      apiKey: {{ .Values.plugins.sonarqube.apiKey | quote }}
+      authType: Bearer
+    {{- end }}
+    {{- if .Values.plugins.snyk.enabled }}
+    snyk:
+      mocked: {{ .Values.plugins.snyk.mocked }}
+      appHost: {{ .Values.plugins.snyk.appHost | quote }}
+      orgSlug: {{ .Values.plugins.snyk.orgSlug | quote }}
+    {{- end }}
+    {{- if .Values.plugins.jira.enabled }}
+    jira:
+      baseUrl: {{ .Values.plugins.jira.baseUrl | quote }}
+      token: {{ .Values.plugins.jira.token | quote }}
+      {{- if .Values.plugins.jira.product }}
+      product: {{ .Values.plugins.jira.product | quote }}
+      {{- end }}
+      {{- if .Values.plugins.jira.apiVersion }}
+      apiVersion: {{ .Values.plugins.jira.apiVersion }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.plugins.kiali.enabled }}
+    kiali:
+      providers:
+        - name: default
+          url: {{ .Values.plugins.kiali.url | quote }}
+          skipTLSVerify: {{ .Values.plugins.kiali.skipTLSVerify }}
+    {{- end }}
+    {{- if .Values.plugins.artifactory.enabled }}
+    artifactory:
+      baseUrl: {{ .Values.plugins.artifactory.baseUrl | quote }}
+      experimentalAnnotations: true
+    {{- end }}
+    proxy:
+      endpoints:
+        {{- if .Values.plugins.snyk.enabled }}
+        /snyk:
+          target: {{ .Values.plugins.snyk.proxyTarget | quote }}
+          changeOrigin: true
+          headers:
+            Authorization: token {{ .Values.plugins.snyk.token }}
+            Content-Type: application/json
+          allowedMethods: [GET]
+        {{- end }}
+        {{- if .Values.plugins.jenkins.enabled }}
+        /jenkins/api:
+          target: {{ .Values.plugins.jenkins.proxyTarget | quote }}
+          changeOrigin: true
+          headers:
+            Authorization: {{ .Values.plugins.jenkins.proxyAuth | quote }}
+          allowedMethods: [GET]
+        {{- end }}
+        {{- if .Values.plugins.jira.enabled }}
+        /jira/api:
+          target: {{ .Values.plugins.jira.baseUrl | quote }}
+          changeOrigin: true
+          headers:
+            Authorization: {{ .Values.plugins.jira.authorization | default (printf "Bearer %s" .Values.plugins.jira.token) }}
+            Accept: application/json
+            Content-Type: application/json
+            X-Atlassian-Token: no-check
+            User-Agent: RHDH
+          allowedMethods: [GET, POST]
+        {{- end }}
+        {{- if and .Values.plugins.dynatrace.enabled .Values.plugins.dynatrace.apiTarget }}
+        /dynatrace:
+          target: {{ .Values.plugins.dynatrace.apiTarget | quote }}
+          changeOrigin: true
+          headers:
+            Authorization: Api-Token {{ .Values.plugins.dynatrace.accessToken }}
+          allowedMethods: [GET, POST]
+        {{- end }}
+        {{- if .Values.plugins.artifactory.enabled }}
+        /artifactory:
+          target: {{ .Values.plugins.artifactory.baseUrl | quote }}
+          changeOrigin: true
+          headers:
+            Authorization: Bearer {{ .Values.plugins.artifactory.token }}
+          allowedMethods: [GET]
+        {{- end }}
+        {{- if .Values.plugins.apic.enabled }}
+        /apic/api:
+          target: {{ .Values.plugins.apic.baseUrl | quote }}
+          changeOrigin: true
+          secure: true
+          headers:
+            X-IBM-Acme-Id: {{ .Values.plugins.apic.apiKey | quote }}
+            Accept: application/json
+          allowedMethods: [GET]
+        {{- end }}
+    permission:
+      enabled: {{ .Values.permission.enabled }}
+      rbac:
+        admin:
+          users:
+{{ .Values.permission.adminUsers | toYaml | nindent 12 }}
+          {{- if .Values.permission.adminGroups }}
+          groups:
+{{ .Values.permission.adminGroups | toYaml | nindent 12 }}
+          {{- end }}
+        pluginsWithPermission:
+{{ .Values.permission.pluginsWithPermission | toYaml | nindent 10 }}
+        policies-csv-file: /opt/app-root/src/rbac-policies.csv
+        policyFileReload: true

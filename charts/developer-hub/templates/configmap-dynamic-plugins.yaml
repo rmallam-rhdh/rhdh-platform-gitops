@@ -1,0 +1,325 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dynamic-plugins-rhdh
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  dynamic-plugins.yaml: |
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: {{ .Values.plugins.ldap.package | quote }}
+        disabled: {{ not .Values.plugins.ldap.enabled }}
+      - package: {{ .Values.plugins.kubernetes.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.kubernetes.enabled }}
+      - package: {{ .Values.plugins.kubernetes.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.kubernetes.enabled }}
+      - package: {{ .Values.plugins.kubernetes.topologyPackage | quote }}
+        disabled: {{ not .Values.plugins.kubernetes.enabled }}
+
+      - package: {{ .Values.plugins.tekton.package | quote }}
+        disabled: {{ not .Values.plugins.tekton.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-tekton:
+                mountPoints:
+                  - mountPoint: entity.page.ci/cards
+                    importName: TektonCI
+                    config:
+                      if:
+                        allOf:
+                          - isTektonCIAvailable
+                      layout:
+                        gridColumn: 1 / -1
+                        gridRowStart: 1
+
+      - package: {{ .Values.plugins.jenkins.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.jenkins.enabled }}
+      - package: {{ .Values.plugins.jenkins.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.jenkins.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-jenkins:
+                mountPoints:
+                  - mountPoint: entity.page.ci/cards
+                    importName: EntityJenkinsContent
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isJenkinsAvailable
+
+      - package: {{ .Values.plugins.msgraph.package | quote }}
+        disabled: {{ not .Values.plugins.msgraph.enabled }}
+      - package: {{ .Values.plugins.keycloak.package | quote }}
+        disabled: {{ not .Values.plugins.keycloak.enabled }}
+
+      - package: {{ .Values.plugins.argocd.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.argocd.enabled }}
+      - package: {{ .Values.plugins.argocd.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.argocd.enabled }}
+      - package: {{ .Values.plugins.argocd.scaffolderPackage | quote }}
+        disabled: {{ not .Values.plugins.argocd.enabled }}
+
+      - package: {{ .Values.plugins.githubScaffolder.package | quote }}
+        disabled: {{ not .Values.plugins.githubScaffolder.enabled }}
+
+      - package: {{ .Values.plugins.bitbucket.cloudScaffolder | quote }}
+        disabled: {{ not .Values.plugins.bitbucket.enabled }}
+      - package: {{ .Values.plugins.bitbucket.serverScaffolder | quote }}
+        disabled: {{ not .Values.plugins.bitbucket.enabled }}
+      - package: {{ .Values.plugins.bitbucket.cloudCatalog | quote }}
+        disabled: {{ not .Values.plugins.bitbucket.enabled }}
+      - package: {{ .Values.plugins.bitbucket.serverCatalog | quote }}
+        disabled: {{ not .Values.plugins.bitbucket.enabled }}
+
+      - package: {{ .Values.plugins.techdocs.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.techdocs.enabled }}
+      - package: {{ .Values.plugins.techdocs.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.techdocs.enabled }}
+
+      - package: {{ .Values.plugins.sonarqube.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.sonarqube.enabled }}
+      - package: {{ .Values.plugins.sonarqube.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.sonarqube.enabled }}
+
+      - package: {{ .Values.plugins.snyk.package | quote }}
+        disabled: {{ not .Values.plugins.snyk.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              {{ .Values.plugins.snyk.frontendId }}:
+                mountPoints:
+                  - mountPoint: entity.page.security/cards
+                    importName: {{ .Values.plugins.snyk.importName }}
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isSnykAvailable
+
+      - package: {{ .Values.plugins.jira.package | quote }}
+        disabled: {{ not .Values.plugins.jira.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              roadiehq.backstage-plugin-jira:
+                entityTabs:
+                  - path: /jira
+                    title: Jira
+                    mountPoint: entity.page.jira
+                mountPoints:
+                  - mountPoint: entity.page.jira/cards
+                    importName: EntityJiraOverviewCard
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isJiraAvailable
+
+      - package: {{ .Values.plugins.artifactory.package | quote }}
+        disabled: {{ not .Values.plugins.artifactory.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-artifactory:
+                mountPoints:
+                  - mountPoint: entity.page.image-registry/cards
+                    importName: ArtifactoryPage
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isArtifactoryAvailable
+
+      - package: {{ .Values.plugins.notifications.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.notifications.enabled }}
+      - package: {{ .Values.plugins.notifications.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.notifications.enabled }}
+      - package: {{ .Values.plugins.notifications.signalsFrontend | quote }}
+        disabled: {{ not .Values.plugins.notifications.enabled }}
+      - package: {{ .Values.plugins.notifications.signalsBackend | quote }}
+        disabled: {{ not .Values.plugins.notifications.enabled }}
+
+      - package: {{ .Values.plugins.vault.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.vault.enabled }}
+        pluginConfig:
+          vault:
+            baseUrl: {{ .Values.plugins.vault.baseUrl | quote }}
+            token: {{ .Values.plugins.vault.token | quote }}
+            secretEngine: {{ .Values.plugins.vault.secretEngine | quote }}
+            kvVersion: {{ .Values.plugins.vault.kvVersion }}
+      - package: {{ .Values.plugins.vault.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.vault.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-vault:
+                mountPoints:
+                  - mountPoint: entity.page.overview/cards
+                    importName: EntityVaultCard
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+
+      - package: {{ .Values.plugins.servicenow.scaffolderPackage | quote }}
+        disabled: {{ not .Values.plugins.servicenow.enabled }}
+        pluginConfig:
+          servicenow:
+            baseUrl: {{ .Values.plugins.servicenow.baseUrl | quote }}
+            username: {{ .Values.plugins.servicenow.username | quote }}
+            password: {{ .Values.plugins.servicenow.password | quote }}
+      - package: {{ .Values.plugins.servicenow.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.servicenow.enabled }}
+        pluginConfig:
+          servicenow:
+            instanceUrl: {{ .Values.plugins.servicenow.baseUrl | quote }}
+            basicAuth:
+              username: {{ .Values.plugins.servicenow.username | quote }}
+              password: {{ .Values.plugins.servicenow.password | quote }}
+      - package: {{ .Values.plugins.servicenow.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.servicenow.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-servicenow:
+                entityTabs:
+                  - path: /servicenow
+                    title: ServiceNow
+                    mountPoint: entity.page.servicenow
+                mountPoints:
+                  - mountPoint: entity.page.servicenow/cards
+                    importName: ServicenowPage
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        anyOf:
+                          - hasAnnotation: servicenow.com/entity-id
+
+      - package: {{ .Values.plugins.dynatrace.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.dynatrace.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-dynatrace:
+                entityTabs:
+                  - path: /dynatrace
+                    title: Dynatrace
+                    mountPoint: entity.page.dynatrace
+                mountPoints:
+                  - mountPoint: entity.page.dynatrace/cards
+                    importName: DynatraceTab
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isDynatraceAvailable
+                  - mountPoint: entity.page.monitoring/cards
+                    importName: DynatraceTab
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isDynatraceAvailable
+      - package: {{ .Values.plugins.dynatrace.dqlBackend | quote }}
+        disabled: {{ not .Values.plugins.dynatrace.enabled }}
+        pluginConfig:
+          dynatrace:
+            environments:
+              - name: default
+                url: {{ .Values.plugins.dynatrace.url | quote }}
+                tokenUrl: {{ .Values.plugins.dynatrace.tokenUrl | quote }}
+                clientId: {{ .Values.plugins.dynatrace.clientId | quote }}
+                clientSecret: {{ .Values.plugins.dynatrace.clientSecret | quote }}
+                accountUrn: {{ .Values.plugins.dynatrace.accountUrn | quote }}
+      - package: {{ .Values.plugins.dynatrace.dqlFrontend | quote }}
+        disabled: {{ not .Values.plugins.dynatrace.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              dynatrace.backstage-plugin-dql:
+                mountPoints:
+                  - mountPoint: entity.page.monitoring/cards
+                    importName: DynatraceTab
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        allOf:
+                          - isDynatraceAvailable
+
+      - package: {{ .Values.plugins.kiali.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.kiali.enabled }}
+        pluginConfig:
+          kiali:
+            providers:
+              - name: default
+                url: {{ .Values.plugins.kiali.url | quote }}
+                skipTLSVerify: {{ .Values.plugins.kiali.skipTLSVerify }}
+      - package: {{ .Values.plugins.kiali.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.kiali.enabled }}
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage-community.plugin-kiali:
+                entityTabs:
+                  - path: /kiali
+                    title: Kiali
+                    mountPoint: entity.page.kiali
+                mountPoints:
+                  - mountPoint: entity.page.kiali/cards
+                    importName: EntityKialiContent
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        anyOf:
+                          - hasAnnotation: kiali.io/namespace
+                          - hasAnnotation: backstage.io/kubernetes-namespace
+                  - mountPoint: entity.page.overview/cards
+                    importName: EntityKialiGraphCard
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+                      if:
+                        anyOf:
+                          - hasAnnotation: kiali.io/namespace
+                          - hasAnnotation: backstage.io/kubernetes-namespace
+
+      - package: {{ .Values.plugins.apic.package | quote }}
+        disabled: {{ not .Values.plugins.apic.enabled }}
+        pluginConfig:
+          ibm:
+            schedule: {{ .Values.plugins.apic.schedule | quote }}
+            apic:
+              - name: {{ .Values.plugins.apic.name | quote }}
+                url: {{ .Values.plugins.apic.url | quote }}
+                clientId: {{ .Values.plugins.apic.clientId | quote }}
+                clientSecret: {{ .Values.plugins.apic.clientSecret | quote }}
+                apiKey: {{ .Values.plugins.apic.apiKey | quote }}
+
+      {{- if .Values.plugins.apiDocs.enabled }}
+      - package: {{ .Values.plugins.apiDocs.package | quote }}
+        disabled: false
+        pluginConfig:
+          dynamicPlugins:
+            frontend:
+              backstage.plugin-api-docs:
+                mountPoints:
+                  - mountPoint: entity.page.api/cards
+                    importName: EntityApiDefinitionCard
+                    config:
+                      layout:
+                        gridColumn: 1 / -1
+      {{- end }}

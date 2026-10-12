@@ -1,0 +1,48 @@
+# RHDH operator + Backstage CR + CNPG Cluster (rhdh-pg) via Helm.
+# Edit charts/developer-hub/values-deploy.yaml before first sync
+# (cluster base domain, auth, catalog hosts).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: developer-hub
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: developer-hub
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/developer-hub
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-deploy.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rhdh
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: operators.coreos.com
+      kind: Subscription
+      jsonPointers:
+        - /status
+    - group: rhdh.redhat.com
+      kind: Backstage
+      jqPathExpressions:
+        - .status
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      jqPathExpressions:
+        - .status

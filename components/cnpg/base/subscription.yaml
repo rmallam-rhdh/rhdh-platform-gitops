@@ -1,0 +1,16 @@
+# Certified CloudNativePG (EnterpriseDB). Channel stable-v1 on this ROSA catalog.
+# Operator only — the PostgreSQL Cluster CR is owned by the RHDH Helm chart.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cloudnative-pg
+  namespace: cnpg-system
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: cnpg
+spec:
+  channel: stable-v1
+  installPlanApproval: Automatic
+  name: cloudnative-pg
+  source: certified-operators
+  sourceNamespace: openshift-marketplace

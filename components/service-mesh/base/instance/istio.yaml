@@ -1,0 +1,34 @@
+---
+# Istio CR — Sail Operator installs and manages the Istio control plane.
+# profile: ambient enables ztunnel-based L4 mTLS without per-pod sidecar injection.
+# discoverySelectors restricts istiod to watch only namespaces labelled for ambient.
+#
+# Corporate mesh CA: provision Secret "cacerts" (mesh-ca-externalsecret.yaml) BEFORE
+# or immediately after istiod starts. istiod auto-detects cacerts and signs workload
+# SPIFFE certs from your PKI instead of self-signed istio-ca-secret.
+apiVersion: sailoperator.io/v1
+kind: Istio
+metadata:
+  name: default
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: service-mesh
+spec:
+  namespace: istio-system
+  profile: ambient
+  version: v1.27.3
+  updateStrategy:
+    type: InPlace
+  values:
+    meshConfig:
+      discoverySelectors:
+        - matchLabels:
+            istio.io/dataplane-mode: ambient
+        - matchLabels:
+            istio-discovery: enabled
+    pilot:
+      # OpenShift ambient profile deploys ztunnel into istio-system (not kube-system).
+      trustedZtunnelNamespace: istio-system

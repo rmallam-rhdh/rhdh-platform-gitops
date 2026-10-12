@@ -1,0 +1,76 @@
+---
+# Post-sync Job — propagates corporate mesh CA to ztunnel after cacerts rotation.
+# Runs when the cacerts ExternalSecret changes; keeps istio-ca-root-cert in sync.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mesh-ca-rollout
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mesh-ca-rollout
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "patch", "update", "create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mesh-ca-rollout
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mesh-ca-rollout
+subjects:
+  - kind: ServiceAccount
+    name: mesh-ca-rollout
+    namespace: istio-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mesh-ca-rollout
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      serviceAccountName: mesh-ca-rollout
+      restartPolicy: Never
+      containers:
+        - name: rollout
+          image: registry.redhat.io/openshift4/ose-cli:latest
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              # Sync root bundle for ztunnel trust (same issue as stale istio-ca-root-cert).
+              ROOT="$(oc get secret cacerts -n istio-system -o jsonpath='{.data.root-cert\.pem}')"
+              oc create configmap istio-ca-root-cert \
+                --from-literal=root-cert.pem="$(echo "$ROOT" | base64 -d)" \
+                -n istio-system --dry-run=acme -o yaml | oc apply -f -
+              oc rollout restart deployment/istiod -n istio-system || \
+                oc rollout restart deployment -n istio-system -l app=istiod
+              oc rollout status deployment -n istio-system -l app=istiod --timeout=180s
+              oc rollout restart daemonset/ztunnel -n istio-system
+              oc rollout status daemonset/ztunnel -n istio-system --timeout=180s
+              oc rollout restart deployment/istio-ingressgateway -n istio-system
+              echo "Mesh CA rollout complete"

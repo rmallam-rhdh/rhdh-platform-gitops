@@ -1,0 +1,14 @@
+---
+# Enable OpenShift user workload monitoring.
+# Required so Prometheus can scrape istiod and ztunnel metrics that Kiali reads.
+# Wave 0 — must exist before any ServiceMonitor is applied.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  config.yaml: |
+    enableUserWorkload: true

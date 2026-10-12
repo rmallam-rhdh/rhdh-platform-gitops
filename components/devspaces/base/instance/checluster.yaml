@@ -1,0 +1,26 @@
+---
+# CheCluster — OpenShift Dev Spaces control plane (dashboard, gateway, dev workspace controller).
+# Workspaces are started per-repo from devfile.yaml (scaffolded by golden-path templates).
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: devspaces
+  namespace: openshift-devspaces
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: devspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  components: {}
+  devEnvironments:
+    defaultEditor: che-incubator/che-code/latest
+    defaultNamespace:
+      autoProvision: true
+      template: <username>-devspaces
+    disableContainerBuildCapabilities: false
+    maxNumberOfWorkspacesPerUser: 3
+    # pvcStrategy: set on CheCluster v2 via devEnvironments.pvcStrategy when supported by cluster CRD.
+    # Workshop clusters often manage storage via the platform CheCluster; avoid storage.pvc here — Argo diff fails on older CRDs.
+  networking: {}

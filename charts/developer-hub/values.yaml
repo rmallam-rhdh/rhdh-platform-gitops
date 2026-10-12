@@ -1,0 +1,467 @@
+# Customer / production defaults. Overlay with values-demo.yaml for the ROSA lab.
+# Secrets are never stored here — RHDH reads ${ENV} from Secret rhdh-secrets.
+
+nameOverride: developer-hub
+namespace: rhdh
+createNamespace: true
+mesh:
+  ambient: true
+
+operator:
+  enabled: true
+  channel: fast-1.10
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+
+instance:
+  name: developer-hub
+  replicas: 2
+  route:
+    enabled: true
+  database:
+    # false when database.external.enabled — RHDH talks to CNPG instead.
+    enableLocalDb: true
+  extraEnvs:
+    nodeTlsRejectUnauthorized: "0"
+  secretsName: rhdh-secrets
+  dynamicPluginsRoot:
+    size: 8Gi
+  extraFiles:
+    rbacPolicies: true
+    branding: true
+    # Do not mount catalog-info.yaml as app-config — Backstage parses every
+    # file in that directory and rejects multi-document YAML.
+    catalogInfo: false
+
+app:
+  title: Acme Developer Hub
+  organization: Acme
+  clusterBaseDomain: apps.example.com
+  # Empty = derived from instance name + namespace + clusterBaseDomain
+  baseUrl: ""
+  readingAllow:
+    - host: github.com
+    - host: raw.githubusercontent.com
+    - host: api.github.com
+    - host: login.microsoftonline.com
+    - host: graph.microsoft.com
+    - host: app.snyk.io
+    - host: api.snyk.io
+    - host: bitbucket.org
+
+auth:
+  environment: production
+  signInPage:
+    - microsoft
+  guest:
+    enabled: false
+    userEntityRef: user:default/guest
+    dangerouslyAllowOutsideDevelopment: true
+  microsoft:
+    enabled: true
+    domainHint: acme.example.com
+    clientId: "${AZURE_CLIENT_ID}"
+    clientSecret: "${AZURE_CLIENT_SECRET}"
+    tenantId: "${AZURE_TENANT_ID}"
+  oidc:
+    enabled: false
+    metadataUrl: https://keycloak.apps.example.com/realms/backstage/.well-known/openid-configuration
+    clientId: "${OAUTH_CLIENT_ID}"
+    clientSecret: "${OAUTH_CLIENT_SECRET}"
+  github:
+    enabled: false
+    clientId: "${GITHUB_OAUTH_CLIENT_ID}"
+    clientSecret: "${GITHUB_OAUTH_CLIENT_SECRET}"
+
+catalog:
+  ldap:
+    enabled: true
+    target: ldap://openldap.ldap.svc.cluster.local:389
+    bindDn: cn=admin,dc=acme,dc=demo
+    bindSecret: "${LDAP_BIND_PASSWORD}"
+    usersDn: ou=people,dc=acme,dc=demo
+    groupsDn: ou=groups,dc=acme,dc=demo
+  keycloak:
+    enabled: false
+    baseUrl: https://keycloak.apps.example.com
+    realm: backstage
+    clientId: "${KEYCLOAK_PLUGIN_CLIENT_ID}"
+    clientSecret: "${KEYCLOAK_PLUGIN_CLIENT_SECRET}"
+  msgraph:
+    enabled: false
+    tenantId: "${AZURE_TENANT_ID}"
+    clientId: "${AZURE_CLIENT_ID}"
+    clientSecret: "${AZURE_CLIENT_SECRET}"
+    userFilter: "accountEnabled eq true"
+    groupFilter: "securityEnabled eq true"
+  # Static Component with every plugin annotation. Off in customer values.
+  demoKitchenSink:
+    enabled: false
+  locations:
+    - type: url
+      target: https://github.com/rmallam/RHDH-SM-DevSpaces/blob/main/golden-path/all-templates.yaml
+      allow: [Template, Location, Resource]
+    - type: url
+      target: https://github.com/rmallam/RHDH-SM-DevSpaces/blob/main/golden-path/catalog/location.yaml
+      allow: [Component, System, API]
+
+integrations:
+  github:
+    enabled: true
+    host: github.com
+    token: "${GITHUB_TOKEN}"
+  bitbucketCloud:
+    enabled: true
+    username: "${BITBUCKET_USERNAME}"
+    appPassword: "${BITBUCKET_APP_PASSWORD}"
+  bitbucketServer:
+    enabled: false
+    host: "${BITBUCKET_SERVER_HOST}"
+    token: "${BITBUCKET_SERVER_TOKEN}"
+
+permission:
+  enabled: true
+  adminUsers:
+    - name: user:default/platform-admin
+  adminGroups:
+    - name: group:default/platform-team
+  pluginsWithPermission:
+    - catalog
+    - scaffolder
+    - permission
+    - kubernetes
+    - jenkins
+    - argocd
+    - techdocs
+    - sonarqube
+  policiesCsv: |
+    p, role:default/developer, catalog-entity, read, allow
+    p, role:default/developer, catalog.entity.create, create, allow
+    p, role:default/developer, catalog.entity.refresh, update, allow
+    p, role:default/developer, catalog.location.create, create, allow
+    p, role:default/developer, catalog.location.read, read, allow
+    p, role:default/developer, scaffolder.template.use, use, allow
+    p, role:default/developer, scaffolder.template.parameter.read, read, allow
+    p, role:default/developer, scaffolder.template.step.read, read, allow
+    p, role:default/developer, scaffolder.action.execute, use, allow
+    p, role:default/developer, scaffolder.task.create, create, allow
+    p, role:default/developer, scaffolder.task.read, read, allow
+    p, role:default/developer, scaffolder.task.cancel, update, allow
+    p, role:default/developer, kubernetes.clusters.read, read, allow
+    p, role:default/developer, kubernetes.resources.read, read, allow
+    g, group:default/developers, role:default/developer
+    g, group:default/app-owners, role:default/developer
+    g, group:default/platform-team, role:default/developer
+
+rbac:
+  kubernetesReader: true
+  clusterAdmin: false
+  serviceAccount: default
+
+branding:
+  enabled: true
+  primaryColor: "#D5002B"
+  headerColor1: "#D5002B"
+  headerColor2: "#8B0019"
+
+# CloudNativePG Cluster (operator is installed separately — components/cnpg).
+# When external.enabled, Hub reads POSTGRES_* from the CNPG app Secret.
+database:
+  cnpg:
+    enabled: false
+    name: rhdh-pg
+    instances: 2
+    storage: 20Gi
+    storageClass: ""
+    imageName: ""
+    maxConnections: "200"
+  external:
+    enabled: false
+    secretName: rhdh-pg-app
+    keys:
+      host: host
+      port: port
+      user: username
+      password: password
+      database: dbname
+    ssl:
+      rejectUnauthorized: false
+
+# ── Dynamic plugins (RHDH 1.10 / Backstage 1.49.4 pins) ─────────────────────
+# enabled=false still ships the package as disabled:true so flipping the flag
+# is a values change, not a YAML rewrite.
+plugins:
+  kubernetes:
+    enabled: true
+    backendPackage: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+    frontendPackage: ./dynamic-plugins/dist/backstage-plugin-kubernetes
+    topologyPackage: ./dynamic-plugins/dist/backstage-community-plugin-topology
+    clusterName: acme-openshift
+    url: "${KUBE_API_URL}"
+    authProvider: serviceAccount
+    serviceAccountToken: "${KUBE_SA_TOKEN}"
+    caData: "${KUBE_CA_DATA}"
+    skipTLSVerify: false
+
+  ldap:
+    enabled: true
+    package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic
+
+  tekton:
+    enabled: true
+    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.45.3__3.33.3
+
+  jenkins:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.49.4__0.30.0
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.49.4__0.27.0
+    instances:
+      - name: default
+        baseUrl: "${JENKINS_BASE_URL}"
+        username: "${JENKINS_USERNAME}"
+        apiKey: "${JENKINS_API_TOKEN}"
+    proxyTarget: "${JENKINS_BASE_URL}"
+    proxyAuth: "Basic ${JENKINS_BASIC_AUTH_B64}"
+
+  argocd:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.45.3__2.4.4
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend:bs_1.45.3__4.6.0
+    scaffolderPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.45.3__1.8.1
+    instances:
+      - name: default
+        url: "${ARGOCD_URL}"
+        token: "${ARGOCD_TOKEN}"
+
+  githubScaffolder:
+    enabled: true
+    package: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-github-dynamic
+
+  bitbucket:
+    enabled: true
+    cloudScaffolder: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud:bs_1.49.4__0.3.4
+    serverScaffolder: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.49.4__0.2.19
+    cloudCatalog: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud:bs_1.49.4__0.5.9
+    serverCatalog: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server:bs_1.49.4__0.5.9
+
+  techdocs:
+    enabled: true
+    backendPackage: ./dynamic-plugins/dist/backstage-plugin-techdocs-backend-dynamic
+    frontendPackage: ./dynamic-plugins/dist/backstage-plugin-techdocs
+    builder: local
+    publisher: local
+
+  sonarqube:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube:bs_1.45.3__0.21.0
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend:bs_1.45.3__0.15.0
+    baseUrl: "${SONARQUBE_BASE_URL}"
+    apiKey: "${SONARQUBE_API_KEY}"
+
+  snyk:
+    enabled: true
+    # Vendor frontend — no Red Hat overlay. Self-exported to GHCR.
+    package: oci://ghcr.io/rmallam/rhdh-plugin-snyk:bs_1.49.4__2.5.10!backstage-plugin-snyk
+    frontendId: backstage-plugin-snyk
+    importName: SnykOverview
+    mocked: false
+    appHost: https://app.snyk.io
+    orgSlug: "${SNYK_ORG_SLUG}"
+    proxyTarget: https://api.snyk.io
+    token: "${SNYK_TOKEN}"
+
+  jira:
+    enabled: true
+    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.49.4__2.14.0
+    baseUrl: "${JIRA_BASE_URL}"
+    token: "${JIRA_TOKEN}"
+    # Empty = Bearer <token> (Jira DC). Cloud needs Basic email:apiToken in this header.
+    authorization: ""
+    # cloud (default) POSTs /search/jql. datacenter uses GET /search.
+    product: ""
+    apiVersion: ""
+
+  artifactory:
+    enabled: true
+    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.49.4__1.28.0
+    baseUrl: "${ARTIFACTORY_BASE_URL}"
+    token: "${ARTIFACTORY_TOKEN}"
+
+  notifications:
+    enabled: true
+    frontendPackage: ./dynamic-plugins/dist/backstage-plugin-notifications
+    backendPackage: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
+    signalsFrontend: ./dynamic-plugins/dist/backstage-plugin-signals
+    signalsBackend: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+
+  vault:
+    # No GA bs_ overlay yet. pr_1225 tags work for the lab; swap to bs_ when published.
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-vault:pr_1225__0.19.0
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-vault-backend:pr_1225__0.21.0
+    baseUrl: "${VAULT_ADDR}"
+    token: "${VAULT_TOKEN}"
+    secretEngine: secrets
+    kvVersion: 2
+
+  servicenow:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow:bs_1.49.4__1.10.0
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow-backend:bs_1.49.4__1.10.0
+    scaffolderPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-servicenow:bs_1.49.4__2.15.1
+    baseUrl: "${SERVICENOW_BASE_URL}"
+    username: "${SERVICENOW_USERNAME}"
+    password: "${SERVICENOW_PASSWORD}"
+
+  kiali:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali:bs_1.49.4__1.50.2
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali-backend:bs_1.49.4__1.29.1
+    url: "${KIALI_URL}"
+    skipTLSVerify: true
+
+  dynatrace:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.49.4__10.17.0
+    dqlFrontend: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/dynatrace-backstage-plugin-dql:bs_1.49.4__2.7.0
+    dqlBackend: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/dynatrace-backstage-plugin-dql-backend:bs_1.49.4__2.7.0
+    url: "${DYNATRACE_URL}"
+    tokenUrl: "${DYNATRACE_URL}"
+    clientId: "${DYNATRACE_CLIENT_ID}"
+    clientSecret: "${DYNATRACE_CLIENT_SECRET}"
+    accountUrn: "${DYNATRACE_ACCOUNT_URN}"
+    # Classic API token (dt0c01…). Empty apiTarget skips the /dynatrace proxy.
+    accessToken: "${DYNATRACE_ACCESS_TOKEN}"
+    apiTarget: ""
+
+  apic:
+    enabled: true
+    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage:bs_1.49.4__1.0.3
+    name: apic
+    url: "${APIC_API_URL}"
+    clientId: "${APIC_CLIENT_ID}"
+    clientSecret: "${APIC_SECRET}"
+    apiKey: "${APIC_API_KEY}"
+    baseUrl: "${APIC_BASE_URL}"
+    schedule: "0 * * * *"
+
+  apiDocs:
+    enabled: true
+    package: ./dynamic-plugins/dist/backstage-plugin-api-docs
+
+  msgraph:
+    enabled: false
+    package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic
+
+  keycloak:
+    enabled: false
+    package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic
+
+# Secret material. mode=external means GitOps does not own rhdh-secrets.
+secrets:
+  mode: eso # eso | placeholder | external
+  name: rhdh-secrets
+  eso:
+    storeName: vault-secret-store
+    storeKind: ClusterSecretStore
+    refreshInterval: 5m
+    # Path after the KV mount (store path=secrets). Key becomes rhdh/<name>.
+    vaultPrefix: rhdh
+  # Vault path suffix (property: value) keyed by env name consumed by app-config.
+  keys:
+    CLUSTER_BASE_DOMAIN: cluster-base-domain
+    KUBE_API_URL: kube-api-url
+    KUBE_SA_TOKEN: kube-sa-token
+    KUBE_CA_DATA: kube-ca-data
+    BACKEND_SECRET: backend-secret
+    AUTH_SESSION_SECRET: auth-session-secret
+    OAUTH_CLIENT_ID: oauth-client-id
+    OAUTH_CLIENT_SECRET: oauth-client-secret
+    KEYCLOAK_PLUGIN_CLIENT_ID: keycloak-plugin-client-id
+    KEYCLOAK_PLUGIN_CLIENT_SECRET: keycloak-plugin-client-secret
+    AZURE_TENANT_ID: azure-tenant-id
+    AZURE_CLIENT_ID: azure-client-id
+    AZURE_CLIENT_SECRET: azure-client-secret
+    GITHUB_OAUTH_CLIENT_ID: github-oauth-client-id
+    GITHUB_OAUTH_CLIENT_SECRET: github-oauth-client-secret
+    GITHUB_TOKEN: github-token
+    LDAP_BIND_PASSWORD: ldap-bind-password
+    JENKINS_BASE_URL: jenkins-base-url
+    JENKINS_USERNAME: jenkins-username
+    JENKINS_API_TOKEN: jenkins-api-token
+    JENKINS_BASIC_AUTH_B64: jenkins-basic-auth-b64
+    ARGOCD_URL: argocd-url
+    ARGOCD_TOKEN: argocd-token
+    SONARQUBE_BASE_URL: sonarqube-base-url
+    SONARQUBE_API_KEY: sonarqube-api-key
+    SNYK_ORG_SLUG: snyk-org-slug
+    SNYK_TOKEN: snyk-token
+    JIRA_BASE_URL: jira-base-url
+    JIRA_TOKEN: jira-token
+    ARTIFACTORY_BASE_URL: artifactory-base-url
+    ARTIFACTORY_TOKEN: artifactory-token
+    BITBUCKET_USERNAME: bitbucket-username
+    BITBUCKET_APP_PASSWORD: bitbucket-app-password
+    BITBUCKET_SERVER_HOST: bitbucket-server-host
+    BITBUCKET_SERVER_TOKEN: bitbucket-server-token
+    VAULT_ADDR: vault-addr
+    VAULT_TOKEN: vault-list-token
+    SERVICENOW_BASE_URL: servicenow-base-url
+    SERVICENOW_USERNAME: servicenow-username
+    SERVICENOW_PASSWORD: servicenow-password
+    DYNATRACE_URL: dynatrace-url
+    DYNATRACE_CLIENT_ID: dynatrace-client-id
+    DYNATRACE_CLIENT_SECRET: dynatrace-client-secret
+    DYNATRACE_ACCOUNT_URN: dynatrace-account-urn
+    DYNATRACE_ACCESS_TOKEN: dynatrace-access-token
+    KIALI_URL: kiali-url
+    APIC_BASE_URL: apic-base-url
+    APIC_API_URL: apic-api-url
+    APIC_API_KEY: apic-api-key
+    APIC_CLIENT_ID: apic-client-id
+    APIC_SECRET: apic-secret
+  # Used only when secrets.mode=placeholder (never commit real credentials).
+  placeholders:
+    BACKEND_SECRET: change-me-backend-secret
+    AZURE_TENANT_ID: placeholder
+    AZURE_CLIENT_ID: placeholder
+    AZURE_CLIENT_SECRET: placeholder
+    GITHUB_TOKEN: placeholder
+    LDAP_BIND_PASSWORD: placeholder
+    SNYK_TOKEN: placeholder
+    SNYK_ORG_SLUG: placeholder
+    JENKINS_BASE_URL: https://jenkins.example.invalid
+    JENKINS_USERNAME: placeholder
+    JENKINS_API_TOKEN: placeholder
+    JENKINS_BASIC_AUTH_B64: placeholder
+    ARGOCD_URL: https://argocd.example.invalid
+    ARGOCD_TOKEN: placeholder
+    SONARQUBE_BASE_URL: https://sonarqube.example.invalid
+    SONARQUBE_API_KEY: placeholder
+    JIRA_BASE_URL: https://jira.example.invalid
+    JIRA_TOKEN: placeholder
+    ARTIFACTORY_BASE_URL: https://artifactory.example.invalid
+    ARTIFACTORY_TOKEN: placeholder
+    BITBUCKET_USERNAME: placeholder
+    BITBUCKET_APP_PASSWORD: placeholder
+    SERVICENOW_BASE_URL: https://example.service-now.com
+    SERVICENOW_USERNAME: placeholder
+    SERVICENOW_PASSWORD: placeholder
+    DYNATRACE_URL: https://example.live.dynatrace.com
+    DYNATRACE_CLIENT_ID: placeholder
+    DYNATRACE_CLIENT_SECRET: placeholder
+    DYNATRACE_ACCOUNT_URN: placeholder
+    DYNATRACE_ACCESS_TOKEN: placeholder
+    KIALI_URL: https://kiali.example.invalid
+    APIC_BASE_URL: https://apic.example.invalid
+    APIC_API_URL: https://apic.example.invalid
+    APIC_API_KEY: placeholder
+    APIC_CLIENT_ID: placeholder
+    APIC_SECRET: placeholder
+    VAULT_ADDR: https://vault.example.invalid
+    VAULT_TOKEN: placeholder
+    KUBE_API_URL: https://kubernetes.default.svc
+    KUBE_SA_TOKEN: placeholder
+    KUBE_CA_DATA: placeholder
+    CLUSTER_BASE_DOMAIN: apps.example.com

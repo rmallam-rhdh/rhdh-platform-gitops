@@ -1,0 +1,36 @@
+---
+# Kiali CR — mesh observability UI for OSSM3 / Sail Operator.
+# Deployed into openshift-operators (Kiali Operator watches this namespace).
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: service-mesh
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  auth:
+    strategy: openshift
+  deployment:
+    accessible_namespaces:
+      - "**"
+    image_pull_policy: Always
+    ingress:
+      enabled: true
+  external_services:
+    istio:
+      root_namespace: istio-system
+    prometheus:
+      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+      auth:
+        type: bearer
+        use_kiali_token: true
+      thanos_proxy:
+        enabled: true
+    grafana:
+      enabled: false  # Enable when Grafana is deployed
+  istio_namespace: istio-system

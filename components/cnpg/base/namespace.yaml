@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnpg-system
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: cnpg
+    openshift.io/cluster-monitoring: "true"

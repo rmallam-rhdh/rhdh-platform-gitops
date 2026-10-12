@@ -1,0 +1,102 @@
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: {{ include "rhdh.fullname" . }}
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  application:
+    appConfig:
+      configMaps:
+        - name: app-config-rhdh
+        {{- if .Values.instance.extraFiles.branding }}
+        - name: app-config-rhdh-branding
+        {{- end }}
+      mountPath: /opt/app-root/src
+    dynamicPluginsConfigMapName: dynamic-plugins-rhdh
+    extraEnvs:
+      envs:
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: {{ .Values.instance.extraEnvs.nodeTlsRejectUnauthorized | quote }}
+      secrets:
+        - name: {{ .Values.instance.secretsName }}
+    extraFiles:
+      mountPath: /opt/app-root/src
+      {{- if .Values.instance.extraFiles.rbacPolicies }}
+      configMaps:
+        - name: rbac-policies
+      {{- end }}
+    route:
+      enabled: {{ .Values.instance.route.enabled }}
+  database:
+    enableLocalDb: {{ .Values.instance.database.enableLocalDb }}
+  deployment:
+    patch:
+      spec:
+        replicas: {{ .Values.instance.replicas }}
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: backstage
+              backstage.io/kubernetes-id: {{ include "rhdh.fullname" . }}
+          spec:
+            # Operator defaults this to false; the Kubernetes/Topology plugins
+            # read /var/run/secrets/kubernetes.io/serviceaccount/token.
+            automountServiceAccountToken: true
+            serviceAccountName: {{ .Values.rbac.serviceAccount | quote }}
+            volumes:
+              - name: dynamic-plugins-root
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      accessModes: ["ReadWriteOnce"]
+                      resources:
+                        requests:
+                          storage: {{ .Values.instance.dynamicPluginsRoot.size }}
+              {{- if .Values.catalog.demoKitchenSink.enabled }}
+              - name: demo-catalog
+                configMap:
+                  name: rhdh-demo-catalog
+              {{- end }}
+            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.database.external.enabled }}
+            containers:
+              - name: backstage-backend
+                {{- if .Values.database.external.enabled }}
+                env:
+                  - name: POSTGRES_HOST
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.host | quote }}
+                  - name: POSTGRES_PORT
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.port | quote }}
+                  - name: POSTGRES_USER
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.user | quote }}
+                  - name: POSTGRES_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.password | quote }}
+                  - name: POSTGRES_DB
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.database | quote }}
+                {{- end }}
+                {{- if .Values.catalog.demoKitchenSink.enabled }}
+                volumeMounts:
+                  - name: demo-catalog
+                    mountPath: /opt/app-root/src/catalog-demo
+                    readOnly: true
+                {{- end }}
+            {{- end }}

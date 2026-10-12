@@ -1,0 +1,30 @@
+{{- if .Values.operator.enabled }}
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: rhdh-operator-group
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  targetNamespaces:
+    - {{ include "rhdh.namespace" . }}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhdh
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  channel: {{ .Values.operator.channel | quote }}
+  installPlanApproval: {{ .Values.operator.installPlanApproval }}
+  name: rhdh
+  source: {{ .Values.operator.source | quote }}
+  sourceNamespace: {{ .Values.operator.sourceNamespace | quote }}
+{{- end }}

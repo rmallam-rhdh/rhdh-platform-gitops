@@ -1,0 +1,197 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ROSA lab: redhat-operators (no snapshot catalog), no Vault mesh CA.
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: CatalogSource
+      name: redhat-operators-snapshot
+    patch: |-
+      $patch: delete
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: CatalogSource
+      metadata:
+        name: redhat-operators-snapshot
+  - target:
+      kind: ExternalSecret
+      name: istio-mesh-ca
+    patch: |-
+      $patch: delete
+      apiVersion: external-secrets.io/v1beta1
+      kind: ExternalSecret
+      metadata:
+        name: istio-mesh-ca
+  - target:
+      kind: ExternalSecret
+      name: istio-ingressgateway-tls
+    patch: |-
+      $patch: delete
+      apiVersion: external-secrets.io/v1beta1
+      kind: ExternalSecret
+      metadata:
+        name: istio-ingressgateway-tls
+  - target:
+      kind: Deployment
+      name: istio-ingressgateway
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: istio-ingressgateway
+  - target:
+      kind: Service
+      name: istio-ingressgateway
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: istio-ingressgateway
+  - target:
+      kind: ServiceAccount
+      name: istio-ingressgateway
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: istio-ingressgateway
+  - target:
+      kind: Gateway
+      name: platform-ingressgateway
+    patch: |-
+      $patch: delete
+      apiVersion: networking.istio.io/v1
+      kind: Gateway
+      metadata:
+        name: platform-ingressgateway
+  - target:
+      kind: Job
+      name: mesh-ca-rollout
+    patch: |-
+      $patch: delete
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: mesh-ca-rollout
+  - target:
+      kind: Role
+      name: mesh-ca-rollout
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: mesh-ca-rollout
+  - target:
+      kind: RoleBinding
+      name: mesh-ca-rollout
+    patch: |-
+      $patch: delete
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: mesh-ca-rollout
+  - target:
+      kind: ServiceAccount
+      name: mesh-ca-rollout
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: mesh-ca-rollout
+  - target:
+      group: operators.coreos.com
+      version: v1alpha1
+      kind: Subscription
+      name: kiali-operator
+    patch: |-
+      - op: replace
+        path: /spec/source
+        value: redhat-operators
+      - op: replace
+        path: /spec/channel
+        value: stable
+  - target:
+      group: operators.coreos.com
+      version: v1alpha1
+      kind: Subscription
+      name: service-mesh-operator
+    patch: |-
+      - op: replace
+        path: /spec/source
+        value: redhat-operators
+      - op: replace
+        path: /spec/channel
+        value: stable
+  - target:
+      group: sailoperator.io
+      version: v1
+      kind: Istio
+      name: default
+    patch: |-
+      - op: remove
+        path: /spec/version
+      - op: replace
+        path: /spec/values/pilot
+        value:
+          trustedZtunnelNamespace: ztunnel
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  - target:
+      group: sailoperator.io
+      version: v1
+      kind: IstioCNI
+      name: default
+    patch: |-
+      - op: remove
+        path: /spec/version
+  - target:
+      group: kiali.io
+      version: v1alpha1
+      kind: Kiali
+      name: kiali
+    patch: |-
+      - op: replace
+        path: /spec/auth/strategy
+        value: anonymous
+      - op: add
+        path: /spec/external_services/prometheus/auth/insecure_skip_verify
+        value: true
+      - op: add
+        path: /spec/deployment/probes
+        value:
+          startup:
+            initial_delay_seconds: 15
+            period_seconds: 10
+            failure_threshold: 18
+          readiness:
+            initial_delay_seconds: 5
+            period_seconds: 10
+          liveness:
+            initial_delay_seconds: 30
+            period_seconds: 30
+  - target:
+      group: kiali.io
+      version: v1alpha1
+      kind: OSSMConsole
+      name: ossmconsole
+    patch: |-
+      $patch: delete
+      apiVersion: kiali.io/v1alpha1
+      kind: OSSMConsole
+      metadata:
+        name: ossmconsole
+
+commonLabels:
+  environment: lab

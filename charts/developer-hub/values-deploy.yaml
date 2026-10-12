@@ -1,0 +1,43 @@
+# Overlay used by argocd/apps/developer-hub.yaml.
+# Change clusterBaseDomain (and auth/catalog) before the first sync.
+
+app:
+  title: Developer Hub
+  organization: Platform
+  # e.g. apps.rosa.rosa-89s85.bhg0.p3.openshiftapps.com
+  clusterBaseDomain: apps.example.com
+
+instance:
+  replicas: 1
+  database:
+    enableLocalDb: false
+
+database:
+  cnpg:
+    enabled: true
+    name: rhdh-pg
+    instances: 1
+    storage: 10Gi
+  external:
+    enabled: true
+    secretName: rhdh-pg-app
+
+# No Vault / ESO required for a first deploy. Replace keys on the
+# generated Secret rhdh-secrets, or switch to mode: external and create it yourself.
+secrets:
+  mode: placeholder
+
+catalog:
+  demoKitchenSink:
+    enabled: false
+  ldap:
+    enabled: false
+
+auth:
+  environment: development
+  signInPage:
+    - guest
+  guest:
+    enabled: true
+  microsoft:
+    enabled: false

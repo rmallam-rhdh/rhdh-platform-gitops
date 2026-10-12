@@ -1,0 +1,11 @@
+# AllNamespaces so Cluster CRs can live in rhdh (RHDH backing store).
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cnpg
+  namespace: cnpg-system
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: cnpg
+spec:
+  upgradeStrategy: Default

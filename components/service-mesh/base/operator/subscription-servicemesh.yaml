@@ -1,0 +1,21 @@
+---
+# Red Hat OpenShift Service Mesh 3.x — Sail Operator.
+# Uses redhat-operators-snapshot catalog (NOT redhat-operators).
+# Channel: stable-3.2 matches what the reference cluster runs.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: service-mesh-operator
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+    app.kubernetes.io/component: service-mesh
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  channel: stable-3.2
+  installPlanApproval: Automatic
+  name: servicemeshoperator3
+  source: redhat-operators-snapshot
+  sourceNamespace: openshift-marketplace

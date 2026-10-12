@@ -1,0 +1,27 @@
+# Bootstrap: apply this after OpenShift GitOps is installed.
+# It syncs the four Applications under argocd/apps/.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: idp-platform
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam/rhdh-platform-gitops
+    targetRevision: main
+    path: argocd/apps
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
