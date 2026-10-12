@@ -21,7 +21,10 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 
 {{- define "rhdh.goldenPathFile" -}}
 {{- $domain := .root.Values.app.clusterBaseDomain -}}
-{{- $devspaces := printf "https://devspaces.%s" $domain -}}
+{{- $devspaces := .root.Values.app.devspacesBaseUrl -}}
+{{- if not $devspaces -}}
+{{- $devspaces = printf "https://devspaces.%s" $domain -}}
+{{- end -}}
 {{- .root.Files.Get (printf "files/%s" .file) | replace "__CLUSTER_BASE_DOMAIN__" $domain | replace "__DEVSPACES_BASE_URL__" $devspaces -}}
 {{- end }}
 

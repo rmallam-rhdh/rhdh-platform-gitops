@@ -46,7 +46,10 @@ trap 'rm -f "$CNPG" "$SM" "$DS" "$HUB"' EXIT
 
 helm template cnpg "$ROOT/charts/cnpg" --namespace rhdh >"$CNPG"
 helm template mesh "$ROOT/charts/service-mesh" >"$SM"
-helm template ds "$ROOT/charts/devspaces" --namespace openshift-devspaces >"$DS"
+helm template ds "$ROOT/charts/devspaces" \
+  -f "$ROOT/charts/devspaces/values.yaml" \
+  -f "$ROOT/charts/devspaces/values-deploy.yaml" \
+  --namespace openshift-devspaces >"$DS"
 helm template rhdh "$ROOT/charts/developer-hub" \
   -f "$ROOT/charts/developer-hub/values.yaml" \
   -f "$ROOT/charts/developer-hub/values-demo.yaml" \
@@ -62,6 +65,9 @@ need "$SM" "kind: IstioCNI"
 need "$SM" "kind: ZTunnel"
 need "$SM" "kind: Kiali"
 need "$DS" "kind: CheCluster"
+need "$DS" "ingress.openshift.io/shard: devspaces"
+need "$DS" 'domain: "devspaces.ocp.dkccw.sandbox3257.opentlc.com"'
+need "$HUB" "https://devspaces.devspaces.ocp.dkccw.sandbox3257.opentlc.com"
 need "$HUB" "kind: Backstage"
 need "$HUB" "enableLocalDb: false"
 need "$HUB" "name: rhdh-secrets"

@@ -4,11 +4,15 @@ CHART="$(cd "$(dirname "$0")/.." && pwd)"
 helm lint "$CHART"
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT
-helm template ds "$CHART" --namespace openshift-devspaces >"$OUT"
+helm template ds "$CHART" \
+  -f "$CHART/values.yaml" \
+  -f "$CHART/values-deploy.yaml" \
+  --namespace openshift-devspaces >"$OUT"
 fail=0
 for pat in \
   "kind: CheCluster" \
   "ingress.openshift.io/shard: devspaces" \
+  'domain: "devspaces.ocp.dkccw.sandbox3257.opentlc.com"' \
   "networkPolicy:" \
   "pvcStrategy: \"per-user\"" \
   "disableContainerRunCapabilities: true" \

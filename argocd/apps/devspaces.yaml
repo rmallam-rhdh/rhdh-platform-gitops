@@ -15,6 +15,10 @@ spec:
     repoURL: https://github.com/rmallam/rhdh-platform-gitops
     targetRevision: main
     path: charts/devspaces
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-deploy.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: openshift-devspaces

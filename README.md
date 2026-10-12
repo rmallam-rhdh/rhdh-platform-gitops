@@ -40,9 +40,9 @@ CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself 
 
 The Node.js and Quarkus Template entities are registered from ConfigMap `rhdh-golden-path`. Their skeletons are still fetched from `rmallam/RHDH` when someone runs the template.
 
-## Dev Spaces and the existing shared ingress
+## Dev Spaces ingress shard
 
-The chart does not create an IngressController. It only labels the Dev Spaces Routes (`networking.labels`) so the shared ingress you already have can select them. Set those labels to that controller’s `spec.routeSelector.matchLabels`, and set `networking.domain` to its `spec.domain`. Leave `domain` empty to stay on the cluster default apps domain.
+This chart does not create an IngressController. The shard is `tools/ingress-shard` in `rmallam/RHDH`: an IngressController named `devspaces` whose `routeSelector` is `ingress.openshift.io/shard: devspaces`, plus a selector on the default controller so unlabeled routes stay there. `charts/devspaces/values-deploy.yaml` sets the same label and sets `networking.domain` to that controller’s `spec.domain`. Dev Spaces publishes `https://devspaces.<domain>` on the shard load balancer.
 
 The CheCluster also sets enterprise workspace defaults: per-user PVC, one running workspace, 30 minute idle, nested container runtime off, image builds on the `container-build` SCC, metrics on, and NetworkPolicy for the Dev Spaces and workspace namespaces.
 

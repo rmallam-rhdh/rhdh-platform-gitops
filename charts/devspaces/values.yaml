@@ -28,10 +28,11 @@ cheCluster:
   # Empty keeps the cluster trust bundle only.
   gitTrustedCertsConfigMapName: ""
 
-# Reuse the existing shared OpenShift ingress. This chart does not create an
-# IngressController. Copy networking.labels from that controller's
-# spec.routeSelector.matchLabels, and set domain to its spec.domain.
-# Leave domain empty to stay on the cluster default apps domain.
+# This chart does not create an IngressController. The shard lives in the
+# tools repo (rmallam/RHDH tools/ingress-shard). Copy networking.labels from
+# that controller's spec.routeSelector.matchLabels, and set domain to its
+# spec.domain. Leave domain empty to stay on the cluster default apps domain.
+# values-deploy.yaml sets both for this cluster.
 networking:
   domain: ""
   labels:

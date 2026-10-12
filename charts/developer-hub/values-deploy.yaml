@@ -5,6 +5,8 @@
 app:
   clusterBaseDomain: apps.ocp.dkccw.sandbox3257.opentlc.com
   baseUrl: ""
+  # Dev Spaces route on the ingress shard (rmallam/RHDH tools/ingress-shard).
+  devspacesBaseUrl: https://devspaces.devspaces.ocp.dkccw.sandbox3257.opentlc.com
 
 # Credentials live in Vault KV v2 at secrets/rhdh/<suffix>, property value.
 # External Secrets writes Secret rhdh-secrets. Do not put secret values here.
