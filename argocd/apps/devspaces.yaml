@@ -1,7 +1,8 @@
+# CheCluster CR only. Dev Spaces operator must already be installed.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openshift-devspaces
+  name: devspaces
   namespace: openshift-gitops
   labels:
     app.kubernetes.io/part-of: idp-platform
@@ -13,7 +14,7 @@ spec:
   source:
     repoURL: https://github.com/rmallam/rhdh-platform-gitops
     targetRevision: main
-    path: components/devspaces/overlays/production
+    path: charts/devspaces
   destination:
     server: https://kubernetes.default.svc
     namespace: openshift-devspaces
@@ -25,12 +26,7 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
-      - RespectIgnoreDifferences=true
   ignoreDifferences:
-    - group: operators.coreos.com
-      kind: Subscription
-      jsonPointers:
-        - /status
     - group: org.eclipse.che
       kind: CheCluster
       jqPathExpressions:

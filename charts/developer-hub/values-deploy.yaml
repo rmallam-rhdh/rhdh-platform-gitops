@@ -12,12 +12,10 @@ instance:
   database:
     enableLocalDb: false
 
+# Cluster CR lives in charts/cnpg. Hub only consumes the CNPG app Secret.
 database:
   cnpg:
-    enabled: true
-    name: rhdh-pg
-    instances: 1
-    storage: 10Gi
+    enabled: false
   external:
     enabled: true
     secretName: rhdh-pg-app

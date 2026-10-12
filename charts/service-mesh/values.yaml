@@ -1,0 +1,45 @@
+# Sail + Kiali operators are assumed installed in openshift-operators.
+
+createNamespaces: true
+
+istio:
+  name: default
+  namespace: istio-system
+  profile: ambient
+  # Empty = operator default (lab). Pin e.g. v1.30.5 for a freeze.
+  version: ""
+  updateStrategy: InPlace
+  trustedZtunnelNamespace: ztunnel
+  discoverySelectors:
+    - matchLabels:
+        istio.io/dataplane-mode: ambient
+    - matchLabels:
+        istio-discovery: enabled
+  pilot:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+istioCni:
+  name: default
+  namespace: istio-cni
+  profile: ambient
+  version: ""
+
+ztunnel:
+  name: default
+  namespace: ztunnel
+  profile: ambient
+
+kiali:
+  name: kiali
+  namespace: istio-system
+  authStrategy: anonymous
+  prometheusUrl: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+
+telemetry:
+  enabled: true

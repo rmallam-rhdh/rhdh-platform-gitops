@@ -1,22 +1,10 @@
 #!/usr/bin/env bash
-# Unit: kustomize/helm render the four stacks; Argo apps point at this repo.
-# System: rendered YAML contains the operator CRs and Hub CNPG cluster.
+# Unit: helm lint the four CR charts; Argo apps point at charts/.
+# System: rendered YAML is CRs only — no Subscription or OperatorGroup.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail=0
-need_bin() { command -v "$1" >/dev/null || { echo "missing $1" >&2; exit 1; }; }
-
-kustomize_build() {
-  local path="$1"
-  # Lab/production overlays include ../../base — disable the load restrictor.
-  if command -v kustomize >/dev/null; then
-    kustomize build "$path"
-  elif command -v oc >/dev/null; then
-    oc kustomize "$path"
-  else
-    kubectl kustomize "$path"
-  fi
-}
+command -v helm >/dev/null || { echo "missing helm" >&2; exit 1; }
 
 need() {
   local file="$1" pat="$2"
@@ -28,51 +16,69 @@ need() {
   fi
 }
 
-need_bin helm
-command -v kustomize >/dev/null || command -v oc >/dev/null || command -v kubectl >/dev/null \
-  || { echo "need kustomize, oc, or kubectl" >&2; exit 1; }
+forbid() {
+  local file="$1" pat="$2"
+  if grep -q "$pat" "$file"; then
+    echo "FAIL must not contain $pat"
+    fail=1
+  else
+    echo "OK  no $pat"
+  fi
+}
 
-CNPG="$(mktemp)"
-SM="$(mktemp)"
-DS="$(mktemp)"
-HUB="$(mktemp)"
-trap 'rm -f "$CNPG" "$SM" "$DS" "$HUB"' EXIT
-
-echo "== unit: Argo repo URL =="
+echo "== unit: Argo paths =="
 for f in "$ROOT"/argocd/app-of-apps.yaml "$ROOT"/argocd/apps/*.yaml; do
   need "$f" "https://github.com/rmallam/rhdh-platform-gitops"
 done
-need "$ROOT/argocd/apps/cnpg.yaml" "components/cnpg/base"
-need "$ROOT/argocd/apps/service-mesh.yaml" "components/service-mesh/overlays/lab"
-need "$ROOT/argocd/apps/devspaces.yaml" "components/devspaces/overlays/production"
-need "$ROOT/argocd/apps/developer-hub.yaml" "values-deploy.yaml"
+need "$ROOT/argocd/apps/cnpg.yaml" "charts/cnpg"
+need "$ROOT/argocd/apps/service-mesh.yaml" "charts/service-mesh"
+need "$ROOT/argocd/apps/devspaces.yaml" "charts/devspaces"
+need "$ROOT/argocd/apps/developer-hub.yaml" "charts/developer-hub"
 
-echo "== unit: kustomize / helm lint =="
-kustomize_build "$ROOT/components/cnpg/base" >"$CNPG"
-kustomize_build "$ROOT/components/service-mesh/overlays/lab" >"$SM"
-kustomize_build "$ROOT/components/devspaces/overlays/production" >"$DS"
+echo "== unit: helm lint =="
+helm lint "$ROOT/charts/cnpg" >/dev/null
+helm lint "$ROOT/charts/service-mesh" >/dev/null
+helm lint "$ROOT/charts/devspaces" >/dev/null
 helm lint "$ROOT/charts/developer-hub" >/dev/null
+
+CNPG="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"
+trap 'rm -f "$CNPG" "$SM" "$DS" "$HUB"' EXIT
+
+helm template cnpg "$ROOT/charts/cnpg" --namespace rhdh >"$CNPG"
+helm template mesh "$ROOT/charts/service-mesh" >"$SM"
+helm template ds "$ROOT/charts/devspaces" --namespace openshift-devspaces >"$DS"
 helm template rhdh "$ROOT/charts/developer-hub" \
   -f "$ROOT/charts/developer-hub/values.yaml" \
   -f "$ROOT/charts/developer-hub/values-deploy.yaml" \
   --namespace rhdh >"$HUB"
 
-echo "== system: rendered kinds =="
-need "$CNPG" "kind: Subscription"
-need "$CNPG" "name: cloudnative-pg"
-need "$CNPG" "channel: stable-v1"
+echo "== system: CR kinds =="
+need "$CNPG" "kind: Cluster$"
+need "$CNPG" "name: rhdh-pg"
 need "$SM" "kind: Istio"
 need "$SM" "kind: IstioCNI"
 need "$SM" "kind: ZTunnel"
 need "$SM" "kind: Kiali"
-need "$SM" "source: redhat-operators"
 need "$DS" "kind: CheCluster"
-need "$DS" "name: devspaces"
 need "$HUB" "kind: Backstage"
-need "$HUB" "kind: Cluster"
-need "$HUB" "name: rhdh-pg"
 need "$HUB" "enableLocalDb: false"
 need "$HUB" "name: rhdh-secrets"
+
+echo "== system: no operator installs =="
+for out in "$CNPG" "$SM" "$DS" "$HUB"; do
+  forbid "$out" "kind: Subscription"
+  forbid "$out" "kind: OperatorGroup"
+  forbid "$out" "kind: CatalogSource"
+done
+# Hub chart must not also emit the Postgres Cluster (charts/cnpg owns it).
+forbid "$HUB" "kind: Cluster$"
+
+if [ ! -d "$ROOT/components" ]; then
+  echo "OK  components/ removed"
+else
+  echo "FAIL components/ still present"
+  fail=1
+fi
 
 if [ "$fail" -ne 0 ]; then
   echo "Platform GitOps tests failed"

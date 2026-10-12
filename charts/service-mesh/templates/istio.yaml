@@ -1,0 +1,25 @@
+apiVersion: sailoperator.io/v1
+kind: Istio
+metadata:
+  name: {{ .Values.istio.name }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  namespace: {{ .Values.istio.namespace }}
+  profile: {{ .Values.istio.profile }}
+  {{- if .Values.istio.version }}
+  version: {{ .Values.istio.version | quote }}
+  {{- end }}
+  updateStrategy:
+    type: {{ .Values.istio.updateStrategy }}
+  values:
+    meshConfig:
+      discoverySelectors:
+{{ toYaml .Values.istio.discoverySelectors | nindent 8 }}
+    pilot:
+      trustedZtunnelNamespace: {{ .Values.istio.trustedZtunnelNamespace | quote }}
+      resources:
+{{ toYaml .Values.istio.pilot.resources | nindent 8 }}

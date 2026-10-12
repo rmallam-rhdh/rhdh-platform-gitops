@@ -1,6 +1,5 @@
-# RHDH operator + Backstage CR + CNPG Cluster (rhdh-pg) via Helm.
-# Edit charts/developer-hub/values-deploy.yaml before first sync
-# (cluster base domain, auth, catalog hosts).
+# Backstage CR + app-config. RHDH operator must already be installed.
+# Edit charts/developer-hub/values-deploy.yaml before first sync.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -32,17 +31,8 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
-      - RespectIgnoreDifferences=true
   ignoreDifferences:
-    - group: operators.coreos.com
-      kind: Subscription
-      jsonPointers:
-        - /status
     - group: rhdh.redhat.com
       kind: Backstage
-      jqPathExpressions:
-        - .status
-    - group: postgresql.cnpg.io
-      kind: Cluster
       jqPathExpressions:
         - .status

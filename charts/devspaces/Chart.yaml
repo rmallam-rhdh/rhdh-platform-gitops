@@ -1,0 +1,6 @@
+apiVersion: v2
+name: devspaces
+description: OpenShift Dev Spaces CheCluster CR (operator must already be installed)
+type: application
+version: 0.1.0
+appVersion: "3.30"

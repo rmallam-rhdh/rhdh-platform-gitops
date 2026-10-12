@@ -1,0 +1,23 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.cluster.name }}
+  namespace: {{ include "cnpg.namespace" . }}
+  labels:
+    {{- include "cnpg.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  instances: {{ .Values.cluster.instances }}
+  {{- if .Values.cluster.imageName }}
+  imageName: {{ .Values.cluster.imageName | quote }}
+  {{- end }}
+  storage:
+    size: {{ .Values.cluster.storage | quote }}
+    {{- if .Values.cluster.storageClass }}
+    storageClass: {{ .Values.cluster.storageClass | quote }}
+    {{- end }}
+  postgresql:
+    parameters:
+      max_connections: {{ .Values.cluster.maxConnections | quote }}

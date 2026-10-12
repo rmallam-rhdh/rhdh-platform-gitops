@@ -1,0 +1,22 @@
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: {{ .Values.cheCluster.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: devspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  components: {}
+  devEnvironments:
+    defaultEditor: {{ .Values.cheCluster.defaultEditor | quote }}
+    defaultNamespace:
+      autoProvision: true
+      template: {{ .Values.cheCluster.namespaceTemplate | quote }}
+    disableContainerBuildCapabilities: false
+    maxNumberOfWorkspacesPerUser: {{ .Values.cheCluster.maxWorkspacesPerUser }}
+  networking: {}

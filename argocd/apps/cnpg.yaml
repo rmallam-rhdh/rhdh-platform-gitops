@@ -1,7 +1,8 @@
+# CloudNativePG Cluster CR only. Operator must already be installed.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cnpg-operator
+  name: cnpg
   namespace: openshift-gitops
   labels:
     app.kubernetes.io/part-of: idp-platform
@@ -13,10 +14,10 @@ spec:
   source:
     repoURL: https://github.com/rmallam/rhdh-platform-gitops
     targetRevision: main
-    path: components/cnpg/base
+    path: charts/cnpg
   destination:
     server: https://kubernetes.default.svc
-    namespace: cnpg-system
+    namespace: rhdh
   syncPolicy:
     automated:
       prune: false
@@ -25,3 +26,8 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
+  ignoreDifferences:
+    - group: postgresql.cnpg.io
+      kind: Cluster
+      jqPathExpressions:
+        - .status

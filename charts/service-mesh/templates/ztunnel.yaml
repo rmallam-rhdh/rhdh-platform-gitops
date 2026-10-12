@@ -1,0 +1,12 @@
+apiVersion: sailoperator.io/v1alpha1
+kind: ZTunnel
+metadata:
+  name: {{ .Values.ztunnel.name }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  namespace: {{ .Values.ztunnel.namespace }}
+  profile: {{ .Values.ztunnel.profile }}

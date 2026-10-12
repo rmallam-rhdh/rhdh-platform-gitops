@@ -7,12 +7,7 @@ createNamespace: true
 mesh:
   ambient: true
 
-operator:
-  enabled: true
-  channel: fast-1.10
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-  installPlanApproval: Automatic
+# RHDH operator is assumed already installed. This chart only creates the Backstage CR.
 
 instance:
   name: developer-hub

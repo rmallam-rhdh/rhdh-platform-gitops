@@ -1,0 +1,8 @@
+namespace: openshift-devspaces
+createNamespace: true
+
+cheCluster:
+  name: devspaces
+  defaultEditor: che-incubator/che-code/latest
+  namespaceTemplate: <username>-devspaces
+  maxWorkspacesPerUser: 3
