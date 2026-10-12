@@ -11,12 +11,61 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  components: {}
+  components:
+    cheServer:
+      debug: false
+      logLevel: INFO
+    dashboard:
+      logLevel: ERROR
+    metrics:
+      enable: true
   devEnvironments:
     defaultEditor: {{ .Values.cheCluster.defaultEditor | quote }}
     defaultNamespace:
       autoProvision: true
       template: {{ .Values.cheCluster.namespaceTemplate | quote }}
-    disableContainerBuildCapabilities: false
+    disableContainerBuildCapabilities: {{ .Values.cheCluster.disableContainerBuildCapabilities }}
+    disableContainerRunCapabilities: {{ .Values.cheCluster.disableContainerRunCapabilities }}
+    containerBuildConfiguration:
+      openShiftSecurityContextConstraint: {{ .Values.cheCluster.containerBuildScc | quote }}
     maxNumberOfWorkspacesPerUser: {{ .Values.cheCluster.maxWorkspacesPerUser }}
-  networking: {}
+    maxNumberOfRunningWorkspacesPerUser: {{ .Values.cheCluster.maxRunningWorkspacesPerUser }}
+    secondsOfInactivityBeforeIdling: {{ .Values.cheCluster.idleTimeoutSeconds }}
+    secondsOfRunBeforeIdling: {{ .Values.cheCluster.runTimeoutSeconds }}
+    startTimeoutSeconds: {{ .Values.cheCluster.startTimeoutSeconds }}
+    persistUserHome:
+      enabled: true
+    storage:
+      pvcStrategy: {{ .Values.cheCluster.storage.pvcStrategy | quote }}
+      perUserStrategyPvcConfig:
+        claimSize: {{ .Values.cheCluster.storage.claimSize | quote }}
+        storageAccessMode:
+          {{- toYaml .Values.cheCluster.storage.accessModes | nindent 10 }}
+        {{- if .Values.cheCluster.storage.storageClass }}
+        storageClass: {{ .Values.cheCluster.storage.storageClass | quote }}
+        {{- end }}
+    {{- if .Values.cheCluster.gitTrustedCertsConfigMapName }}
+    trustedCerts:
+      gitTrustedCertsConfigMapName: {{ .Values.cheCluster.gitTrustedCertsConfigMapName | quote }}
+    {{- end }}
+  networking:
+    {{- if .Values.networking.domain }}
+    domain: {{ .Values.networking.domain | quote }}
+    {{- end }}
+    labels:
+      {{- toYaml .Values.networking.labels | nindent 6 }}
+    {{- if .Values.networking.annotations }}
+    annotations:
+{{ toYaml .Values.networking.annotations | nindent 6 }}
+    {{- end }}
+    {{- if .Values.networking.tlsSecretName }}
+    tlsSecretName: {{ .Values.networking.tlsSecretName | quote }}
+    {{- end }}
+    networkPolicy:
+      enabled: {{ .Values.networking.networkPolicy }}
+    {{- if .Values.networking.allowGroups }}
+    auth:
+      advancedAuthorization:
+        allowGroups:
+{{ toYaml .Values.networking.allowGroups | nindent 10 }}
+    {{- end }}

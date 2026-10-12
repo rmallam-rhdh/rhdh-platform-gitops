@@ -3,6 +3,43 @@ createNamespace: true
 
 cheCluster:
   name: devspaces
+  # Pin a release tag in production. "latest" tracks the operator channel.
   defaultEditor: che-incubator/che-code/latest
   namespaceTemplate: <username>-devspaces
-  maxWorkspacesPerUser: 3
+  maxWorkspacesPerUser: 5
+  maxRunningWorkspacesPerUser: 1
+  # Idle after 30 minutes with no activity. -1 disables the cap on total run time.
+  idleTimeoutSeconds: 1800
+  runTimeoutSeconds: -1
+  startTimeoutSeconds: 300
+  # Nested container runtime stays off. Image builds use the container-build SCC.
+  disableContainerBuildCapabilities: false
+  disableContainerRunCapabilities: true
+  containerBuildScc: container-build
+  storage:
+    pvcStrategy: per-user
+    claimSize: 10Gi
+    # gp3-csi is RWO. Use ReadWriteMany when the StorageClass supports it
+    # and workspaces must move between nodes.
+    accessModes:
+      - ReadWriteOnce
+    storageClass: ""
+  # Name of a ConfigMap labelled app.kubernetes.io/part-of=che.eclipse.org.
+  # Empty keeps the cluster trust bundle only.
+  gitTrustedCertsConfigMapName: ""
+
+# Shared OpenShift ingress shard.
+# The shard IngressController (not created here) must use the same domain and
+# routeSelector labels. See examples/devspaces-ingress-shard.yaml.
+# Leave domain empty to stay on the cluster default apps domain.
+networking:
+  domain: ""
+  labels:
+    ingress.openshift.io/shard: devspaces
+  annotations: {}
+  # Empty uses the default cluster certificate for that domain.
+  tlsSecretName: ""
+  networkPolicy: true
+  # Empty allowGroups means every authenticated OpenShift user.
+  # Set e.g. ["devspaces-users"] to restrict the dashboard.
+  allowGroups: []
