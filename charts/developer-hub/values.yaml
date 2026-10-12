@@ -93,6 +93,9 @@ catalog:
   # Static Component with every plugin annotation. Off in customer values.
   demoKitchenSink:
     enabled: false
+  # Node.js and Quarkus scaffolder Templates, mounted from this chart.
+  goldenPath:
+    enabled: true
   locations:
     - type: url
       target: https://github.com/rmallam/RHDH-SM-DevSpaces/blob/main/golden-path/all-templates.yaml

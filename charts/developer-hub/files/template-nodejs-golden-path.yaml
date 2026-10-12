@@ -1,0 +1,131 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-nodejs-golden-path
+  title: Node.js golden path (Jenkins + Helm + Sonar)
+  description: >
+    Creates a Node.js 20 service from the lab sample: unit tests, Sonar
+    properties, Jenkinsfile (lint/test/Sonar/Helm), a deploy Helm chart,
+    catalog annotations for the working Hub plugins, and an Open in Dev Spaces
+    URL. Publishes to GitHub (Bitbucket scaffolder is not loaded).
+  tags:
+    - nodejs
+    - golden-path
+    - jenkins
+    - helm
+    - sonarqube
+    - demo
+    - recommended
+spec:
+  owner: group:platform-team
+  type: service
+  parameters:
+    - title: Application
+      required: [appName, githubOwner]
+      properties:
+        appName:
+          title: GitHub repository name
+          description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          ui:autofocus: true
+        appDescription:
+          title: Description
+          type: string
+          default: Node.js golden-path service with Jenkins, Helm, and Sonar
+        githubOwner:
+          title: GitHub owner (org or user)
+          description: GitHub user or org that will own the new repository (default rmallam).
+          type: string
+          default: rmallam
+          pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+        port:
+          title: Application port
+          type: integer
+          default: 3000
+        targetNamespace:
+          title: Deploy namespace
+          type: string
+          default: demo-dev
+        sonarHostUrl:
+          title: SonarQube URL (in-cluster)
+          type: string
+          default: http://sonarqube.sonarqube.svc:9000
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Node.js golden-path skeleton
+      action: fetch:template
+      input:
+        url: https://github.com/rmallam/RHDH/tree/main/golden-path/demo/skeleton-nodejs-golden-path
+        values:
+          appName: ${{ parameters.appName }}
+          appDescription: ${{ parameters.appDescription }}
+          githubOwner: ${{ parameters.githubOwner }}
+          port: ${{ parameters.port }}
+          targetNamespace: ${{ parameters.targetNamespace }}
+          sonarHostUrl: ${{ parameters.sonarHostUrl }}
+          sonarProjectKey: ${{ parameters.appName }}
+          devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        description: ${{ parameters.appDescription }}
+        defaultBranch: main
+        repoVisibility: public
+        gitCommitMessage: "Initial Node.js golden path (Jenkins, Helm, Sonar)"
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    text:
+      - title: What was created
+        content: |
+          **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+          Catalog entity: `${{ steps['register'].output.entityRef }}`
+
+          | In Git | Path |
+          |---|---|
+          | catalog-info.yaml | `/catalog-info.yaml` |
+          | Devfile | `/devfile.yaml` |
+          | Helm chart | `/chart` |
+          | Jenkinsfile | `/Jenkinsfile` |
+          | Sonar properties | `/sonar-project.properties` |
+
+          **Not created automatically:** Jenkins job, Helm release, Argo CD Application,
+          Sonar project, or OpenShift namespace (it must already exist).
+    links:
+      # output.links on this Hub do not interpolate parameter defaults — only step outputs.
+      - title: GitHub repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+        icon: github
+      - title: catalog-info.yaml
+        url: ${{ steps['publish'].output.remoteUrl }}/blob/main/catalog-info.yaml
+        icon: github
+      - title: Helm chart
+        url: ${{ steps['publish'].output.remoteUrl }}/tree/main/chart
+        icon: github
+      - title: Jenkinsfile
+        url: ${{ steps['publish'].output.remoteUrl }}/blob/main/Jenkinsfile
+        icon: github
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: Open in Dev Spaces
+        url: __DEVSPACES_BASE_URL__/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+        icon: catalog
+      - title: Dev Spaces dashboard
+        url: __DEVSPACES_BASE_URL__/dashboard/#/workspaces
+        icon: catalog
+      - title: OpenShift project
+        url: https://console-openshift-console.__CLUSTER_BASE_DOMAIN__/k8s/cluster/projects/demo-dev
+        icon: catalog

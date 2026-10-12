@@ -1,41 +1,26 @@
-# Overlay used by argocd/apps/developer-hub.yaml.
-# Change clusterBaseDomain (and auth/catalog) before the first sync.
+# New-cluster overlay, applied after values-demo.yaml.
+# Set clusterBaseDomain to this cluster's *.apps domain before the first sync.
+# baseUrl is derived from it. Do not put secrets in this file.
 
 app:
-  title: Developer Hub
-  organization: Platform
-  # e.g. apps.rosa.rosa-89s85.bhg0.p3.openshiftapps.com
-  clusterBaseDomain: apps.example.com
+  clusterBaseDomain: apps.ocp.dkccw.sandbox3257.opentlc.com
+  baseUrl: ""
+
+# Vault is not on this cluster yet. GitOps creates Secret rhdh-secrets with
+# placeholders so the Hub can start. Switch back to eso after the tools repo
+# has installed Vault and External Secrets.
+secrets:
+  mode: placeholder
 
 instance:
   replicas: 1
   database:
     enableLocalDb: false
 
-# Cluster CR lives in charts/cnpg. Hub only consumes the CNPG app Secret.
+# The Postgres Cluster CR is charts/cnpg. This chart only reads its app Secret.
 database:
   cnpg:
     enabled: false
   external:
     enabled: true
     secretName: rhdh-pg-app
-
-# No Vault / ESO required for a first deploy. Replace keys on the
-# generated Secret rhdh-secrets, or switch to mode: external and create it yourself.
-secrets:
-  mode: placeholder
-
-catalog:
-  demoKitchenSink:
-    enabled: false
-  ldap:
-    enabled: false
-
-auth:
-  environment: development
-  signInPage:
-    - guest
-  guest:
-    enabled: true
-  microsoft:
-    enabled: false

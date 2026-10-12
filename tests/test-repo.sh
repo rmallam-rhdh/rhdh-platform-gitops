@@ -49,6 +49,7 @@ helm template mesh "$ROOT/charts/service-mesh" >"$SM"
 helm template ds "$ROOT/charts/devspaces" --namespace openshift-devspaces >"$DS"
 helm template rhdh "$ROOT/charts/developer-hub" \
   -f "$ROOT/charts/developer-hub/values.yaml" \
+  -f "$ROOT/charts/developer-hub/values-demo.yaml" \
   -f "$ROOT/charts/developer-hub/values-deploy.yaml" \
   --namespace rhdh >"$HUB"
 
@@ -56,6 +57,7 @@ echo "== system: CR kinds =="
 need "$CNPG" "kind: Cluster$"
 need "$CNPG" "name: rhdh-pg"
 need "$SM" "kind: Istio"
+need "$SM" "profile: ambient"
 need "$SM" "kind: IstioCNI"
 need "$SM" "kind: ZTunnel"
 need "$SM" "kind: Kiali"
@@ -63,6 +65,12 @@ need "$DS" "kind: CheCluster"
 need "$HUB" "kind: Backstage"
 need "$HUB" "enableLocalDb: false"
 need "$HUB" "name: rhdh-secrets"
+need "$HUB" "name: rhdh-golden-path"
+need "$HUB" "acme-nodejs-golden-path"
+need "$HUB" "acme-quarkus-golden-path"
+need "$HUB" "/opt/app-root/src/golden-path/template-nodejs-golden-path.yaml"
+need "$HUB" "/opt/app-root/src/golden-path/template-quarkus-golden-path.yaml"
+need "$HUB" "mallamrakeshgmail.onmicrosoft.com"
 
 echo "== system: no operator installs =="
 for out in "$CNPG" "$SM" "$DS" "$HUB"; do
@@ -72,6 +80,8 @@ for out in "$CNPG" "$SM" "$DS" "$HUB"; do
 done
 # Hub chart must not also emit the Postgres Cluster (charts/cnpg owns it).
 forbid "$HUB" "kind: Cluster$"
+forbid "$DS" "kind: IngressController"
+forbid "$HUB" "apps.rosa.rosa-89s85"
 
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"

@@ -62,7 +62,12 @@ spec:
                 configMap:
                   name: rhdh-demo-catalog
               {{- end }}
-            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.database.external.enabled }}
+              {{- if .Values.catalog.goldenPath.enabled }}
+              - name: golden-path
+                configMap:
+                  name: rhdh-golden-path
+              {{- end }}
+            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled }}
             containers:
               - name: backstage-backend
                 {{- if .Values.database.external.enabled }}
@@ -93,10 +98,17 @@ spec:
                         name: {{ .Values.database.external.secretName | quote }}
                         key: {{ .Values.database.external.keys.database | quote }}
                 {{- end }}
-                {{- if .Values.catalog.demoKitchenSink.enabled }}
+                {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled }}
                 volumeMounts:
+                  {{- if .Values.catalog.demoKitchenSink.enabled }}
                   - name: demo-catalog
                     mountPath: /opt/app-root/src/catalog-demo
                     readOnly: true
+                  {{- end }}
+                  {{- if .Values.catalog.goldenPath.enabled }}
+                  - name: golden-path
+                    mountPath: /opt/app-root/src/golden-path
+                    readOnly: true
+                  {{- end }}
                 {{- end }}
             {{- end }}

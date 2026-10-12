@@ -212,7 +212,11 @@ data:
       appLocatorMethods:
         - type: config
           instances:
-{{ .Values.plugins.argocd.instances | toYaml | nindent 12 }}
+            {{- range .Values.plugins.argocd.instances }}
+            - name: {{ .name | quote }}
+              url: {{ tpl .url $ | quote }}
+              token: {{ .token | quote }}
+            {{- end }}
     {{- end }}
     {{- if .Values.plugins.techdocs.enabled }}
     techdocs:

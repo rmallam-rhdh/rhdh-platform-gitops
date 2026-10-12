@@ -1,0 +1,14 @@
+{{- if .Values.catalog.goldenPath.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rhdh-golden-path
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  template-nodejs-golden-path.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-nodejs-golden-path.yaml") | nindent 4 }}
+  template-quarkus-golden-path.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-quarkus-golden-path.yaml") | nindent 4 }}
+{{- end }}

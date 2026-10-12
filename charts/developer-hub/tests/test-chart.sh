@@ -167,8 +167,10 @@ ks_tpl = locs.find { |l| l["target"].to_s.include?("template-plugin-kitchen-sink
 raise "demo missing kitchen-sink template location" unless ks_tpl
 gp_tpl = locs.find { |l| l["target"].to_s.include?("template-nodejs-golden-path.yaml") }
 raise "demo missing nodejs golden-path template location" unless gp_tpl
+raise "nodejs golden path must be a file location from this chart" unless gp_tpl["type"] == "file"
 qx_tpl = locs.find { |l| l["target"].to_s.include?("template-quarkus-golden-path.yaml") }
 raise "demo missing quarkus golden-path template location" unless qx_tpl
+raise "quarkus golden path must be a file location from this chart" unless qx_tpl["type"] == "file"
 web_tpl = locs.find { |l| l["target"].to_s.include?("template-nodejs-website.yaml") }
 raise "demo missing nodejs website template location" unless web_tpl
 db = d.dig("backend", "database") || {}

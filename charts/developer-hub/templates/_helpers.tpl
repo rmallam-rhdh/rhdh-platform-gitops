@@ -19,6 +19,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 {{- end }}
 
+{{- define "rhdh.goldenPathFile" -}}
+{{- $domain := .root.Values.app.clusterBaseDomain -}}
+{{- $devspaces := printf "https://devspaces.%s" $domain -}}
+{{- .root.Files.Get (printf "files/%s" .file) | replace "__CLUSTER_BASE_DOMAIN__" $domain | replace "__DEVSPACES_BASE_URL__" $devspaces -}}
+{{- end }}
+
 {{- define "rhdh.baseUrl" -}}
 {{- if .Values.app.baseUrl -}}
 {{- .Values.app.baseUrl -}}

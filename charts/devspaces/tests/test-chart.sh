@@ -18,7 +18,7 @@ do
   grep -q "$pat" "$OUT" || { echo "FAIL missing $pat"; fail=1; }
 done
 if grep -qE "kind: Subscription|kind: OperatorGroup|kind: IngressController" "$OUT"; then
-  echo "FAIL operator or ingress shard must not be rendered by the chart"
+  echo "FAIL operator or IngressController must not be rendered by the chart"
   fail=1
 fi
 [ "$fail" -eq 0 ] || exit 1
