@@ -33,7 +33,6 @@ istioCni:
 ztunnel:
   name: default
   namespace: ztunnel
-  profile: ambient
 
 kiali:
   name: kiali

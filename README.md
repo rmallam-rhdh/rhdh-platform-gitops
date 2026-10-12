@@ -48,7 +48,10 @@ The CheCluster also sets enterprise workspace defaults: per-user PVC, one runnin
 
 ## Deploy
 
+The OpenShift GitOps controller cannot create these CRs until it is cluster-admin. Apply that binding once, then the app-of-apps:
+
 ```bash
+oc apply -f argocd/gitops-controller-admin.yaml
 oc apply -f argocd/app-of-apps.yaml
 ```
 

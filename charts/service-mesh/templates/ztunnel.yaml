@@ -1,4 +1,4 @@
-apiVersion: sailoperator.io/v1alpha1
+apiVersion: sailoperator.io/v1
 kind: ZTunnel
 metadata:
   name: {{ .Values.ztunnel.name }}
@@ -8,5 +8,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
+  # OSSM 3.4 stores ZTunnel as sailoperator.io/v1. That version has no
+  # spec.profile; ambient mode comes from the Istio CR.
   namespace: {{ .Values.ztunnel.namespace }}
-  profile: {{ .Values.ztunnel.profile }}
