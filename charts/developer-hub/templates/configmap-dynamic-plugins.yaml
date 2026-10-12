@@ -88,8 +88,9 @@ data:
       - package: {{ .Values.plugins.sonarqube.backendPackage | quote }}
         disabled: {{ not .Values.plugins.sonarqube.enabled }}
 
+      {{- if .Values.plugins.snyk.enabled }}
       - package: {{ .Values.plugins.snyk.package | quote }}
-        disabled: {{ not .Values.plugins.snyk.enabled }}
+        disabled: false
         pluginConfig:
           dynamicPlugins:
             frontend:
@@ -103,6 +104,7 @@ data:
                       if:
                         allOf:
                           - isSnykAvailable
+      {{- end }}
 
       - package: {{ .Values.plugins.jira.package | quote }}
         disabled: {{ not .Values.plugins.jira.enabled }}

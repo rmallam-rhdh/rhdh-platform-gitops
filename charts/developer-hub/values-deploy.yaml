@@ -12,6 +12,12 @@ app:
 secrets:
   mode: placeholder
 
+# Private GHCR export. Omit it until a pull secret for ghcr.io/rmallam exists,
+# otherwise install-dynamic-plugins fails closed and the Hub never starts.
+plugins:
+  snyk:
+    enabled: false
+
 instance:
   replicas: 1
   database:
