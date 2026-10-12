@@ -6,11 +6,10 @@ app:
   clusterBaseDomain: apps.ocp.dkccw.sandbox3257.opentlc.com
   baseUrl: ""
 
-# Vault is not on this cluster yet. GitOps creates Secret rhdh-secrets with
-# placeholders so the Hub can start. Switch back to eso after the tools repo
-# has installed Vault and External Secrets.
+# Credentials live in Vault KV v2 at secrets/rhdh/<suffix>, property value.
+# External Secrets writes Secret rhdh-secrets. Do not put secret values here.
 secrets:
-  mode: placeholder
+  mode: eso
 
 # Private GHCR export. Omit it until a pull secret for ghcr.io/rmallam exists,
 # otherwise install-dynamic-plugins fails closed and the Hub never starts.
