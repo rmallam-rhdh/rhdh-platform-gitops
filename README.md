@@ -73,6 +73,20 @@ oc -n istio-system get kiali
 oc -n openshift-devspaces get checluster
 ```
 
+## Runbooks
+
+The runbooks for these charts live in [rmallam/RHDH](https://github.com/rmallam/RHDH/tree/main/docs):
+
+| Chart | Runbook |
+|---|---|
+| `charts/service-mesh` | `docs/service-mesh-ambient` — enrolment labels, and what is not proven yet |
+| `charts/devspaces` | `docs/devspaces` — `CheCluster` settings and the ingress shard |
+| `charts/cnpg` | `docs/rhdh-cnpg` — includes the Postgres image pin |
+| `charts/developer-hub` | `docs/rhdh-plugins`, `docs/rhdh-entra-ldap`, `docs/rhdh-vault-eso` |
+| whole cluster | `docs/lab-state` — installed versions, what is deployed, lab-only settings |
+
+Known issue: `charts/cnpg` and `charts/developer-hub` both render `Namespace/rhdh`. The two Applications overwrite each other's labels, `developer-hub` stays OutOfSync on the Namespace, and the namespace loses `istio.io/dataplane-mode: ambient`. Set `createNamespace: false` in `charts/cnpg/values.yaml`.
+
 ## Layout
 
 ```
