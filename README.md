@@ -79,13 +79,15 @@ The runbooks for these charts live in [rmallam/RHDH](https://github.com/rmallam/
 
 | Chart | Runbook |
 |---|---|
-| `charts/service-mesh` | `docs/service-mesh-ambient` — enrolment labels, and what is not proven yet |
-| `charts/devspaces` | `docs/devspaces` — `CheCluster` settings and the ingress shard |
-| `charts/cnpg` | `docs/rhdh-cnpg` — includes the Postgres image pin |
-| `charts/developer-hub` | `docs/rhdh-plugins`, `docs/rhdh-entra-ldap`, `docs/rhdh-vault-eso` |
-| whole cluster | `docs/lab-state` — installed versions, what is deployed, lab-only settings |
+| `charts/service-mesh` | [service-mesh-ambient](https://github.com/rmallam/RHDH/tree/main/docs/service-mesh-ambient) — enrolment labels, and what is not proven yet |
+| `charts/devspaces` | [devspaces](https://github.com/rmallam/RHDH/tree/main/docs/devspaces) — `CheCluster` settings and the ingress shard |
+| `charts/cnpg` | [rhdh-cnpg](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-cnpg) — includes the Postgres image pin; [rhdh-database](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-database) — what the Hub stores, schema by schema |
+| `charts/developer-hub` | [rhdh-plugins](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-plugins), [rhdh-entra-ldap](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-entra-ldap), [rhdh-vault-eso](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-vault-eso) |
+| whole cluster | [lab-state](https://github.com/rmallam/RHDH/tree/main/docs/lab-state) — installed versions, what is deployed, lab-only settings |
 
-Known issue: `charts/cnpg` and `charts/developer-hub` both render `Namespace/rhdh`. The two Applications overwrite each other's labels, `developer-hub` stays OutOfSync on the Namespace, and the namespace loses `istio.io/dataplane-mode: ambient`. Set `createNamespace: false` in `charts/cnpg/values.yaml`.
+Known issue: `charts/cnpg` and `charts/developer-hub` both render `Namespace/rhdh`. The two Applications overwrite each other's labels, `developer-hub` stays OutOfSync on the Namespace, and the namespace loses `istio.io/dataplane-mode: ambient`.
+
+The fix is `createNamespace: false` in `charts/cnpg/values.yaml`. It is not routine cleanup: on the next sync the Hub chart's label sticks, and **the Hub and its Postgres are enrolled in the ambient mesh**. Their traffic then goes through ztunnel. Decide OVN-Kubernetes local gateway mode first, and make the change when someone is watching the Hub. Detail: [service-mesh-ambient](https://github.com/rmallam/RHDH/tree/main/docs/service-mesh-ambient#known-issues).
 
 ## Layout
 
