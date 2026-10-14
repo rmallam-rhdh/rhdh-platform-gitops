@@ -4,7 +4,7 @@ createNamespace: true
 
 cluster:
   name: rhdh-pg
-  instances: 1
+  instances: 3
   storage: 10Gi
   storageClass: ""
   imageName: ""

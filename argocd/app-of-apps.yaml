@@ -1,5 +1,5 @@
 # Bootstrap: apply this after OpenShift GitOps is installed.
-# It syncs the four Applications under argocd/apps/.
+# It syncs the Applications under argocd/apps/.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

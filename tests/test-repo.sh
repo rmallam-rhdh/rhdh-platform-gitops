@@ -31,6 +31,8 @@ for f in "$ROOT"/argocd/app-of-apps.yaml "$ROOT"/argocd/apps/*.yaml; do
   need "$f" "https://github.com/rmallam/rhdh-platform-gitops"
 done
 need "$ROOT/argocd/apps/cnpg.yaml" "charts/cnpg"
+need "$ROOT/argocd/apps/cnpg-dr.yaml" "charts/cnpg"
+need "$ROOT/argocd/apps/cnpg-dr.yaml" "values-dr.yaml"
 need "$ROOT/argocd/apps/service-mesh.yaml" "charts/service-mesh"
 need "$ROOT/argocd/apps/devspaces.yaml" "charts/devspaces"
 need "$ROOT/argocd/apps/developer-hub.yaml" "charts/developer-hub"
@@ -41,10 +43,11 @@ helm lint "$ROOT/charts/service-mesh" >/dev/null
 helm lint "$ROOT/charts/devspaces" >/dev/null
 helm lint "$ROOT/charts/developer-hub" >/dev/null
 
-CNPG="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"
-trap 'rm -f "$CNPG" "$SM" "$DS" "$HUB"' EXIT
+CNPG="$(mktemp)"; DR="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"
+trap 'rm -f "$CNPG" "$DR" "$SM" "$DS" "$HUB"' EXIT
 
 helm template cnpg "$ROOT/charts/cnpg" --namespace rhdh >"$CNPG"
+helm template cnpg-dr "$ROOT/charts/cnpg" -f "$ROOT/charts/cnpg/values-dr.yaml" --namespace rhdh-dr >"$DR"
 helm template mesh "$ROOT/charts/service-mesh" >"$SM"
 helm template ds "$ROOT/charts/devspaces" \
   -f "$ROOT/charts/devspaces/values.yaml" \
@@ -59,6 +62,10 @@ helm template rhdh "$ROOT/charts/developer-hub" \
 echo "== system: CR kinds =="
 need "$CNPG" "kind: Cluster$"
 need "$CNPG" "name: rhdh-pg"
+need "$CNPG" "instances: 3"
+need "$DR" "name: rhdh-dr"
+need "$DR" "name: rhdh-pg-dr"
+need "$DR" "instances: 3"
 need "$SM" "kind: Istio"
 need "$SM" "profile: ambient"
 need "$SM" "kind: IstioCNI"
@@ -81,7 +88,7 @@ need "$HUB" "/opt/app-root/src/golden-path/template-quarkus-golden-path.yaml"
 need "$HUB" "mallamrakeshgmail.onmicrosoft.com"
 
 echo "== system: no operator installs =="
-for out in "$CNPG" "$SM" "$DS" "$HUB"; do
+for out in "$CNPG" "$DR" "$SM" "$DS" "$HUB"; do
   forbid "$out" "kind: Subscription"
   forbid "$out" "kind: OperatorGroup"
   forbid "$out" "kind: CatalogSource"

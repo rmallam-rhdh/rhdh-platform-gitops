@@ -4,7 +4,8 @@ Helm charts that create **custom resources only**. Operators are assumed already
 
 | Chart | Argo app | Creates |
 |---|---|---|
-| `charts/cnpg` | `cnpg` | CloudNativePG `Cluster` `rhdh-pg` in `rhdh` |
+| `charts/cnpg` | `cnpg` | CloudNativePG `Cluster` `rhdh-pg` in `rhdh` (3 instances) |
+| `charts/cnpg` (`values-dr.yaml`) | `cnpg-dr` | CloudNativePG `Cluster` `rhdh-pg-dr` in `rhdh-dr` (3 instances, not used by the Hub) |
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
 | `charts/devspaces` | `devspaces` | `CheCluster` in `openshift-devspaces` (Route labels for the existing shared ingress) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
@@ -61,6 +62,7 @@ Or one chart at a time:
 
 ```bash
 oc apply -f argocd/apps/cnpg.yaml
+oc apply -f argocd/apps/cnpg-dr.yaml
 oc apply -f argocd/apps/service-mesh.yaml
 oc apply -f argocd/apps/devspaces.yaml
 oc apply -f argocd/apps/developer-hub.yaml
@@ -95,7 +97,7 @@ The fix is `createNamespace: false` in `charts/cnpg/values.yaml`. It is not rout
 
 ```
 argocd/app-of-apps.yaml
-argocd/apps/                 four Helm Applications
+argocd/apps/                 Helm Applications
 charts/cnpg/
 charts/service-mesh/
 charts/devspaces/
