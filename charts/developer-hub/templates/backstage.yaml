@@ -22,8 +22,26 @@ spec:
       envs:
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: {{ .Values.instance.extraEnvs.nodeTlsRejectUnauthorized | quote }}
+        {{- if .Values.httpProxy.enabled }}
+        - name: NODE_OPTIONS
+          value: {{ .Values.httpProxy.nodeOptions | quote }}
+        {{- end }}
       secrets:
         - name: {{ .Values.instance.secretsName }}
+        {{- if .Values.httpProxy.enabled }}
+        - name: {{ .Values.instance.secretsName }}
+          key: HTTP_PROXY
+          containers:
+            - {{ .Values.httpProxy.initContainer | quote }}
+        - name: {{ .Values.instance.secretsName }}
+          key: HTTPS_PROXY
+          containers:
+            - {{ .Values.httpProxy.initContainer | quote }}
+        - name: {{ .Values.instance.secretsName }}
+          key: NO_PROXY
+          containers:
+            - {{ .Values.httpProxy.initContainer | quote }}
+        {{- end }}
     extraFiles:
       mountPath: /opt/app-root/src
       {{- if .Values.instance.extraFiles.rbacPolicies }}

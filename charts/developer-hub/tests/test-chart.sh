@@ -19,7 +19,9 @@ render() {
 
 PROD="$(mktemp)"
 DEMO="$(mktemp)"
-trap 'rm -f "$PROD" "$DEMO"' EXIT
+PROXY="$(mktemp)"
+PLACEHOLDER="$(mktemp)"
+trap 'rm -f "$PROD" "$DEMO" "$PROXY" "$PLACEHOLDER"' EXIT
 
 render "$PROD" -f "$CHART/values.yaml"
 render "$DEMO" -f "$CHART/values.yaml" -f "$CHART/values-demo.yaml"
@@ -93,6 +95,10 @@ grep -q "SERVICE-39720C1E0047A5C0" "$DEMO" || { echo "FAIL demo kitchen-sink mus
 grep -q "entity.page.kiali" "$DEMO" || { echo "FAIL demo missing Kiali entity tab mount"; fail=1; }
 grep -q "kiali.io/namespace: demo-dev" "$DEMO" || { echo "FAIL demo kitchen-sink missing kiali.io/namespace"; fail=1; }
 grep -q "dynatrace-access-token" "$DEMO" || { echo "FAIL demo ExternalSecret missing dynatrace-access-token"; fail=1; }
+grep -q "secretKey: HTTP_PROXY" "$PROD" && { echo "FAIL prod must not request the corporate proxy by default"; fail=1; }
+grep -q "secretKey: HTTP_PROXY" "$DEMO" && { echo "FAIL demo must not request the corporate proxy by default"; fail=1; }
+grep -q -- "--use-env-proxy" "$PROD" && { echo "FAIL prod must not set --use-env-proxy by default"; fail=1; }
+grep -q -- "--use-env-proxy" "$DEMO" && { echo "FAIL demo must not set --use-env-proxy by default"; fail=1; }
 grep -q "vault.io/secrets-path" "$DEMO" || { echo "FAIL demo missing vault annotation"; fail=1; }
 grep -q "name: rhdh-demo-catalog" "$PROD" && { echo "FAIL prod must not ship kitchen-sink ConfigMap"; fail=1; }
 grep -q "/dynatrace:" "$PROD" && { echo "FAIL prod must not emit /dynatrace proxy without apiTarget"; fail=1; }
@@ -178,6 +184,38 @@ raise "demo missing backend.database.client pg" unless db["client"] == "pg"
 raise "demo missing pluginDivisionMode schema" unless db["pluginDivisionMode"] == "schema"
 puts "OK  app-config keys #{d.keys.size} (guest+mocked snyk+in-cluster tools)"
 RUBY
+
+echo "== httpProxy.enabled =="
+render "$PROXY" -f "$CHART/values.yaml" --set httpProxy.enabled=true
+render "$PLACEHOLDER" -f "$CHART/values.yaml" --set httpProxy.enabled=true --set secrets.mode=placeholder
+for pat in \
+  "secretKey: HTTP_PROXY" \
+  "secretKey: HTTPS_PROXY" \
+  "secretKey: NO_PROXY" \
+  "key: rhdh/http-proxy" \
+  "key: rhdh/https-proxy" \
+  "key: rhdh/no-proxy" \
+  "name: NODE_OPTIONS" \
+  '"--use-env-proxy"' \
+  "key: HTTP_PROXY" \
+  "install-dynamic-plugins"
+do
+  if grep -q -- "$pat" "$PROXY"; then
+    echo "OK  proxy $pat"
+  else
+    echo "FAIL proxy render missing $pat"
+    fail=1
+  fi
+done
+for pat in "HTTP_PROXY:" "HTTPS_PROXY:" "NO_PROXY:" '"--use-env-proxy"'; do
+  if grep -q -- "$pat" "$PLACEHOLDER"; then
+    echo "OK  placeholder $pat"
+  else
+    echo "FAIL placeholder render missing $pat"
+    fail=1
+  fi
+done
+grep -q "kind: ExternalSecret" "$PLACEHOLDER" && { echo "FAIL placeholder mode must not emit ExternalSecret"; fail=1; }
 
 # No accidental live tokens in rendered YAML.
 if grep -E 'ghp_|gho_|sk-|sha256~' "$PROD" "$DEMO"; then

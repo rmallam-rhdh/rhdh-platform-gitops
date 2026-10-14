@@ -8,3 +8,4 @@ scripts/__pycache__/
 .env
 *secret*.local.yaml
 rhdh-secrets.yaml
+.cursor/rules/no-customer-names.mdc

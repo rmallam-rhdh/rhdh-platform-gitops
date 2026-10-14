@@ -35,6 +35,7 @@ Two places. Do not mix them up.
 | Hub’s own public URL | Helm `app.baseUrl` and `app.clusterBaseDomain` |
 | Plugin → Jenkins / Jira / Vault / … | **Vault** (because `values.yaml` uses `${ENV}`) |
 | Hosts Hub is allowed to call | Helm `app.readingAllow` (must list every SaaS hostname) |
+| Path those calls take (direct vs corporate proxy) | [Corporate HTTP proxy](#4-corporate-http-proxy-for-saas-calls) |
 | Which Jira project / Dynatrace service an *app* shows | That app’s `catalog-info.yaml`, not the chart |
 
 ### Helm — Hub URL (required)
@@ -296,3 +297,89 @@ Also required **outside** Helm:
 3. Catalog tabs still need entity annotations (`jira/project-key`, `kiali.io/namespace`, `dynatrace.com/dynatrace-entity-id`, `vault.io/secrets-path`). The golden-path templates already stamp those.
 
 Do not helm-install with `-f values-demo.yaml` on a new cluster: it hardcodes this lab’s Hub URL, Jira site, Dynatrace tenant, and Argo route.
+
+---
+
+## 4. Corporate HTTP proxy for SaaS calls
+
+Use this when the cluster must reach Jira, Dynatrace, Entra, GitHub, and the other SaaS hosts through the customer's authenticated proxy. The Hub still adds the SaaS credential (`JIRA_TOKEN`, `DYNATRACE_ACCESS_TOKEN`, and the rest). The corporate proxy only opens the tunnel.
+
+`app.readingAllow` does not change the path. It only lists hostnames the Hub is willing to call. Keep those entries.
+
+This does not cover Dev Spaces, the operators, or image pulls. Those follow the OpenShift cluster `Proxy` object, not the Hub setting below.
+
+### Check the cluster proxy first
+
+```bash
+oc get proxy cluster -o jsonpath='{.spec.httpsProxy}{"\n"}{.spec.noProxy}{"\n"}'
+POD=$(oc -n rhdh get pod -l app.kubernetes.io/name=backstage -o jsonpath='{.items[0].metadata.name}')
+oc -n rhdh exec "$POD" -c backstage-backend -- sh -c 'echo HTTPS_PROXY set: ${HTTPS_PROXY:+yes}; echo NO_PROXY=$NO_PROXY'
+```
+
+If OpenShift already injects `HTTPS_PROXY` into the pod, skip the Vault URL and only do the Node flag, `NO_PROXY`, and the CA steps. This lab does not inject a proxy. `NO_PROXY` on the Hub is only `localhost,127.0.0.1`.
+
+### 1. Store the proxy URL in Vault
+
+Do not commit the URL. Percent-encode `@`, `:`, and `/` in the password. `HTTP_PROXY` and `HTTPS_PROXY` are the same `http://` URL. The proxy authenticates the `CONNECT`; Jira and Dynatrace still see their own `Authorization` header inside TLS.
+
+```bash
+vault kv put secrets/rhdh/http-proxy  value='http://USER:PASSWORD@proxy.example.com:8080'
+vault kv put secrets/rhdh/https-proxy value='http://USER:PASSWORD@proxy.example.com:8080'
+vault kv put secrets/rhdh/no-proxy value='localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local'
+```
+
+Add every in-cluster name the Hub dials, or Postgres, Vault, Jenkins, the Kubernetes API, and Kiali go out through the corporate proxy and fail. Extend `no-proxy` with the Postgres service host, `vault.vault.svc`, `jenkins.jenkins.svc`, `sonarqube.sonarqube.svc`, `kubernetes.default.svc`, and the cluster apps domain (the Kiali route lives there).
+
+### 2. Turn the chart flag on
+
+`httpProxy.enabled` is false in `values.yaml`. The lab render does not ask Vault for the proxy keys and does not set `NODE_OPTIONS`.
+
+Write the Vault keys first, then set the flag in `values-cluster.yaml`:
+
+```yaml
+httpProxy:
+  enabled: true
+```
+
+That does three things:
+
+- ExternalSecret reads `rhdh/http-proxy`, `rhdh/https-proxy`, and `rhdh/no-proxy` into `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` on Secret `rhdh-secrets`. The Hub container already receives every key in that Secret.
+- The Hub container gets `NODE_OPTIONS=--use-env-proxy`. Node 24 ignores `HTTP_PROXY` until that flag is set, so catalog fetches, Entra, GitHub, and the Jira and Dynatrace proxy hops dial out directly without it.
+- The `install-dynamic-plugins` init container gets the same three variables. Image pulls use `HTTP_PROXY` on their own and do not need `--use-env-proxy`.
+
+If the pod already needs other Node flags, replace the whole `httpProxy.nodeOptions` string. The chart sets that value as `NODE_OPTIONS`. It does not append.
+
+```bash
+oc -n rhdh annotate externalsecret rhdh-secrets force-sync="$(date +%s)" --overwrite
+```
+
+Leave the flag false on any cluster that does not have those Vault keys. ExternalSecret stays NotReady until all three exist.
+
+### 3. Proxy TLS inspection
+
+If the proxy presents its own certificate, mount that CA and set `NODE_EXTRA_CA_CERTS` to the file. Do not rely on `NODE_TLS_REJECT_UNAUTHORIZED=0`. That is the lab setting in `instance.extraEnvs` and it hides a bad certificate.
+
+### 4. Restart and check
+
+ExternalSecret updates the Secret. The running process keeps the old environment until the pod is recreated.
+
+```bash
+oc -n rhdh rollout restart deploy/backstage-developer-hub
+oc -n rhdh rollout status deploy/backstage-developer-hub
+```
+
+From the new pod, confirm the flag and that a SaaS call is no longer a direct dial. Do not print the proxy URL or the SaaS tokens.
+
+```bash
+POD=$(oc -n rhdh get pod -l app.kubernetes.io/name=backstage -o jsonpath='{.items[0].metadata.name}')
+oc -n rhdh exec "$POD" -c backstage-backend -- node -e '
+const { getGlobalDispatcher } = require("undici");
+console.log("node", process.version);
+console.log("NODE_OPTIONS", process.env.NODE_OPTIONS || "(unset)");
+console.log("https_proxy_set", Boolean(process.env.HTTPS_PROXY));
+console.log("no_proxy", process.env.NO_PROXY || "(unset)");
+console.log("dispatcher", getGlobalDispatcher().constructor.name);
+'
+```
+
+`dispatcher` should be `EnvHttpProxyAgent` when the flag and `HTTPS_PROXY` are both set. Then open the Jira and Dynatrace tabs on `plugin-kitchen-sink`. A proxy refusal shows up as a connection error in the backend log, not as a 401 from Jira. A 401 still means the SaaS token, not the corporate proxy.

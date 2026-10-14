@@ -356,6 +356,28 @@ plugins:
     enabled: false
     package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic
 
+# Corporate HTTP proxy for outbound SaaS calls (Jira, Dynatrace, Entra, GitHub).
+# Leave enabled false unless the three Vault keys below already exist.
+# ExternalSecret stays NotReady if the flag is on and a key is missing.
+# The proxy URL is never stored in this file. See DEPLOY-RHDH-ONLY.md.
+httpProxy:
+  enabled: false
+  # Node 24 ignores HTTP_PROXY until this flag is set. This replaces any
+  # NODE_OPTIONS the operator already put on the Hub container.
+  nodeOptions: "--use-env-proxy"
+  # Dynamic-plugin install does not inherit Hub extraEnvs. It needs the
+  # proxy variables itself so image pulls can leave the cluster.
+  initContainer: install-dynamic-plugins
+  vaultKeys:
+    http: http-proxy
+    https: https-proxy
+    noProxy: no-proxy
+  # Used only when secrets.mode=placeholder.
+  placeholders:
+    http: http://proxy.example.invalid:8080
+    https: http://proxy.example.invalid:8080
+    noProxy: localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local
+
 # Secret material. mode=external means GitOps does not own rhdh-secrets.
 secrets:
   mode: eso # eso | placeholder | external

@@ -8,7 +8,7 @@ command -v helm >/dev/null || { echo "missing helm" >&2; exit 1; }
 
 need() {
   local file="$1" pat="$2"
-  if grep -q "$pat" "$file"; then
+  if grep -q -e "$pat" "$file"; then
     echo "OK  $pat"
   else
     echo "FAIL missing $pat"
@@ -18,7 +18,7 @@ need() {
 
 forbid() {
   local file="$1" pat="$2"
-  if grep -q "$pat" "$file"; then
+  if grep -q -e "$pat" "$file"; then
     echo "FAIL must not contain $pat"
     fail=1
   else
@@ -90,6 +90,8 @@ done
 forbid "$HUB" "kind: Cluster$"
 forbid "$DS" "kind: IngressController"
 forbid "$HUB" "apps.rosa.rosa-89s85"
+forbid "$HUB" "secretKey: HTTP_PROXY"
+forbid "$HUB" "--use-env-proxy"
 
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"
