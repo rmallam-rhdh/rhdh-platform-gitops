@@ -163,7 +163,10 @@ plugins:
     baseUrl: http://vault.vault.svc:8200
     token: "${VAULT_TOKEN}"
   servicenow:
-    baseUrl: http://saas-stubs.saas-stubs.svc:8080
+    # Host, user, and password are Vault keys servicenow-base-url,
+    # servicenow-username, and servicenow-password. A reclaimed
+    # developer instance gets a new host, so the URL stays out of git.
+    baseUrl: "${SERVICENOW_BASE_URL}"
     username: "${SERVICENOW_USERNAME}"
     password: "${SERVICENOW_PASSWORD}"
   kiali:
