@@ -81,7 +81,7 @@ The runbooks for these charts live in [rmallam/RHDH](https://github.com/rmallam/
 |---|---|
 | `charts/service-mesh` | [service-mesh-ambient](https://github.com/rmallam/RHDH/tree/main/docs/service-mesh-ambient) — enrolment labels, and what is not proven yet |
 | `charts/devspaces` | [devspaces](https://github.com/rmallam/RHDH/tree/main/docs/devspaces) — `CheCluster` settings and the ingress shard |
-| `charts/cnpg` | [rhdh-cnpg](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-cnpg) — includes the Postgres image pin; [rhdh-database](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-database) — what the Hub stores, schema by schema |
+| `charts/cnpg` | [rhdh-cnpg](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-cnpg) — says why the Postgres image is not pinned yet and what to pin; [rhdh-database](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-database) — what the Hub stores, schema by schema |
 | `charts/developer-hub` | [rhdh-plugins](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-plugins), [rhdh-entra-ldap](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-entra-ldap), [rhdh-vault-eso](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-vault-eso) |
 | whole cluster | [lab-state](https://github.com/rmallam/RHDH/tree/main/docs/lab-state) — installed versions, what is deployed, lab-only settings |
 
