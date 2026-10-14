@@ -97,6 +97,7 @@ done
 forbid "$HUB" "kind: Cluster$"
 forbid "$DS" "kind: IngressController"
 forbid "$HUB" "apps.rosa.rosa-89s85"
+forbid "$HUB" "istio.io/dataplane-mode: ambient"
 forbid "$HUB" "secretKey: HTTP_PROXY"
 forbid "$HUB" "--use-env-proxy"
 

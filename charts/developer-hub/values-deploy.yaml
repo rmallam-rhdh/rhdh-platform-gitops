@@ -2,6 +2,11 @@
 # Set clusterBaseDomain to this cluster's *.apps domain before the first sync.
 # baseUrl is derived from it. Do not put secrets in this file.
 
+# Hub and Postgres stay off the mesh. Ambient capture makes kubelet probes
+# to CloudNativePG port 8000 time out, so the database never goes Ready.
+mesh:
+  ambient: false
+
 app:
   clusterBaseDomain: apps.ocp.dkccw.sandbox3257.opentlc.com
   baseUrl: ""
