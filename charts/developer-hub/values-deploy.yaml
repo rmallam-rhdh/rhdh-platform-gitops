@@ -41,6 +41,9 @@ database:
 # stay in Vault (rhdh/http-proxy, rhdh/https-proxy, rhdh/no-proxy).
 # NO_PROXY lists every other host the Hub dials, so only ServiceNow is proxied.
 # nodeOptions replaces NODE_OPTIONS; keep the snapshot flag the operator needs.
+# Leave initContainer empty so plugin install stays direct. Registry pulls
+# redirect to CDNs, and those CDNs are not the ServiceNow path.
 httpProxy:
   enabled: true
   nodeOptions: "--no-node-snapshot --use-env-proxy"
+  initContainer: ""

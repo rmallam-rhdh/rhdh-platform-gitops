@@ -28,7 +28,7 @@ spec:
         {{- end }}
       secrets:
         - name: {{ .Values.instance.secretsName }}
-        {{- if .Values.httpProxy.enabled }}
+        {{- if and .Values.httpProxy.enabled .Values.httpProxy.initContainer }}
         - name: {{ .Values.instance.secretsName }}
           key: HTTP_PROXY
           containers:

@@ -109,6 +109,7 @@ need "$HUB" "key: rhdh/http-proxy"
 need "$HUB" "key: rhdh/https-proxy"
 need "$HUB" "key: rhdh/no-proxy"
 need "$HUB" "--no-node-snapshot --use-env-proxy"
+forbid "$HUB" "install-dynamic-plugins"
 forbid "$SQUID" "kind: Route"
 forbid "$SQUID" "istio.io/dataplane-mode"
 
