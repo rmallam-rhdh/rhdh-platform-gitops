@@ -21,8 +21,6 @@ spec:
         runAsUser: {{ .Values.runAsUser }}
         runAsGroup: {{ .Values.runAsGroup }}
         fsGroup: {{ .Values.runAsGroup }}
-        seccompProfile:
-          type: RuntimeDefault
       containers:
         - name: squid
           image: {{ .Values.image }}
