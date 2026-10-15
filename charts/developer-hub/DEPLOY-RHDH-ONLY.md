@@ -302,7 +302,7 @@ Do not helm-install with `-f values-demo.yaml` on a new cluster: it hardcodes th
 
 ## 4. Corporate HTTP proxy for SaaS calls
 
-Use this when the cluster must reach Jira, Dynatrace, Entra, GitHub, and the other SaaS hosts through the customer's authenticated proxy. The Hub still adds the SaaS credential (`JIRA_TOKEN`, `DYNATRACE_ACCESS_TOKEN`, and the rest). The corporate proxy only opens the tunnel.
+Use this when the cluster must reach Jira, Dynatrace, Entra, GitHub, and the other SaaS hosts through the customer's authenticated proxy. The Hub still adds the SaaS credential (`JIRA_TOKEN`, `DYNATRACE_ACCESS_TOKEN`, and the rest). The corporate proxy only opens the tunnel. Questions to ask, and the Basic-auth and TLS limits, are in [PROXY-AUTH.md](PROXY-AUTH.md).
 
 `app.readingAllow` does not change the path. It only lists hostnames the Hub is willing to call. Keep those entries.
 

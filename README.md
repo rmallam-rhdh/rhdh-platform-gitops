@@ -42,7 +42,7 @@ CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself 
 
 The Node.js and Quarkus Template entities are registered from ConfigMap `rhdh-golden-path`. Their skeletons are still fetched from `rmallam/RHDH` when someone runs the template.
 
-To send Hub calls to Jira, Dynatrace, Entra, and GitHub through a corporate HTTP proxy, set `httpProxy.enabled: true` after the Vault keys exist. The flag is off by default. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls).
+To send Hub calls to Jira, Dynatrace, Entra, and GitHub through a corporate HTTP proxy, set `httpProxy.enabled: true` after the Vault keys exist. The flag is off by default. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
 
 ## Dev Spaces ingress shard
 
