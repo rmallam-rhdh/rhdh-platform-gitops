@@ -1,0 +1,28 @@
+# Authenticated forward proxy. The Hub does not use it until httpProxy.enabled is true.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: squid
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: squid
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/squid
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: squid
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true

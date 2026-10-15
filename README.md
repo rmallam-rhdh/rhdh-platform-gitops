@@ -9,6 +9,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
 | `charts/devspaces` | `devspaces` | `CheCluster` in `openshift-devspaces` (Route labels for the existing shared ingress) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
+| `charts/squid` | `squid` | Authenticated Squid in `squid`. The Hub does not use it until `httpProxy.enabled` is true |
 
 No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
@@ -66,6 +67,7 @@ oc apply -f argocd/apps/cnpg-dr.yaml
 oc apply -f argocd/apps/service-mesh.yaml
 oc apply -f argocd/apps/devspaces.yaml
 oc apply -f argocd/apps/developer-hub.yaml
+oc apply -f argocd/apps/squid.yaml
 ```
 
 Check:

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: squid
+description: Authenticated forward proxy for Hub SaaS calls. The Hub stays off this proxy until httpProxy.enabled is set.
+type: application
+version: 0.1.0
+appVersion: "6.6"

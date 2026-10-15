@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squid
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "squid.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: squid
+  template:
+    metadata:
+      labels:
+        {{- include "squid.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: squid
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.runAsUser }}
+        runAsGroup: {{ .Values.runAsGroup }}
+        fsGroup: {{ .Values.runAsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: squid
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/sbin/squid"]
+          args: ["-N", "-f", "/etc/squid/squid.conf"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /etc/squid/squid.conf
+              subPath: squid.conf
+              readOnly: true
+            - name: passwd
+              mountPath: /etc/squid/passwd
+              subPath: passwd
+              readOnly: true
+            - name: spool
+              mountPath: /var/spool/squid
+            - name: logs
+              mountPath: /var/log/squid
+            - name: run
+              mountPath: /var/run/squid
+      volumes:
+        - name: config
+          configMap:
+            name: squid
+        - name: passwd
+          secret:
+            secretName: squid-htpasswd
+            defaultMode: 0444
+            items:
+              - key: passwd
+                path: passwd
+        - name: spool
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+        - name: run
+          emptyDir: {}

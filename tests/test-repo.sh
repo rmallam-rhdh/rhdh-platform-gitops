@@ -36,15 +36,17 @@ need "$ROOT/argocd/apps/cnpg-dr.yaml" "values-dr.yaml"
 need "$ROOT/argocd/apps/service-mesh.yaml" "charts/service-mesh"
 need "$ROOT/argocd/apps/devspaces.yaml" "charts/devspaces"
 need "$ROOT/argocd/apps/developer-hub.yaml" "charts/developer-hub"
+need "$ROOT/argocd/apps/squid.yaml" "charts/squid"
 
 echo "== unit: helm lint =="
 helm lint "$ROOT/charts/cnpg" >/dev/null
 helm lint "$ROOT/charts/service-mesh" >/dev/null
 helm lint "$ROOT/charts/devspaces" >/dev/null
 helm lint "$ROOT/charts/developer-hub" >/dev/null
+helm lint "$ROOT/charts/squid" >/dev/null
 
-CNPG="$(mktemp)"; DR="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"
-trap 'rm -f "$CNPG" "$DR" "$SM" "$DS" "$HUB"' EXIT
+CNPG="$(mktemp)"; DR="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"; SQUID="$(mktemp)"
+trap 'rm -f "$CNPG" "$DR" "$SM" "$DS" "$HUB" "$SQUID"' EXIT
 
 helm template cnpg "$ROOT/charts/cnpg" --namespace rhdh >"$CNPG"
 helm template cnpg-dr "$ROOT/charts/cnpg" -f "$ROOT/charts/cnpg/values-dr.yaml" --namespace rhdh-dr >"$DR"
@@ -58,6 +60,7 @@ helm template rhdh "$ROOT/charts/developer-hub" \
   -f "$ROOT/charts/developer-hub/values-demo.yaml" \
   -f "$ROOT/charts/developer-hub/values-deploy.yaml" \
   --namespace rhdh >"$HUB"
+helm template squid "$ROOT/charts/squid" --namespace squid >"$SQUID"
 
 echo "== system: CR kinds =="
 need "$CNPG" "kind: Cluster$"
@@ -86,9 +89,12 @@ need "$HUB" "acme-quarkus-golden-path"
 need "$HUB" "/opt/app-root/src/golden-path/template-nodejs-golden-path.yaml"
 need "$HUB" "/opt/app-root/src/golden-path/template-quarkus-golden-path.yaml"
 need "$HUB" "mallamrakeshgmail.onmicrosoft.com"
+need "$SQUID" "auth_param basic program"
+need "$SQUID" "type: ClusterIP"
+need "$SQUID" ".service-now.com"
 
 echo "== system: no operator installs =="
-for out in "$CNPG" "$DR" "$SM" "$DS" "$HUB"; do
+for out in "$CNPG" "$DR" "$SM" "$DS" "$HUB" "$SQUID"; do
   forbid "$out" "kind: Subscription"
   forbid "$out" "kind: OperatorGroup"
   forbid "$out" "kind: CatalogSource"
@@ -100,6 +106,8 @@ forbid "$HUB" "apps.rosa.rosa-89s85"
 forbid "$HUB" "istio.io/dataplane-mode: ambient"
 forbid "$HUB" "secretKey: HTTP_PROXY"
 forbid "$HUB" "--use-env-proxy"
+forbid "$SQUID" "kind: Route"
+forbid "$SQUID" "istio.io/dataplane-mode"
 
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"

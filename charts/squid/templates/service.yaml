@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: squid
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "squid.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: squid
+  ports:
+    - name: proxy
+      port: {{ .Values.service.port }}
+      targetPort: proxy
+      protocol: TCP

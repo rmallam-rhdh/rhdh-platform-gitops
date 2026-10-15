@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squid
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "squid.labels" . | nindent 4 }}
+data:
+  squid.conf: |
+    http_port {{ .Values.service.port }}
+    pid_filename /var/run/squid/squid.pid
+    access_log stdio:/dev/stdout
+    cache_log stdio:/dev/stderr
+    coredump_dir /var/spool/squid
+    cache deny all
+    shutdown_lifetime 0 seconds
+    visible_hostname squid
+
+    auth_param basic program {{ .Values.authHelper }} /etc/squid/passwd
+    auth_param basic children 5 startup=0 idle=1
+    auth_param basic realm lab
+    auth_param basic credentialsttl 2 hours
+
+    acl authenticated proxy_auth REQUIRED
+    acl saas dstdomain {{ join " " .Values.allow }}
+    acl SSL_ports port 443
+    acl Safe_ports port 80
+    acl Safe_ports port 443
+    acl CONNECT method CONNECT
+
+    http_access deny !Safe_ports
+    http_access deny CONNECT !SSL_ports
+    http_access allow authenticated saas
+    http_access deny all
