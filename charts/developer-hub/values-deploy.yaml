@@ -1,4 +1,4 @@
-# New-cluster overlay, applied after values-demo.yaml.
+# Per-cluster overlay, applied after values-demo.yaml.
 # Set clusterBaseDomain to this cluster's *.apps domain before the first sync.
 # baseUrl is derived from it. Do not put secrets in this file.
 
@@ -8,21 +8,19 @@ mesh:
   ambient: false
 
 app:
-  clusterBaseDomain: apps.ocp.dkccw.sandbox3257.opentlc.com
+  clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
   baseUrl: ""
-  # Dev Spaces route on the ingress shard (rmallam/RHDH tools/ingress-shard).
-  devspacesBaseUrl: https://devspaces.devspaces.ocp.dkccw.sandbox3257.opentlc.com
+  devspacesBaseUrl: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
 
-# Credentials live in Vault KV v2 at secrets/rhdh/<suffix>, property value.
-# External Secrets writes Secret rhdh-secrets. Do not put secret values here.
+# This lab already has Secret rhdh-secrets. Do not let GitOps replace it.
 secrets:
-  mode: eso
+  mode: external
 
-# Private GHCR export. Omit it until a pull secret for ghcr.io/rmallam exists,
-# otherwise install-dynamic-plugins fails closed and the Hub never starts.
 plugins:
   snyk:
     enabled: false
+  kubernetes:
+    clusterName: rosa-rwx5g
 
 instance:
   replicas: 1
@@ -37,13 +35,6 @@ database:
     enabled: true
     secretName: rhdh-pg-app
 
-# Sandbox Hub uses the in-cluster Squid. The proxy URL and NO_PROXY list
-# stay in Vault (rhdh/http-proxy, rhdh/https-proxy, rhdh/no-proxy).
-# NO_PROXY lists every other host the Hub dials, so only ServiceNow is proxied.
-# nodeOptions replaces NODE_OPTIONS; keep the snapshot flag the operator needs.
-# Leave initContainer empty so plugin install stays direct. Registry pulls
-# redirect to CDNs, and those CDNs are not the ServiceNow path.
+# No in-cluster Squid on this cluster.
 httpProxy:
-  enabled: true
-  nodeOptions: "--no-node-snapshot --use-env-proxy"
-  initContainer: ""
+  enabled: false

@@ -20,8 +20,7 @@ database:
 app:
   title: ROSA Golden Path Demo
   organization: Demo
-  clusterBaseDomain: apps.rosa.rosa-89s85.bhg0.p3.openshiftapps.com
-  baseUrl: https://backstage-developer-hub-rhdh.apps.rosa.rosa-89s85.bhg0.p3.openshiftapps.com
+  # Cluster URLs live in values-deploy.yaml. Do not add a third overlay.
   readingAllow:
     - host: github.com
     - host: raw.githubusercontent.com

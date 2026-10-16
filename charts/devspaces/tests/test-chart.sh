@@ -11,8 +11,6 @@ helm template ds "$CHART" \
 fail=0
 for pat in \
   "kind: CheCluster" \
-  "ingress.openshift.io/shard: devspaces" \
-  'domain: "devspaces.ocp.dkccw.sandbox3257.opentlc.com"' \
   "networkPolicy:" \
   "pvcStrategy: \"per-user\"" \
   "disableContainerRunCapabilities: true" \
@@ -21,6 +19,14 @@ for pat in \
 do
   grep -q "$pat" "$OUT" || { echo "FAIL missing $pat"; fail=1; }
 done
+if grep -q "ingress.openshift.io/shard" "$OUT"; then
+  echo "FAIL CheCluster must not select a Dev Spaces ingress shard on this cluster"
+  fail=1
+fi
+if grep -q "sandbox3257" "$OUT"; then
+  echo "FAIL CheCluster must not use the sandbox shard domain"
+  fail=1
+fi
 if grep -qE "kind: Subscription|kind: OperatorGroup|kind: IngressController" "$OUT"; then
   echo "FAIL operator or IngressController must not be rendered by the chart"
   fail=1

@@ -34,9 +34,9 @@ Do not also sync an Application that creates `Istio`, `CheCluster`, `Backstage`,
 
 ## Before first sync
 
-Edit `charts/developer-hub/values-deploy.yaml` and set `app.clusterBaseDomain` to this cluster’s `*.apps` domain. The Hub URL, the OpenShift GitOps URL, and the Dev Spaces links inside the golden-path templates are derived from that value.
+Edit `charts/developer-hub/values-deploy.yaml` (do not add another overlay file) and set `app.clusterBaseDomain` to this cluster’s `*.apps` domain. The Hub URL, the OpenShift GitOps URL, and the Dev Spaces links inside the golden-path templates are derived from that value. The same file is where you flip `secrets.mode` (`external` when Secret `rhdh-secrets` already exists, `eso` when Vault + External Secrets should own it) and `httpProxy.enabled`.
 
-`values-demo.yaml` is the lab shape: guest and Entra (`mallamrakeshgmail.onmicrosoft.com`), LDAP, the kitchen-sink catalog, and the Node.js and Quarkus templates mounted from this chart. Secrets stay in Vault (`secrets.mode: eso`). Seed the same Vault paths the ExternalSecret reads. On the Entra app `rhdh-login`, set the Web redirect to `https://backstage-developer-hub-rhdh.<clusterBaseDomain>/api/auth/microsoft/handler/frame`.
+`values-demo.yaml` is the lab shape: guest and Entra (`mallamrakeshgmail.onmicrosoft.com`), LDAP, the kitchen-sink catalog, and the Node.js and Quarkus templates mounted from this chart. On the Entra app `rhdh-login`, set the Web redirect to `https://backstage-developer-hub-rhdh.<clusterBaseDomain>/api/auth/microsoft/handler/frame`.
 
 CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself is only in `charts/cnpg`.
 
@@ -44,9 +44,9 @@ The Node.js and Quarkus Template entities are registered from ConfigMap `rhdh-go
 
 To send Hub calls to Jira, Dynatrace, Entra, and GitHub through a corporate HTTP proxy, set `httpProxy.enabled: true` after the Vault keys exist. The flag is off by default. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
 
-## Dev Spaces ingress shard
+## Dev Spaces ingress
 
-This chart does not create an IngressController. The shard is `tools/ingress-shard` in `rmallam/RHDH`: an IngressController named `devspaces` whose `routeSelector` is `ingress.openshift.io/shard: devspaces`, plus a selector on the default controller so unlabeled routes stay there. `charts/devspaces/values-deploy.yaml` sets the same label and sets `networking.domain` to that controller’s `spec.domain`. Dev Spaces publishes `https://devspaces.<domain>` on the shard load balancer.
+This chart does not create an IngressController. Default is the cluster `*.apps` domain with no shard label. If a cluster has a Dev Spaces shard (`tools/ingress-shard` in `rmallam/RHDH`), set `networking.domain` and `networking.labels` in `charts/devspaces/values-deploy.yaml` — do not add a second overlay file.
 
 The CheCluster also sets enterprise workspace defaults: per-user PVC, one running workspace, 30 minute idle, nested container runtime off, image builds on the `container-build` SCC, metrics on, and NetworkPolicy for the Dev Spaces and workspace namespaces.
 

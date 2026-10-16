@@ -1,8 +1,4 @@
-# This cluster's Dev Spaces ingress shard, created by rmallam/RHDH
-# tools/ingress-shard. The label matches that controller's routeSelector.
-# The domain matches its spec.domain. Dev Spaces then serves
-# https://devspaces.<domain> from the shard load balancer.
+# Default apps domain. This cluster has no Dev Spaces ingress shard.
 networking:
-  domain: devspaces.ocp.dkccw.sandbox3257.opentlc.com
-  labels:
-    ingress.openshift.io/shard: devspaces
+  domain: ""
+  labels: {}
