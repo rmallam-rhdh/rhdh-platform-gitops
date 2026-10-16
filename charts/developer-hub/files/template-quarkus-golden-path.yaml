@@ -76,7 +76,7 @@ spec:
       name: Fetch Quarkus golden-path skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton-quarkus-golden-path
+        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-quarkus-golden-path
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}

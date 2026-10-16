@@ -17,7 +17,7 @@ No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
 Operators and lab tools are **not** in this repo. Install them first, then sync this repo.
 
-From [rmallam/RHDH-SM-DevSpaces](https://github.com/rmallam/RHDH-SM-DevSpaces) branch `demo/udi-devspaces` (apply `bootstrap/root-app.yaml` first):
+From [rmallam/RHDH-SM-DevSpaces](https://github.com/rmallam/RHDH-SM-DevSpaces) branch `main` (apply `bootstrap/root-app.yaml` first):
 
 - OpenShift GitOps (and the controller cluster-admin binding)
 - CloudNativePG operator
@@ -38,7 +38,7 @@ Edit `charts/developer-hub/values-deploy.yaml` (do not add another overlay file)
 
 CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself is only in `charts/cnpg`.
 
-Scaffolder Template entities are registered from ConfigMap `rhdh-golden-path` in this chart. Their skeletons are fetched from `rmallam/RHDH-SM-DevSpaces` branch `demo/udi-devspaces`.
+Scaffolder Template entities are registered from ConfigMap `rhdh-golden-path` in this chart. Their skeletons are fetched from `rmallam/RHDH-SM-DevSpaces` branch `main`.
 
 Hub egress (ServiceNow, Jira, Dynatrace, Entra, GitHub) goes through in-cluster Squid when `httpProxy.enabled` is true in `values-deploy.yaml`. Secret `rhdh-secrets` must already have `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`. Leave `*.service-now.com` off `NO_PROXY`. Apply Secret `squid-htpasswd` from [examples/squid-htpasswd.example.yaml](examples/squid-htpasswd.example.yaml) before the Squid Application is Ready. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
 
