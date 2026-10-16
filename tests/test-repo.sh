@@ -36,12 +36,12 @@ need "$ROOT/argocd/apps/cnpg-dr.yaml" "values-dr.yaml"
 need "$ROOT/argocd/apps/service-mesh.yaml" "charts/service-mesh"
 need "$ROOT/argocd/apps/devspaces.yaml" "charts/devspaces"
 need "$ROOT/argocd/apps/developer-hub.yaml" "charts/developer-hub"
-need "$ROOT/argocd/optional/squid.yaml" "charts/squid"
-if [ -f "$ROOT/argocd/apps/squid.yaml" ]; then
-  echo "FAIL squid must not be in argocd/apps (optional until Vault htpasswd exists)"
+need "$ROOT/argocd/apps/squid.yaml" "charts/squid"
+if [ -f "$ROOT/argocd/optional/squid.yaml" ]; then
+  echo "FAIL squid must live in argocd/apps, not optional"
   fail=1
 else
-  echo "OK  squid not in default app-of-apps"
+  echo "OK  squid in default app-of-apps"
 fi
 
 echo "== unit: helm lint =="
@@ -96,6 +96,9 @@ need "$HUB" "/opt/app-root/src/golden-path/template-nodejs-website.yaml"
 need "$HUB" "/opt/app-root/src/golden-path/template-node-udi-devspaces.yaml"
 need "$HUB" "RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton"
 need "$HUB" "mallamrakeshgmail.onmicrosoft.com"
+need "$HUB" "dev374459.service-now.com"
+need "$HUB" "name: NODE_OPTIONS"
+need "$HUB" "--no-node-snapshot --use-env-proxy"
 need "$SQUID" "auth_param basic program"
 need "$SQUID" "type: ClusterIP"
 need "$SQUID" ".service-now.com"
@@ -119,8 +122,15 @@ forbid "$HUB" "kind: ExternalSecret"
 forbid "$HUB" "istio.io/dataplane-mode: ambient"
 forbid "$HUB" "secretKey: HTTP_PROXY"
 forbid "$HUB" "install-dynamic-plugins"
+forbid "$SQUID" "kind: ExternalSecret"
 forbid "$SQUID" "kind: Route"
 forbid "$SQUID" "istio.io/dataplane-mode"
+if grep -E '^[[:space:]]*NO_PROXY:' "$HUB" | grep -qi 'service-now'; then
+  echo "FAIL ServiceNow must not be on NO_PROXY"
+  fail=1
+else
+  echo "OK  ServiceNow not on Hub NO_PROXY"
+fi
 
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"

@@ -4,9 +4,17 @@ namespace: squid
 createNamespace: true
 
 image: docker.io/ubuntu/squid:6.6-24.04_edge
-# basic_ncsa_auth path inside that image. Squid reads the htpasswd file from Vault.
+# basic_ncsa_auth path inside that image. Squid reads the htpasswd file from Secret squid-htpasswd.
 authHelper: /usr/lib/squid/basic_ncsa_auth
 username: rhdh
+
+# This lab has no ClusterSecretStore. Keep mode=external and apply Secret
+# squid-htpasswd yourself (see examples/squid-htpasswd.example.yaml).
+# Use eso only when Vault + External Secrets already exist.
+secrets:
+  mode: external # eso | external | placeholder
+  # Used only when secrets.mode=placeholder. Never a live apr1 hash.
+  placeholderPasswd: "rhdh:placeholder"
 
 # Ubuntu's proxy user. anyuid is required because restricted SCC will not
 # allow a fixed uid outside the namespace range.

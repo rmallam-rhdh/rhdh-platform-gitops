@@ -37,6 +37,9 @@ database:
     enabled: true
     secretName: rhdh-pg-app
 
-# No in-cluster Squid on this cluster.
+# In-cluster Squid (charts/squid). HTTP_PROXY / HTTPS_PROXY / NO_PROXY live on
+# Secret rhdh-secrets, not in this file. Leave ServiceNow off NO_PROXY.
 httpProxy:
-  enabled: false
+  enabled: true
+  nodeOptions: "--no-node-snapshot --use-env-proxy"
+  initContainer: ""

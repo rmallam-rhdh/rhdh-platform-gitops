@@ -302,11 +302,13 @@ Do not helm-install with `-f values-demo.yaml` on a new cluster: it hardcodes th
 
 ## 4. Corporate HTTP proxy for SaaS calls
 
-Use this when the cluster must reach Jira, Dynatrace, Entra, GitHub, and the other SaaS hosts through the customer's authenticated proxy. The Hub still adds the SaaS credential (`JIRA_TOKEN`, `DYNATRACE_ACCESS_TOKEN`, and the rest). The corporate proxy only opens the tunnel. Questions to ask, and the Basic-auth and TLS limits, are in [PROXY-AUTH.md](PROXY-AUTH.md).
+Use this when the cluster must reach ServiceNow, Jira, Dynatrace, Entra, GitHub, and the other SaaS hosts through an authenticated forward proxy. This lab uses in-cluster Squid (`charts/squid`). The Hub still adds the SaaS credential (`SERVICENOW_PASSWORD`, `JIRA_TOKEN`, `DYNATRACE_ACCESS_TOKEN`, and the rest). The proxy only opens the tunnel. Questions to ask, and the Basic-auth and TLS limits, are in [PROXY-AUTH.md](PROXY-AUTH.md).
 
-`app.readingAllow` does not change the path. It only lists hostnames the Hub is willing to call. Keep those entries.
+`app.readingAllow` does not change the path. It only lists hostnames the Hub is willing to call. Keep those entries, including the ServiceNow host.
 
-This does not cover Dev Spaces, the operators, or image pulls. Those follow the OpenShift cluster `Proxy` object, not the Hub setting below.
+The ServiceNow plugin has no proxy field. A ServiceNow call uses the process `HTTP_PROXY` when that host is **absent** from `NO_PROXY`. Squid already allows `.service-now.com`.
+
+This does not cover Dev Spaces, the operators, or image pulls. Those follow the OpenShift cluster `Proxy` object, not the Hub setting below. Plugin-install init stays off the Hub proxy (`httpProxy.initContainer` empty) because registry CDNs will not match the Squid allow list.
 
 ### Check the cluster proxy first
 
@@ -316,44 +318,38 @@ POD=$(oc -n rhdh get pod -l app.kubernetes.io/name=backstage -o jsonpath='{.item
 oc -n rhdh exec "$POD" -c backstage-backend -- sh -c 'echo HTTPS_PROXY set: ${HTTPS_PROXY:+yes}; echo NO_PROXY=$NO_PROXY'
 ```
 
-If OpenShift already injects `HTTPS_PROXY` into the pod, skip the Vault URL and only do the Node flag, `NO_PROXY`, and the CA steps. This lab does not inject a proxy. `NO_PROXY` on the Hub is only `localhost,127.0.0.1`.
+If OpenShift already injects `HTTPS_PROXY` into the pod, skip the in-cluster URL and only do the Node flag, `NO_PROXY`, and the CA steps.
 
-### 1. Store the proxy URL in Vault
+### 1. Squid htpasswd and Hub proxy keys (this lab, `secrets.mode: external`)
 
-Do not commit the URL. Percent-encode `@`, `:`, and `/` in the password. `HTTP_PROXY` and `HTTPS_PROXY` are the same `http://` URL. The proxy authenticates the `CONNECT`; Jira and Dynatrace still see their own `Authorization` header inside TLS.
+Do not commit the URL or the hash. Percent-encode `@`, `:`, and `/` in the password. `HTTP_PROXY` and `HTTPS_PROXY` are the same `http://` URL. The proxy authenticates the `CONNECT`; ServiceNow still sees its own username and password inside TLS.
 
 ```bash
-vault kv put secrets/rhdh/http-proxy  value='http://USER:PASSWORD@proxy.example.com:8080'
-vault kv put secrets/rhdh/https-proxy value='http://USER:PASSWORD@proxy.example.com:8080'
-vault kv put secrets/rhdh/no-proxy value='localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local'
+oc apply -f examples/squid-htpasswd.example.yaml   # after filling passwd: rhdh:<apr1 hash>
+# add HTTP_PROXY, HTTPS_PROXY, NO_PROXY to Secret rhdh-secrets (see examples/rhdh-secrets.example.yaml)
 ```
 
-Add every in-cluster name the Hub dials, or Postgres, Vault, Jenkins, the Kubernetes API, and Kiali go out through the corporate proxy and fail. Extend `no-proxy` with the Postgres service host, `vault.vault.svc`, `jenkins.jenkins.svc`, `sonarqube.sonarqube.svc`, `kubernetes.default.svc`, and the cluster apps domain (the Kiali route lives there).
+`NO_PROXY` must include every in-cluster name the Hub dials (`rhdh-pg-rw`, `.svc`, `kubernetes.default.svc`, Jenkins, Sonar, Vault, LDAP, stubs, and the cluster apps domain). Do **not** add `*.service-now.com`.
 
 ### 2. Turn the chart flag on
 
-`httpProxy.enabled` is false in `values.yaml`. The lab render does not ask Vault for the proxy keys and does not set `NODE_OPTIONS`.
+`httpProxy.enabled` is true in `values-deploy.yaml` for this lab. `NODE_OPTIONS` is replaced, not appended, so the value is `--no-node-snapshot --use-env-proxy`.
 
-Write the Vault keys first, then set the flag in `values-cluster.yaml`:
+On a cluster that uses Vault + External Secrets instead, store the three keys first, then set the flag:
 
 ```yaml
 httpProxy:
   enabled: true
 ```
 
-That does three things:
-
-- ExternalSecret reads `rhdh/http-proxy`, `rhdh/https-proxy`, and `rhdh/no-proxy` into `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` on Secret `rhdh-secrets`. The Hub container already receives every key in that Secret.
-- The Hub container gets `NODE_OPTIONS=--use-env-proxy`. Node 24 ignores `HTTP_PROXY` until that flag is set, so catalog fetches, Entra, GitHub, and the Jira and Dynatrace proxy hops dial out directly without it.
-- The `install-dynamic-plugins` init container gets the same three variables. Image pulls use `HTTP_PROXY` on their own and do not need `--use-env-proxy`.
-
-If the pod already needs other Node flags, replace the whole `httpProxy.nodeOptions` string. The chart sets that value as `NODE_OPTIONS`. It does not append.
-
 ```bash
+vault kv put secrets/rhdh/http-proxy  value='http://USER:PASSWORD@proxy.example.com:8080'
+vault kv put secrets/rhdh/https-proxy value='http://USER:PASSWORD@proxy.example.com:8080'
+vault kv put secrets/rhdh/no-proxy value='localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local'
 oc -n rhdh annotate externalsecret rhdh-secrets force-sync="$(date +%s)" --overwrite
 ```
 
-Leave the flag false on any cluster that does not have those Vault keys. ExternalSecret stays NotReady until all three exist.
+Leave the flag false until the three keys exist. ExternalSecret stays NotReady if any Vault key is missing.
 
 ### 3. Proxy TLS inspection
 

@@ -9,7 +9,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
 | `charts/devspaces` | `devspaces` | `CheCluster` in `openshift-devspaces` (Route labels for the existing shared ingress) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
-| `charts/squid` | optional | Authenticated Squid. Not in the default app-of-apps. Hub ignores it until `httpProxy.enabled` is true |
+| `charts/squid` | `squid` | Authenticated Squid. Hub uses it when `httpProxy.enabled` is true |
 
 No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
@@ -40,7 +40,7 @@ CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself 
 
 Scaffolder Template entities are registered from ConfigMap `rhdh-golden-path` in this chart. Their skeletons are fetched from `rmallam/RHDH-SM-DevSpaces` branch `demo/udi-devspaces`.
 
-To send Hub calls to Jira, Dynatrace, Entra, and GitHub through a corporate HTTP proxy, set `httpProxy.enabled: true` after the Vault keys exist. The flag is off by default. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
+Hub egress (ServiceNow, Jira, Dynatrace, Entra, GitHub) goes through in-cluster Squid when `httpProxy.enabled` is true in `values-deploy.yaml`. Secret `rhdh-secrets` must already have `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`. Leave `*.service-now.com` off `NO_PROXY`. Apply Secret `squid-htpasswd` from [examples/squid-htpasswd.example.yaml](examples/squid-htpasswd.example.yaml) before the Squid Application is Ready. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
 
 ## Dev Spaces ingress
 
@@ -56,8 +56,6 @@ Day-1 (`RHDH-SM-DevSpaces` `bootstrap/root-app.yaml`) already binds the GitOps c
 oc apply -f argocd/app-of-apps.yaml
 ```
 
-Squid is `argocd/optional/squid.yaml` (needs Vault htpasswd). Do not apply it on a cluster that is not using the proxy.
-
 Check:
 
 ```bash
@@ -65,6 +63,7 @@ oc -n rhdh get cluster,backstage,route
 oc get istio,istiocni,ztunnel -A
 oc -n istio-system get kiali
 oc -n openshift-devspaces get checluster
+oc -n squid get deploy,svc
 ```
 
 ## Runbooks

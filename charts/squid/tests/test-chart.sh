@@ -3,36 +3,44 @@ set -euo pipefail
 CHART="$(cd "$(dirname "$0")/.." && pwd)"
 helm lint "$CHART"
 OUT="$(mktemp)"
-trap 'rm -f "$OUT"' EXIT
+ESO="$(mktemp)"
+PLACEHOLDER="$(mktemp)"
+trap 'rm -f "$OUT" "$ESO" "$PLACEHOLDER"' EXIT
 helm template squid "$CHART" --namespace squid >"$OUT"
+helm template squid "$CHART" --namespace squid --set secrets.mode=eso >"$ESO"
+helm template squid "$CHART" --namespace squid --set secrets.mode=placeholder >"$PLACEHOLDER"
 fail=0
 need() {
-  grep -q -e "$1" "$OUT" || { echo "FAIL missing $1"; fail=1; }
+  grep -q -e "$1" "$2" || { echo "FAIL missing $1 in $(basename "$2")"; fail=1; }
 }
 forbid() {
-  if grep -q -e "$1" "$OUT"; then
-    echo "FAIL must not contain $1"
+  if grep -q -e "$1" "$2"; then
+    echo "FAIL $(basename "$2") must not contain $1"
     fail=1
   fi
 }
-need "kind: Deployment"
-need "kind: Service"
-need "type: ClusterIP"
-need "auth_param basic program"
-need "proxy_auth REQUIRED"
-need "http_access allow authenticated saas"
-need "http_access deny all"
-need ".service-now.com"
-need "mallamrakeshkumar.atlassian.net"
-need "system:openshift:scc:anyuid"
-need "squid/htpasswd"
-need "kubernetes.io/metadata.name: rhdh"
-forbid "kind: Route"
-forbid "kind: Subscription"
-forbid "kind: OperatorGroup"
-forbid "istio.io/dataplane-mode"
-forbid '\$apr1\$'
-forbid "http_access allow localnet"
+need "kind: Deployment" "$OUT"
+need "kind: Service" "$OUT"
+need "type: ClusterIP" "$OUT"
+need "auth_param basic program" "$OUT"
+need "proxy_auth REQUIRED" "$OUT"
+need "http_access allow authenticated saas" "$OUT"
+need "http_access deny all" "$OUT"
+need ".service-now.com" "$OUT"
+need "mallamrakeshkumar.atlassian.net" "$OUT"
+need "system:openshift:scc:anyuid" "$OUT"
+need "kubernetes.io/metadata.name: rhdh" "$OUT"
+forbid "kind: ExternalSecret" "$OUT"
+forbid "kind: Route" "$OUT"
+forbid "kind: Subscription" "$OUT"
+forbid "kind: OperatorGroup" "$OUT"
+forbid "istio.io/dataplane-mode" "$OUT"
+forbid '\$apr1\$' "$OUT"
+forbid "http_access allow localnet" "$OUT"
+need "kind: ExternalSecret" "$ESO"
+need "squid/htpasswd" "$ESO"
+need "kind: Secret" "$PLACEHOLDER"
+forbid "kind: ExternalSecret" "$PLACEHOLDER"
 if grep -q "dstdomain .*\.svc" "$OUT"; then
   echo "FAIL allowlist must not include .svc"
   fail=1

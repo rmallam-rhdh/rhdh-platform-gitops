@@ -18,7 +18,7 @@ This does not apply to Dev Spaces, the operators, or image pulls by the node. Th
 | TLS to the proxy | Yes, if both proxy URLs use `https://` and the proxy listens with TLS. Basic auth is then inside that TLS session. The Hub must trust the proxy certificate. |
 | TLS inspection | Separate from the line above. If the proxy decrypts SaaS traffic and presents its own certificate, mount that CA and set `NODE_EXTRA_CA_CERTS`. Do not use `NODE_TLS_REJECT_UNAUTHORIZED=0` as the fix. |
 | One plugin only | No plugin switch. A host is proxied when it is absent from `NO_PROXY`. Everything else the process dials is proxied too, unless it is listed there. |
-| Proxy URL in git | No. Vault keys `rhdh/http-proxy`, `rhdh/https-proxy`, and `rhdh/no-proxy` (property `value`). External Secrets copies them into Secret `rhdh-secrets`. |
+| Proxy URL in git | No. This lab stores `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` on Secret `rhdh-secrets` (`secrets.mode: external`). The Vault path is `rhdh/http-proxy` (and the https / no-proxy twins) only when External Secrets owns that Secret. |
 
 `HTTP_PROXY` and `HTTPS_PROXY` are the same URL. `HTTPS_PROXY=http://proxy.example.com:8080` means "use this proxy for HTTPS targets" over a cleartext connection to the proxy. `HTTPS_PROXY=https://proxy.example.com:8443` means the connection to the proxy itself is TLS.
 

@@ -38,6 +38,7 @@ app:
     - host: wkf10640.live.dynatrace.com
     - host: wkf10640.apps.dynatrace.com
     - host: sso.dynatrace.com
+    - host: dev374459.service-now.com
 
 auth:
   environment: development

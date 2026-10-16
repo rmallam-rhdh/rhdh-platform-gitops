@@ -197,9 +197,7 @@ for pat in \
   "key: rhdh/https-proxy" \
   "key: rhdh/no-proxy" \
   "name: NODE_OPTIONS" \
-  '"--use-env-proxy"' \
-  "key: HTTP_PROXY" \
-  "install-dynamic-plugins"
+  "--no-node-snapshot --use-env-proxy"
 do
   if grep -q -- "$pat" "$PROXY"; then
     echo "OK  proxy $pat"
@@ -208,7 +206,13 @@ do
     fail=1
   fi
 done
-for pat in "HTTP_PROXY:" "HTTPS_PROXY:" "NO_PROXY:" '"--use-env-proxy"'; do
+if grep -q "install-dynamic-plugins" "$PROXY"; then
+  echo "FAIL plugin-install init must stay off the Hub proxy"
+  fail=1
+else
+  echo "OK  plugin-install init off proxy"
+fi
+for pat in "HTTP_PROXY:" "HTTPS_PROXY:" "NO_PROXY:" "--no-node-snapshot --use-env-proxy"; do
   if grep -q -- "$pat" "$PLACEHOLDER"; then
     echo "OK  placeholder $pat"
   else
@@ -217,6 +221,18 @@ for pat in "HTTP_PROXY:" "HTTPS_PROXY:" "NO_PROXY:" '"--use-env-proxy"'; do
   fi
 done
 grep -q "kind: ExternalSecret" "$PLACEHOLDER" && { echo "FAIL placeholder mode must not emit ExternalSecret"; fail=1; }
+if grep -E '^[[:space:]]*NO_PROXY:' "$PLACEHOLDER" | grep -qi 'service-now'; then
+  echo "FAIL ServiceNow must not be on placeholder NO_PROXY"
+  fail=1
+else
+  echo "OK  ServiceNow not on placeholder NO_PROXY"
+fi
+if grep -q "dev374459.service-now.com" "$DEMO"; then
+  echo "OK  demo readingAllow ServiceNow host"
+else
+  echo "FAIL demo missing ServiceNow readingAllow host"
+  fail=1
+fi
 
 # No accidental live tokens in rendered YAML.
 if grep -E 'ghp_|gho_|sk-|sha256~' "$PROD" "$DEMO"; then

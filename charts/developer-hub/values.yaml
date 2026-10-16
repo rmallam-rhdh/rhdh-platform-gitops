@@ -356,27 +356,27 @@ plugins:
     enabled: false
     package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic
 
-# Corporate HTTP proxy for outbound SaaS calls (Jira, Dynatrace, Entra, GitHub).
-# Leave enabled false unless the three Vault keys below already exist.
-# ExternalSecret stays NotReady if the flag is on and a key is missing.
+# Corporate HTTP proxy for outbound SaaS calls (ServiceNow, Jira, Dynatrace,
+# Entra, GitHub). Leave enabled false until HTTP_PROXY / HTTPS_PROXY / NO_PROXY
+# already exist on Secret rhdh-secrets (or the three Vault keys when mode=eso).
 # The proxy URL is never stored in this file. See DEPLOY-RHDH-ONLY.md.
+# ServiceNow has no plugin proxy field: leave *.service-now.com off NO_PROXY.
 httpProxy:
   enabled: false
-  # Node 24 ignores HTTP_PROXY until this flag is set. This replaces any
-  # NODE_OPTIONS the operator already put on the Hub container.
-  nodeOptions: "--use-env-proxy"
-  # Dynamic-plugin install does not inherit Hub extraEnvs. It needs the
-  # proxy variables itself so image pulls can leave the cluster.
-  initContainer: install-dynamic-plugins
+  # NODE_OPTIONS is replaced, not appended. Keep --no-node-snapshot.
+  nodeOptions: "--no-node-snapshot --use-env-proxy"
+  # Plugin-install init stays off the Hub proxy. Registry pulls redirect to
+  # CDNs the allow list will refuse.
+  initContainer: ""
   vaultKeys:
     http: http-proxy
     https: https-proxy
     noProxy: no-proxy
   # Used only when secrets.mode=placeholder.
   placeholders:
-    http: http://proxy.example.invalid:8080
-    https: http://proxy.example.invalid:8080
-    noProxy: localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local
+    http: http://rhdh:change-me@squid.squid.svc:3128
+    https: http://rhdh:change-me@squid.squid.svc:3128
+    noProxy: localhost,127.0.0.1,.svc,.svc.cluster.local,.cluster.local,rhdh-pg-rw,rhdh-pg-rw.rhdh.svc,kubernetes.default.svc,jenkins.jenkins.svc,sonarqube.sonarqube.svc,vault.vault.svc,saas-stubs.saas-stubs.svc,openldap.ldap.svc
 
 # Secret material. mode=external means GitOps does not own rhdh-secrets.
 secrets:

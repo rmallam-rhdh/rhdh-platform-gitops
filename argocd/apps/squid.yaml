@@ -1,4 +1,6 @@
-# Authenticated forward proxy. The Hub does not use it until httpProxy.enabled is true.
+# Authenticated forward proxy. Hub uses it when httpProxy.enabled is true.
+# Secret squid-htpasswd must exist (secrets.mode=external). Do not put the
+# password in git.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
