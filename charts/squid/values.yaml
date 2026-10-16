@@ -42,9 +42,11 @@ allow:
   - sso.dynatrace.com
   - login.microsoftonline.com
   - graph.microsoft.com
-  - github.com
-  - api.github.com
-  - raw.githubusercontent.com
+  # Leading-dot matches the apex and subdomains. Hub fetch:template uses
+  # api.github.com then codeload.github.com for the tarball.
+  - .github.com
+  - codeload.github.com
+  - .githubusercontent.com
   - bitbucket.org
   - ghcr.io
   - registry.access.redhat.com

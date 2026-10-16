@@ -102,6 +102,8 @@ need "$HUB" "--no-node-snapshot --use-env-proxy"
 need "$SQUID" "auth_param basic program"
 need "$SQUID" "type: ClusterIP"
 need "$SQUID" ".service-now.com"
+need "$SQUID" ".github.com"
+need "$SQUID" "codeload.github.com"
 
 echo "== system: no operator installs =="
 for out in "$CNPG" "$DR" "$SM" "$DS" "$HUB" "$SQUID"; do
