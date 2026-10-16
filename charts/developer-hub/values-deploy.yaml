@@ -22,6 +22,8 @@ plugins:
   kubernetes:
     clusterName: rosa-rwx5g
 
+createNamespace: false
+
 instance:
   replicas: 1
   database:

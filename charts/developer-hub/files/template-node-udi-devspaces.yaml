@@ -1,0 +1,100 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-node-udi-devspaces
+  title: Node.js + UDI + Dev Spaces (ROSA demo)
+  description: >
+    Creates a tiny Node.js repo with a UDI devfile, publishes it to GitHub,
+    and gives you an Open in Dev Spaces link for this cluster.
+  tags:
+    - nodejs
+    - udi
+    - golden-path
+    - demo
+    - recommended
+spec:
+  owner: group:platform-team
+  type: service
+  parameters:
+    - title: Application
+      required: [appName, githubOwner]
+      properties:
+        appName:
+          title: Application Name
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          description: New GitHub repo name under your user
+          ui:autofocus: true
+        appDescription:
+          title: Description
+          type: string
+          default: Node.js app on Red Hat UDI for Dev Spaces
+        githubOwner:
+          title: GitHub owner (org or user)
+          type: string
+          default: rmallam
+          pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+        port:
+          title: Application port
+          type: integer
+          default: 3000
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Node UDI skeleton
+      action: fetch:template
+      input:
+        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton-node-udi
+        values:
+          appName: ${{ parameters.appName }}
+          appDescription: ${{ parameters.appDescription }}
+          githubOwner: ${{ parameters.githubOwner }}
+          port: ${{ parameters.port }}
+          devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        description: ${{ parameters.appDescription }}
+        defaultBranch: main
+        repoVisibility: public
+        gitCommitMessage: "Initial Node.js UDI app from golden path"
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    text:
+      - title: What was created
+        content: |
+          **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+          Catalog entity: `${{ steps['register'].output.entityRef }}`
+
+          | In Git | Path |
+          |---|---|
+          | catalog-info.yaml | `/catalog-info.yaml` |
+          | Devfile | `/devfile.yaml` |
+          | App | `/server.js` |
+    links:
+      - title: GitHub repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+        icon: github
+      - title: catalog-info.yaml
+        url: ${{ steps['publish'].output.remoteUrl }}/blob/main/catalog-info.yaml
+        icon: github
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: Open in Dev Spaces
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+        icon: catalog
+      - title: Dev Spaces dashboard
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+        icon: catalog

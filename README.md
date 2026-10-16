@@ -9,7 +9,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
 | `charts/devspaces` | `devspaces` | `CheCluster` in `openshift-devspaces` (Route labels for the existing shared ingress) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
-| `charts/squid` | `squid` | Authenticated Squid in `squid`. The Hub does not use it until `httpProxy.enabled` is true |
+| `charts/squid` | optional | Authenticated Squid. Not in the default app-of-apps. Hub ignores it until `httpProxy.enabled` is true |
 
 No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
@@ -17,18 +17,16 @@ No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
 Operators and lab tools are **not** in this repo. Install them first, then sync this repo.
 
-From [rmallam/RHDH](https://github.com/rmallam/RHDH) (or OperatorHub for the ones that repo does not subscribe):
+From [rmallam/RHDH-SM-DevSpaces](https://github.com/rmallam/RHDH-SM-DevSpaces) branch `demo/udi-devspaces` (apply `bootstrap/root-app.yaml` first):
 
-- OpenShift GitOps
-- CloudNativePG operator (`components/cnpg`)
-- External Secrets, plus ClusterSecretStore `vault-secret-store`
+- OpenShift GitOps (and the controller cluster-admin binding)
+- CloudNativePG operator
 - Red Hat OpenShift Service Mesh 3 (Sail) and Kiali operators
 - OpenShift Dev Spaces operator
 - Red Hat Developer Hub operator
-
-Tools, also from that repo, so the Hub can reach them at the in-cluster URLs already in `values-demo.yaml`:
-
 - `ldap`, `jenkins`, `sonarqube`, `vault`, `saas-stubs`
+
+External Secrets is not required when `secrets.mode: external`.
 
 Do not also sync an Application that creates `Istio`, `CheCluster`, `Backstage`, or the Postgres `Cluster`. Those four custom resources come from this repo.
 
@@ -40,35 +38,25 @@ Edit `charts/developer-hub/values-deploy.yaml` (do not add another overlay file)
 
 CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself is only in `charts/cnpg`.
 
-The Node.js and Quarkus Template entities are registered from ConfigMap `rhdh-golden-path`. Their skeletons are still fetched from `rmallam/RHDH` when someone runs the template.
+Scaffolder Template entities are registered from ConfigMap `rhdh-golden-path` in this chart. Their skeletons are fetched from `rmallam/RHDH-SM-DevSpaces` branch `demo/udi-devspaces`.
 
 To send Hub calls to Jira, Dynatrace, Entra, and GitHub through a corporate HTTP proxy, set `httpProxy.enabled: true` after the Vault keys exist. The flag is off by default. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
 
 ## Dev Spaces ingress
 
-This chart does not create an IngressController. Default is the cluster `*.apps` domain with no shard label. If a cluster has a Dev Spaces shard (`tools/ingress-shard` in `rmallam/RHDH`), set `networking.domain` and `networking.labels` in `charts/devspaces/values-deploy.yaml` — do not add a second overlay file.
+This chart does not create an IngressController. Default is the cluster `*.apps` domain with no shard label. If a cluster has a Dev Spaces shard, set `networking.domain` and `networking.labels` in `charts/devspaces/values-deploy.yaml` — do not add a second overlay file.
 
 The CheCluster also sets enterprise workspace defaults: per-user PVC, one running workspace, 30 minute idle, nested container runtime off, image builds on the `container-build` SCC, metrics on, and NetworkPolicy for the Dev Spaces and workspace namespaces.
 
 ## Deploy
 
-The OpenShift GitOps controller cannot create these CRs until it is cluster-admin. Apply that binding once, then the app-of-apps:
+Day-1 (`RHDH-SM-DevSpaces` `bootstrap/root-app.yaml`) already binds the GitOps controller to cluster-admin. After operators are Ready and Secret `rhdh-secrets` exists:
 
 ```bash
-oc apply -f argocd/gitops-controller-admin.yaml
 oc apply -f argocd/app-of-apps.yaml
 ```
 
-Or one chart at a time:
-
-```bash
-oc apply -f argocd/apps/cnpg.yaml
-oc apply -f argocd/apps/cnpg-dr.yaml
-oc apply -f argocd/apps/service-mesh.yaml
-oc apply -f argocd/apps/devspaces.yaml
-oc apply -f argocd/apps/developer-hub.yaml
-oc apply -f argocd/apps/squid.yaml
-```
+Squid is `argocd/optional/squid.yaml` (needs Vault htpasswd). Do not apply it on a cluster that is not using the proxy.
 
 Check:
 

@@ -1,0 +1,93 @@
+---
+# Day-2 helper — does not create a repo. Use after acme-node-udi-devspaces.
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-start-feature-devspaces
+  title: Start feature + Dev Spaces (day 2)
+  description: >
+    For an existing catalog service only. Creates a feature branch from the
+    current default branch and gives you an Open in Dev Spaces link for that
+    branch. Does not scaffold a new application.
+  tags:
+    - day-2
+    - feature-branch
+    - devspaces
+    - demo
+    - recommended
+spec:
+  owner: group:platform-team
+  type: service
+  parameters:
+    - title: Existing service
+      required: [component, githubOwner, featureBranch]
+      properties:
+        component:
+          title: Catalog component
+          type: string
+          description: Service already created by the Node.js + UDI golden path
+          ui:field: EntityPicker
+          ui:autofocus: true
+          ui:options:
+            allowedKinds: [Component]
+            catalogFilter:
+              - kind: Component
+                spec.type: service
+        githubOwner:
+          title: GitHub owner
+          type: string
+          default: rmallam
+        jiraKey:
+          title: Jira story key
+          type: string
+          description: Optional. Used in the branch-start commit message
+          pattern: '^[A-Z][A-Z0-9]+-\d+$'
+        featureBranch:
+          title: Feature branch
+          type: string
+          description: Created from the repo default branch if it does not exist
+          default: feature/DEMO-123-my-change
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{1,70}$'
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-component
+      name: Read catalog component
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.component }}
+    - id: fetch-repo
+      name: Fetch default branch
+      action: fetch:plain
+      input:
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}
+    - id: push-branch
+      name: Create feature branch
+      action: github:repo:push
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.component | parseEntityRef | pick('name') }}
+        defaultBranch: ${{ parameters.featureBranch }}
+        protectDefaultBranch: false
+        protectEnforceAdmins: false
+        gitCommitMessage: "chore: start ${{ parameters.featureBranch }}"
+  output:
+    text:
+      - title: Day-2 workspace
+        content: |
+          Repo: ${{ steps['push-branch'].output.remoteUrl }}
+          Branch was pushed with `github:repo:push`.
+    links:
+      - title: GitHub repository
+        icon: github
+        url: ${{ steps['push-branch'].output.remoteUrl }}
+      - title: Open in Dev Spaces
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['push-branch'].output.remoteUrl }}&devfilePath=devfile.yaml
+      - title: Dev Spaces dashboard
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ parameters.component }}

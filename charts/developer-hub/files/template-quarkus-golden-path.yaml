@@ -76,7 +76,7 @@ spec:
       name: Fetch Quarkus golden-path skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam/RHDH/tree/main/golden-path/demo/skeleton-quarkus-golden-path
+        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton-quarkus-golden-path
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}
@@ -140,11 +140,11 @@ spec:
         icon: catalog
         entityRef: ${{ steps['register'].output.entityRef }}
       - title: Open in Dev Spaces
-        url: __DEVSPACES_BASE_URL__/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
         icon: catalog
       - title: Dev Spaces dashboard
-        url: __DEVSPACES_BASE_URL__/dashboard/#/workspaces
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
         icon: catalog
       - title: OpenShift project
-        url: https://console-openshift-console.__CLUSTER_BASE_DOMAIN__/k8s/cluster/projects/demo-dev
+        url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
         icon: catalog

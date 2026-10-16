@@ -47,6 +47,11 @@ spec:
           title: Deploy namespace
           type: string
           default: demo-dev
+        clusterBaseDomain:
+          title: OpenShift apps domain
+          description: Host suffix for the mesh ingress Route (no scheme). Default is this ROSA cluster.
+          type: string
+          default: __CLUSTER_BASE_DOMAIN__
         sonarHostUrl:
           title: SonarQube URL (in-cluster)
           type: string
@@ -60,13 +65,14 @@ spec:
       name: Fetch Node.js golden-path skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam/RHDH/tree/main/golden-path/demo/skeleton-nodejs-golden-path
+        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton-nodejs-golden-path
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}
           githubOwner: ${{ parameters.githubOwner }}
           port: ${{ parameters.port }}
           targetNamespace: ${{ parameters.targetNamespace }}
+          clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
           sonarHostUrl: ${{ parameters.sonarHostUrl }}
           sonarProjectKey: ${{ parameters.appName }}
           devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
@@ -97,35 +103,37 @@ spec:
           |---|---|
           | catalog-info.yaml | `/catalog-info.yaml` |
           | Devfile | `/devfile.yaml` |
-          | Helm chart | `/chart` |
+          | Helm chart | `/chart` (mesh: Route → Gateway → HTTPRoute, deny-all, STRICT mTLS) |
           | Jenkinsfile | `/Jenkinsfile` |
           | Sonar properties | `/sonar-project.properties` |
 
           **Not created automatically:** Jenkins job, Helm release, Argo CD Application,
           Sonar project, or OpenShift namespace (it must already exist).
     links:
-      # output.links on this Hub do not interpolate parameter defaults — only step outputs.
+      # File links must use repoContentsUrl (no .git). remoteUrl is the clone URL
+      # (…/repo.git); GitHub 404s on …/repo.git/blob/… and …/repo.git/tree/….
+      # Parameter defaults do not interpolate in output.links on this Hub.
       - title: GitHub repository
         url: ${{ steps['publish'].output.remoteUrl }}
         icon: github
       - title: catalog-info.yaml
-        url: ${{ steps['publish'].output.remoteUrl }}/blob/main/catalog-info.yaml
+        url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
         icon: github
       - title: Helm chart
-        url: ${{ steps['publish'].output.remoteUrl }}/tree/main/chart
+        url: ${{ steps['publish'].output.repoContentsUrl }}/chart
         icon: github
       - title: Jenkinsfile
-        url: ${{ steps['publish'].output.remoteUrl }}/blob/main/Jenkinsfile
+        url: ${{ steps['publish'].output.repoContentsUrl }}/Jenkinsfile
         icon: github
       - title: Open in catalog
         icon: catalog
         entityRef: ${{ steps['register'].output.entityRef }}
       - title: Open in Dev Spaces
-        url: __DEVSPACES_BASE_URL__/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
         icon: catalog
       - title: Dev Spaces dashboard
-        url: __DEVSPACES_BASE_URL__/dashboard/#/workspaces
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
         icon: catalog
       - title: OpenShift project
-        url: https://console-openshift-console.__CLUSTER_BASE_DOMAIN__/k8s/cluster/projects/demo-dev
+        url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
         icon: catalog

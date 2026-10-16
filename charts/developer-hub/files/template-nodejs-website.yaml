@@ -1,0 +1,173 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-nodejs-website
+  title: Node.js website (link backend)
+  description: >
+    Creates a Node.js 20 website and links it to an existing backend. Pick the
+    System, service Component, and API from the Quarkus (or other) backend
+    template. Writes consumesApis, dependsOn, and system on the catalog entity.
+    Publishes to GitHub.
+  tags:
+    - nodejs
+    - website
+    - golden-path
+    - jenkins
+    - helm
+    - demo
+    - recommended
+spec:
+  owner: group:platform-team
+  type: website
+  parameters:
+    - title: Website
+      required: [appName, githubOwner, system, backendService, backendApi]
+      properties:
+        appName:
+          title: GitHub repository name
+          description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          ui:autofocus: true
+        appDescription:
+          title: Description
+          type: string
+          default: Node.js website linked to a catalog backend API
+        githubOwner:
+          title: GitHub owner (org or user)
+          type: string
+          default: rmallam
+          pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+        system:
+          title: System
+          description: Product created by the Quarkus backend template (default acme-demo).
+          type: string
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [System]
+        backendService:
+          title: Backend service
+          description: "Component (spec.type: service) this website depends on."
+          type: string
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [Component]
+            catalogFilter:
+              - kind: Component
+                spec.type: service
+        backendApi:
+          title: Backend API
+          description: API this website consumes (providesApis on the backend).
+          type: string
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [API]
+        backendPort:
+          title: Backend service port
+          type: integer
+          default: 8080
+        port:
+          title: Website port
+          type: integer
+          default: 3000
+        targetNamespace:
+          title: Deploy namespace
+          type: string
+          default: demo-dev
+        clusterBaseDomain:
+          title: OpenShift apps domain
+          type: string
+          default: __CLUSTER_BASE_DOMAIN__
+        sonarHostUrl:
+          title: SonarQube URL (in-cluster)
+          type: string
+          default: http://sonarqube.sonarqube.svc:9000
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Node.js website skeleton
+      action: fetch:template
+      input:
+        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton-nodejs-website
+        values:
+          appName: ${{ parameters.appName }}
+          appDescription: ${{ parameters.appDescription }}
+          githubOwner: ${{ parameters.githubOwner }}
+          systemName: ${{ parameters.system | parseEntityRef | pick('name') }}
+          backendServiceRef: ${{ parameters.backendService }}
+          backendServiceName: ${{ parameters.backendService | parseEntityRef | pick('name') }}
+          backendApiRef: ${{ parameters.backendApi }}
+          backendApiName: ${{ parameters.backendApi | parseEntityRef | pick('name') }}
+          backendUrl: http://${{ parameters.backendService | parseEntityRef | pick('name') }}.${{ parameters.targetNamespace }}.svc:${{ parameters.backendPort }}
+          port: ${{ parameters.port }}
+          targetNamespace: ${{ parameters.targetNamespace }}
+          clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
+          sonarHostUrl: ${{ parameters.sonarHostUrl }}
+          sonarProjectKey: ${{ parameters.appName }}
+          devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        description: ${{ parameters.appDescription }}
+        defaultBranch: main
+        repoVisibility: public
+        gitCommitMessage: "Initial Node.js website (consumes backend API)"
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    text:
+      - title: What was created
+        content: |
+          **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+          Catalog entity: `${{ steps['register'].output.entityRef }}` (type: website)
+
+          Relations: system `${{ parameters.system | parseEntityRef | pick('name') }}`,
+          dependsOn `${{ parameters.backendService }}`,
+          consumesApis `${{ parameters.backendApi }}`.
+
+          In-cluster the website calls
+          `http://${{ parameters.backendService | parseEntityRef | pick('name') }}.${{ parameters.targetNamespace }}.svc:${{ parameters.backendPort }}/api`.
+
+          | In Git | Path |
+          |---|---|
+          | catalog-info.yaml | `/catalog-info.yaml` |
+          | Helm chart | `/chart` (mesh: Route → Gateway → HTTPRoute, deny-all, STRICT mTLS) |
+          | Jenkinsfile | `/Jenkinsfile` |
+
+          **Not created automatically:** Jenkins job, Helm release, Argo CD Application,
+          Sonar project, or OpenShift namespace (it must already exist).
+    links:
+      - title: GitHub repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+        icon: github
+      - title: catalog-info.yaml
+        url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
+        icon: github
+      - title: Helm chart
+        url: ${{ steps['publish'].output.repoContentsUrl }}/chart
+        icon: github
+      - title: Jenkinsfile
+        url: ${{ steps['publish'].output.repoContentsUrl }}/Jenkinsfile
+        icon: github
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: Open in Dev Spaces
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+        icon: catalog
+      - title: Dev Spaces dashboard
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+        icon: catalog
+      - title: OpenShift project
+        url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
+        icon: catalog

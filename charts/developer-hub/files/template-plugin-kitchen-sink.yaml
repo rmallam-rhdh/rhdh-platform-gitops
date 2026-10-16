@@ -1,0 +1,111 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-plugin-kitchen-sink
+  title: Plugin kitchen-sink + Dev Spaces (ROSA demo)
+  description: >
+    Creates a Node.js UDI repo whose catalog-info.yaml has annotations for every
+    Hub plugin that works on this lab, registers it, and returns an Open in
+    Dev Spaces factory URL. Bitbucket is skipped (module does not load).
+  tags:
+    - nodejs
+    - udi
+    - golden-path
+    - demo
+    - plugins
+    - recommended
+spec:
+  owner: group:platform-team
+  type: service
+  parameters:
+    - title: Application
+      required: [appName, githubOwner]
+      properties:
+        appName:
+          title: GitHub repository name
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+          ui:autofocus: true
+        appDescription:
+          title: Description
+          type: string
+          default: Kitchen-sink service that exercises RHDH plugin tabs
+        githubOwner:
+          title: GitHub owner (org or user)
+          type: string
+          default: rmallam
+          pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+        port:
+          title: Application port
+          type: integer
+          default: 3000
+        targetNamespace:
+          title: Kubernetes namespace for Topology
+          type: string
+          default: demo-dev
+        clusterBaseDomain:
+          title: OpenShift apps domain
+          type: string
+          default: __CLUSTER_BASE_DOMAIN__
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-skeleton
+      name: Fetch kitchen-sink skeleton
+      action: fetch:template
+      input:
+        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/demo/udi-devspaces/golden-path/demo/skeleton-plugin-kitchen-sink
+        values:
+          appName: ${{ parameters.appName }}
+          appDescription: ${{ parameters.appDescription }}
+          githubOwner: ${{ parameters.githubOwner }}
+          port: ${{ parameters.port }}
+          targetNamespace: ${{ parameters.targetNamespace }}
+          devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        description: ${{ parameters.appDescription }}
+        defaultBranch: main
+        repoVisibility: public
+        gitCommitMessage: "Initial kitchen-sink app from golden path"
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    text:
+      - title: What was created
+        content: |
+          **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+          Catalog entity: `${{ steps['register'].output.entityRef }}`
+
+          Topology looks for label `backstage.io/kubernetes-id` on the catalog entity
+          in namespace `demo-dev` (namespace is not created by this template).
+    links:
+      - title: GitHub repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+        icon: github
+      - title: catalog-info.yaml
+        url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
+        icon: github
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: Open in Dev Spaces
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+        icon: catalog
+      - title: Dev Spaces dashboard
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+        icon: catalog
+      - title: OpenShift project
+        url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
+        icon: catalog

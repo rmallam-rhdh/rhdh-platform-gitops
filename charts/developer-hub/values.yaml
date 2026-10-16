@@ -97,12 +97,12 @@ catalog:
   goldenPath:
     enabled: true
   locations:
-    - type: url
-      target: https://github.com/rmallam/RHDH-SM-DevSpaces/blob/main/golden-path/all-templates.yaml
-      allow: [Template, Location, Resource]
-    - type: url
-      target: https://github.com/rmallam/RHDH-SM-DevSpaces/blob/main/golden-path/catalog/location.yaml
-      allow: [Component, System, API]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-nodejs-golden-path.yaml
+      allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-quarkus-golden-path.yaml
+      allow: [Template]
 
 integrations:
   github:

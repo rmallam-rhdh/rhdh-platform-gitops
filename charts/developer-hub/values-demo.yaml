@@ -53,30 +53,27 @@ catalog:
   demoKitchenSink:
     enabled: true
   locations:
-    - type: url
-      target: https://raw.githubusercontent.com/rmallam/RHDH-SM-DevSpaces/refs/heads/demo/udi-devspaces/golden-path/demo/template-node-udi-devspaces.yaml
-      allow: [Template]
-    - type: url
-      target: https://raw.githubusercontent.com/rmallam/RHDH-SM-DevSpaces/refs/heads/demo/udi-devspaces/golden-path/demo/template-start-feature-devspaces.yaml
-      allow: [Template]
-    - type: url
-      target: https://raw.githubusercontent.com/rmallam/RHDH-SM-DevSpaces/refs/heads/demo/udi-devspaces/golden-path/demo/template-open-devspaces-namespace.yaml
-      allow: [Template]
-    - type: url
-      target: https://raw.githubusercontent.com/rmallam/RHDH/refs/heads/main/golden-path/demo/template-plugin-kitchen-sink.yaml
-      allow: [Template]
     - type: file
       target: /opt/app-root/src/golden-path/template-nodejs-golden-path.yaml
       allow: [Template]
     - type: file
       target: /opt/app-root/src/golden-path/template-quarkus-golden-path.yaml
       allow: [Template]
-    - type: url
-      target: https://raw.githubusercontent.com/rmallam/RHDH/refs/heads/main/golden-path/demo/template-nodejs-website.yaml
+    - type: file
+      target: /opt/app-root/src/golden-path/template-plugin-kitchen-sink.yaml
       allow: [Template]
-    - type: url
-      target: https://github.com/rmallam/demo-ks-plugins/blob/main/catalog-info.yaml
-      allow: [Component]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-nodejs-website.yaml
+      allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-node-udi-devspaces.yaml
+      allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-start-feature-devspaces.yaml
+      allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-open-devspaces-namespace.yaml
+      allow: [Template]
     - type: file
       target: /opt/app-root/src/catalog-demo/catalog-info.yaml
       allow: [Component, System]

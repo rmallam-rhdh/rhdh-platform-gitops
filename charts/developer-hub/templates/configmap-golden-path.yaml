@@ -11,4 +11,14 @@ data:
 {{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-nodejs-golden-path.yaml") | nindent 4 }}
   template-quarkus-golden-path.yaml: |
 {{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-quarkus-golden-path.yaml") | nindent 4 }}
+  template-plugin-kitchen-sink.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-plugin-kitchen-sink.yaml") | nindent 4 }}
+  template-nodejs-website.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-nodejs-website.yaml") | nindent 4 }}
+  template-node-udi-devspaces.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-node-udi-devspaces.yaml") | nindent 4 }}
+  template-start-feature-devspaces.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-start-feature-devspaces.yaml") | nindent 4 }}
+  template-open-devspaces-namespace.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-open-devspaces-namespace.yaml") | nindent 4 }}
 {{- end }}

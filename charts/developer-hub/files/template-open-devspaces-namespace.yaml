@@ -1,0 +1,114 @@
+---
+# Open an existing service in Dev Spaces in a namespace you already have.
+# Does not create a repo, branch, or OpenShift project. The project must exist
+# and your AD group must already grant edit + DevWorkspace in that namespace.
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-open-devspaces-namespace
+  title: Open Dev Spaces in my namespace
+  description: >
+    Pick an existing catalog service and the OpenShift namespace you already
+    have (AD group). Returns a Dev Spaces link that starts the workspace in
+    that namespace only. Does not provision a namespace.
+  tags:
+    - day-2
+    - devspaces
+    - namespace
+    - demo
+    - recommended
+spec:
+  owner: group:platform-team
+  type: service
+  parameters:
+    - title: Service and branch
+      required: [component, githubOwner, revision]
+      properties:
+        component:
+          title: Catalog component
+          type: string
+          description: Service already on the catalog
+          ui:field: EntityPicker
+          ui:autofocus: true
+          ui:options:
+            allowedKinds: [Component]
+            catalogFilter:
+              - kind: Component
+                spec.type: service
+        githubOwner:
+          title: GitHub owner
+          type: string
+          default: rmallam
+        revision:
+          title: Git branch or tag
+          type: string
+          description: Branch already on the repo (create it first with Start feature if needed)
+          default: main
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,70}$'
+    - title: Workspace namespace
+      required: [workspaceNamespace]
+      properties:
+        namespaceEntity:
+          title: Catalog namespace (optional)
+          type: string
+          description: Approved Resource — use the Resource name as the OpenShift project, or type it below
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [Resource]
+            catalogFilter:
+              - kind: Resource
+                spec.type: kubernetes-namespace
+        workspaceNamespace:
+          title: OpenShift namespace
+          type: string
+          description: >
+            Existing project only (example demo-dev or jsmith-devspaces).
+            Must already have your AD group. This template will not create it.
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          ui:help: CheCluster auto-provision should be off in the bank so workspaces cannot land in a random ns.
+        workspaceName:
+          title: Workspace name (optional)
+          type: string
+          description: DNS-1123 name for the DevWorkspace. Leave blank to derive from the service and branch.
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-component
+      name: Read catalog component
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.component }}
+  output:
+    text:
+      - title: Dev Spaces in your namespace
+        content: |
+          Service: `${{ parameters.component | parseEntityRef | pick('name') }}`
+          Branch: `${{ parameters.revision }}`
+          Namespace: `${{ parameters.workspaceNamespace }}`
+
+          That project must already exist. Your AD group must already allow
+          DevWorkspace create in it. This template does not create a namespace.
+
+          GitHub: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}
+
+          Open (factory, pinned to that namespace):
+          ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}?new&devfilePath=devfile.yaml&namespace=${{ parameters.workspaceNamespace }}
+
+          IDE after it starts:
+          ${{ parameters.devSpacesBaseUrl }}/dashboard/#/ide/${{ parameters.workspaceNamespace }}/${{ parameters.component | parseEntityRef | pick('name') }}
+    links:
+      - title: GitHub repository (this branch)
+        icon: github
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}
+      - title: Open in Dev Spaces (this namespace)
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}?new&devfilePath=devfile.yaml&namespace=${{ parameters.workspaceNamespace }}
+      - title: Dev Spaces dashboard for that namespace
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces?namespace=${{ parameters.workspaceNamespace }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ parameters.component }}
