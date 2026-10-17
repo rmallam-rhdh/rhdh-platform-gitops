@@ -22,5 +22,15 @@ if grep -qE "kind: Subscription|kind: OperatorGroup" "$OUT" "$DR"; then
   echo "FAIL operator install must not be rendered"
   fail=1
 fi
+if grep -q "istio.io/dataplane-mode: ambient" "$OUT" "$DR"; then
+  echo "FAIL CNPG namespaces must stay off ambient"
+  fail=1
+fi
+if grep -q "istio.io/dataplane-mode: none" "$OUT" && grep -q "istio.io/dataplane-mode: none" "$DR"; then
+  echo "OK  CNPG namespaces stamp dataplane-mode none"
+else
+  echo "FAIL CNPG Namespace missing dataplane-mode none"
+  fail=1
+fi
 [ "$fail" -eq 0 ] || exit 1
 echo "CNPG chart tests passed"

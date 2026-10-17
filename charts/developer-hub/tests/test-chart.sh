@@ -21,7 +21,8 @@ PROD="$(mktemp)"
 DEMO="$(mktemp)"
 PROXY="$(mktemp)"
 PLACEHOLDER="$(mktemp)"
-trap 'rm -f "$PROD" "$DEMO" "$PROXY" "$PLACEHOLDER"' EXIT
+DEPLOY="$(mktemp)"
+trap 'rm -f "$PROD" "$DEMO" "$PROXY" "$PLACEHOLDER" "$DEPLOY"' EXIT
 
 render "$PROD" -f "$CHART/values.yaml"
 render "$DEMO" -f "$CHART/values.yaml" -f "$CHART/values-demo.yaml"
@@ -226,6 +227,35 @@ if grep -E '^[[:space:]]*NO_PROXY:' "$PLACEHOLDER" | grep -qi 'service-now'; the
   fail=1
 else
   echo "OK  ServiceNow not on placeholder NO_PROXY"
+fi
+for host in 172.30.0.1 kubernetes.default.svc kubernetes.default.svc.cluster.local; do
+  if grep -E '^[[:space:]]*NO_PROXY:' "$PLACEHOLDER" | grep -q "$host"; then
+    echo "OK  placeholder NO_PROXY has $host"
+  else
+    echo "FAIL placeholder NO_PROXY missing $host"
+    fail=1
+  fi
+done
+
+echo "== mesh off by default =="
+if grep -q "istio.io/dataplane-mode: ambient" "$PROD"; then
+  echo "FAIL Hub default must not enrol rhdh in ambient"
+  fail=1
+else
+  echo "OK  default render has no ambient enrolment"
+fi
+if grep -q "istio.io/dataplane-mode: none" "$PROD"; then
+  echo "OK  default Namespace stamps dataplane-mode none"
+else
+  echo "FAIL default Namespace missing dataplane-mode none"
+  fail=1
+fi
+render "$DEPLOY" -f "$CHART/values.yaml" -f "$CHART/values-demo.yaml" -f "$CHART/values-deploy.yaml"
+if grep -q "istio.io/dataplane-mode: ambient" "$DEPLOY"; then
+  echo "FAIL values-deploy must not enrol rhdh in ambient"
+  fail=1
+else
+  echo "OK  values-deploy has no ambient enrolment"
 fi
 if grep -q "dev374459.service-now.com" "$DEMO"; then
   echo "OK  demo readingAllow ServiceNow host"

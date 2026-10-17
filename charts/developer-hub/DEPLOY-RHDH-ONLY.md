@@ -329,7 +329,7 @@ oc apply -f examples/squid-htpasswd.example.yaml   # after filling passwd: rhdh:
 # add HTTP_PROXY, HTTPS_PROXY, NO_PROXY to Secret rhdh-secrets (see examples/rhdh-secrets.example.yaml)
 ```
 
-`NO_PROXY` must include every in-cluster name the Hub dials (`rhdh-pg-rw`, `.svc`, `kubernetes.default.svc`, Jenkins, Sonar, Vault, LDAP, stubs, and the cluster apps domain). Do **not** add `*.service-now.com`.
+`NO_PROXY` must include every in-cluster name the Hub dials (`rhdh-pg-rw`, `.svc`, the Kubernetes API at `172.30.0.1` / `kubernetes.default.svc` / `kubernetes.default.svc.cluster.local`, Jenkins, Sonar, Vault, LDAP, stubs, and the cluster apps domain). The Kubernetes plugin uses `KUBERNETES_SERVICE_HOST` (the Service cluster IP), which `.svc` does not match. Do **not** add `*.service-now.com`.
 
 ### 2. Turn the chart flag on
 

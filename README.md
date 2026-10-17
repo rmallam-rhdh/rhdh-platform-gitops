@@ -78,7 +78,7 @@ The runbooks for these charts live in [rmallam/RHDH](https://github.com/rmallam/
 | `charts/developer-hub` | [rhdh-plugins](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-plugins), [rhdh-entra-ldap](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-entra-ldap), [rhdh-vault-eso](https://github.com/rmallam/RHDH/tree/main/docs/rhdh-vault-eso) |
 | whole cluster | [lab-state](https://github.com/rmallam/RHDH/tree/main/docs/lab-state) — installed versions, what is deployed, lab-only settings |
 
-`charts/developer-hub/values-deploy.yaml` sets `mesh.ambient: false`, so namespace `rhdh` is not in the mesh. The chart default is still `mesh.ambient: true`. Turning that on sends the Hub and Postgres through ztunnel, and kubelet probes to CloudNativePG port 8000 time out. Both charts still render `Namespace/rhdh`, so their labels can overwrite each other.
+Hub and Postgres stay off the mesh (`mesh.ambient: false` in the Hub chart; CNPG stamps `istio.io/dataplane-mode: none` on `Namespace/rhdh`). Turning ambient on sends them through ztunnel, and kubelet probes to CloudNativePG port 8000 time out. `NO_PROXY` on Secret `rhdh-secrets` must include the Kubernetes API (`172.30.0.1`, `kubernetes.default.svc`, `kubernetes.default.svc.cluster.local`) so the Kubernetes plugin does not go via Squid.
 
 ## Layout
 
