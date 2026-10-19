@@ -82,7 +82,7 @@ In-cluster tools (`jenkins.jenkins.svc`, `sonarqube.sonarqube.svc`, `vault.vault
 | SonarQube | `plugins.sonarqube.baseUrl` | `SONARQUBE_BASE_URL` | `rhdh/sonarqube-base-url` | `http://sonarqube.sonarqube.svc:9000` |
 | Jira | `plugins.jira.baseUrl` | `JIRA_BASE_URL` | `rhdh/jira-base-url` | `https://YOUR.atlassian.net` |
 | Vault plugin | `plugins.vault.baseUrl` | `VAULT_ADDR` | `rhdh/vault-addr` | `http://vault.vault.svc:8200` |
-| Kiali | `plugins.kiali.url` | `KIALI_URL` | `rhdh/kiali-url` | `https://kiali-istio-system.apps.YOURCLUSTER.openshiftapps.com` |
+| Kiali | `plugins.kiali.url` | `KIALI_URL` | `rhdh/kiali-url` | `https://kiali.istio-system.svc:20001` |
 | Dynatrace UI | `plugins.dynatrace.url` | `DYNATRACE_URL` | `rhdh/dynatrace-url` | `https://xxxx.apps.dynatrace.com` |
 | ServiceNow | `plugins.servicenow.baseUrl` | `SERVICENOW_BASE_URL` | `rhdh/servicenow-base-url` | real URL or stub |
 | Artifactory | `plugins.artifactory.baseUrl` | `ARTIFACTORY_BASE_URL` | `rhdh/artifactory-base-url` | real URL or stub |
@@ -151,7 +151,7 @@ Skip these three only if you turn Microsoft login off.
 | `ARGOCD_TOKEN` | `argocd-token` | Argo CD bearer token |
 | `VAULT_ADDR` | `vault-addr` | URL **Hub pods** use to reach Vault |
 | `VAULT_TOKEN` | `vault-list-token` | Token for the **Vault plugin tab** (LIST on `secrets/metadata/rhdh`, not ESO’s token) |
-| `KIALI_URL` | `kiali-url` | Public Kiali route |
+| `KIALI_URL` | `kiali-url` | In-cluster `https://kiali.istio-system.svc:20001` (axios skips Squid via `.svc`) |
 | `KUBE_API_URL` | `kube-api-url` | `https://kubernetes.default.svc` |
 | `KUBE_SA_TOKEN` | `kube-sa-token` | empty if Hub uses in-cluster SA (`values-demo` does this) |
 | `KUBE_CA_DATA` | `kube-ca-data` | empty if in-cluster |
@@ -306,7 +306,7 @@ Use this when the cluster must reach ServiceNow, Jira, Dynatrace, Entra, GitHub,
 
 `app.readingAllow` does not change the path. It only lists hostnames the Hub is willing to call. Keep those entries, including the ServiceNow host.
 
-The ServiceNow plugin has no proxy field. A ServiceNow call uses the process `HTTP_PROXY` when that host is **absent** from `NO_PROXY`. Squid already allows `.service-now.com`.
+The ServiceNow plugin has no proxy field. A ServiceNow call uses the process `HTTP_PROXY` when that host is **absent** from `NO_PROXY`. This lab keeps `.service-now.com` on `NO_PROXY` until the Squid path (previously 502) is proven.
 
 This does not cover Dev Spaces, the operators, or image pulls. Those follow the OpenShift cluster `Proxy` object, not the Hub setting below. Plugin-install init stays off the Hub proxy (`httpProxy.initContainer` empty) because registry CDNs will not match the Squid allow list.
 
@@ -329,7 +329,7 @@ oc apply -f examples/squid-htpasswd.example.yaml   # after filling passwd: rhdh:
 # add HTTP_PROXY, HTTPS_PROXY, NO_PROXY to Secret rhdh-secrets (see examples/rhdh-secrets.example.yaml)
 ```
 
-`NO_PROXY` must include every in-cluster name the Hub dials (`rhdh-pg-rw`, `.svc`, the Kubernetes API at `172.30.0.1` / `kubernetes.default.svc` / `kubernetes.default.svc.cluster.local`, Jenkins, Sonar, Vault, LDAP, stubs, and the cluster apps domain). The Kubernetes plugin uses `KUBERNETES_SERVICE_HOST` (the Service cluster IP), which `.svc` does not match. Do **not** add `*.service-now.com`.
+`NO_PROXY` must include every in-cluster name the Hub dials (`rhdh-pg-rw`, `.svc`, the Kubernetes API at `172.30.0.1` / `kubernetes.default.svc` / `kubernetes.default.svc.cluster.local`, Jenkins, Sonar, Vault, LDAP, stubs, Kiali at `kiali.istio-system.svc`, and a leading-dot cluster apps domain). The Kubernetes plugin uses `KUBERNETES_SERVICE_HOST` (the Service cluster IP), which `.svc` does not match. Put `.service-now.com` on `NO_PROXY` until the Squid path is proven. Axios treats a `NO_PROXY` entry without a leading dot as an exact host, so `apps.<cluster>` does not bypass `kiali-istio-system.apps.<cluster>`.
 
 ### 2. Turn the chart flag on
 

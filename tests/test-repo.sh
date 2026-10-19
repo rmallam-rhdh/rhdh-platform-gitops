@@ -97,6 +97,7 @@ need "$HUB" "/opt/app-root/src/golden-path/template-node-udi-devspaces.yaml"
 need "$HUB" "RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton"
 need "$HUB" "mallamrakeshgmail.onmicrosoft.com"
 need "$HUB" "dev374459.service-now.com"
+need "$HUB" "kiali.istio-system.svc:20001"
 need "$HUB" "name: NODE_OPTIONS"
 need "$HUB" "--no-node-snapshot --use-env-proxy"
 need "$SQUID" "auth_param basic program"
@@ -127,12 +128,8 @@ forbid "$HUB" "install-dynamic-plugins"
 forbid "$SQUID" "kind: ExternalSecret"
 forbid "$SQUID" "kind: Route"
 forbid "$SQUID" "istio.io/dataplane-mode"
-if grep -E '^[[:space:]]*NO_PROXY:' "$HUB" | grep -qi 'service-now'; then
-  echo "FAIL ServiceNow must not be on NO_PROXY"
-  fail=1
-else
-  echo "OK  ServiceNow not on Hub NO_PROXY"
-fi
+need "$ROOT/examples/rhdh-secrets.example.yaml" ".service-now.com"
+need "$ROOT/charts/developer-hub/values.yaml" ".service-now.com"
 
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"

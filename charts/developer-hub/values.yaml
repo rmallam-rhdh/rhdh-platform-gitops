@@ -362,7 +362,7 @@ plugins:
 # Entra, GitHub). Leave enabled false until HTTP_PROXY / HTTPS_PROXY / NO_PROXY
 # already exist on Secret rhdh-secrets (or the three Vault keys when mode=eso).
 # The proxy URL is never stored in this file. See DEPLOY-RHDH-ONLY.md.
-# ServiceNow has no plugin proxy field: leave *.service-now.com off NO_PROXY.
+# ServiceNow is on NO_PROXY until the Squid path to that host is proven.
 httpProxy:
   enabled: false
   # NODE_OPTIONS is replaced, not appended. Keep --no-node-snapshot.
@@ -378,7 +378,7 @@ httpProxy:
   placeholders:
     http: http://rhdh:change-me@squid.squid.svc:3128
     https: http://rhdh:change-me@squid.squid.svc:3128
-    noProxy: localhost,127.0.0.1,172.30.0.1,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster.local,.svc,.svc.cluster.local,.cluster.local,rhdh-pg-rw,rhdh-pg-rw.rhdh.svc,jenkins.jenkins.svc,sonarqube.sonarqube.svc,vault.vault.svc,saas-stubs.saas-stubs.svc,openldap.ldap.svc
+    noProxy: localhost,127.0.0.1,172.30.0.1,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster.local,.svc,.svc.cluster.local,.cluster.local,rhdh-pg-rw,rhdh-pg-rw.rhdh.svc,jenkins.jenkins.svc,sonarqube.sonarqube.svc,vault.vault.svc,saas-stubs.saas-stubs.svc,openldap.ldap.svc,.service-now.com
 
 # Secret material. mode=external means GitOps does not own rhdh-secrets.
 secrets:

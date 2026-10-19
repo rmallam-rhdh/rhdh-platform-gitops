@@ -40,7 +40,7 @@ CNPG writes Secret `rhdh-pg-app`. The Hub chart reads it. The Cluster CR itself 
 
 Scaffolder Template entities are registered from ConfigMap `rhdh-golden-path` in this chart. Their skeletons are fetched from `rmallam/RHDH-SM-DevSpaces` branch `main`.
 
-Hub egress (ServiceNow, Jira, Dynatrace, Entra, GitHub) goes through in-cluster Squid when `httpProxy.enabled` is true in `values-deploy.yaml`. Secret `rhdh-secrets` must already have `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`. Leave `*.service-now.com` off `NO_PROXY`. Apply Secret `squid-htpasswd` from [examples/squid-htpasswd.example.yaml](examples/squid-htpasswd.example.yaml) before the Squid Application is Ready. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
+Hub egress (Jira, Dynatrace, Entra, GitHub) goes through in-cluster Squid when `httpProxy.enabled` is true in `values-deploy.yaml`. Secret `rhdh-secrets` must already have `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`. Put `.service-now.com` on `NO_PROXY` until the Squid path to that host is proven. Apply Secret `squid-htpasswd` from [examples/squid-htpasswd.example.yaml](examples/squid-htpasswd.example.yaml) before the Squid Application is Ready. Steps are in [Corporate HTTP proxy for SaaS calls](charts/developer-hub/DEPLOY-RHDH-ONLY.md#4-corporate-http-proxy-for-saas-calls). What to ask the customer, and what we can answer about Basic auth and TLS, is in [PROXY-AUTH.md](charts/developer-hub/PROXY-AUTH.md).
 
 ## Dev Spaces ingress
 

@@ -21,6 +21,10 @@ plugins:
     enabled: false
   kubernetes:
     clusterName: rosa-rwx5g
+  # Public route is proxied by axios (NO_PROXY suffix match is exact unless
+  # the entry has a leading dot). In-cluster matches `.svc` and skips Squid.
+  kiali:
+    url: https://kiali.istio-system.svc:20001
 
 createNamespace: false
 
@@ -38,7 +42,8 @@ database:
     secretName: rhdh-pg-app
 
 # In-cluster Squid (charts/squid). HTTP_PROXY / HTTPS_PROXY / NO_PROXY live on
-# Secret rhdh-secrets, not in this file. Leave ServiceNow off NO_PROXY.
+# Secret rhdh-secrets, not in this file. ServiceNow stays on NO_PROXY until
+# the Squid path to that host is proven (lab 502).
 httpProxy:
   enabled: true
   nodeOptions: "--no-node-snapshot --use-env-proxy"

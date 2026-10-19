@@ -223,10 +223,10 @@ for pat in "HTTP_PROXY:" "HTTPS_PROXY:" "NO_PROXY:" "--no-node-snapshot --use-en
 done
 grep -q "kind: ExternalSecret" "$PLACEHOLDER" && { echo "FAIL placeholder mode must not emit ExternalSecret"; fail=1; }
 if grep -E '^[[:space:]]*NO_PROXY:' "$PLACEHOLDER" | grep -qi 'service-now'; then
-  echo "FAIL ServiceNow must not be on placeholder NO_PROXY"
-  fail=1
+  echo "OK  ServiceNow on placeholder NO_PROXY"
 else
-  echo "OK  ServiceNow not on placeholder NO_PROXY"
+  echo "FAIL placeholder NO_PROXY missing .service-now.com"
+  fail=1
 fi
 for host in 172.30.0.1 kubernetes.default.svc kubernetes.default.svc.cluster.local; do
   if grep -E '^[[:space:]]*NO_PROXY:' "$PLACEHOLDER" | grep -q "$host"; then
