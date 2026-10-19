@@ -36,7 +36,7 @@ spec:
         githubOwner:
           title: GitHub owner
           type: string
-          default: rmallam
+          default: rmallam-rhdh
         jiraKey:
           title: Jira story key
           type: string

@@ -38,7 +38,7 @@ spec:
         githubOwner:
           title: GitHub owner
           type: string
-          default: rmallam
+          default: rmallam-rhdh
         revision:
           title: Git branch or tag
           type: string

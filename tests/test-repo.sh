@@ -28,7 +28,7 @@ forbid() {
 
 echo "== unit: Argo paths =="
 for f in "$ROOT"/argocd/app-of-apps.yaml "$ROOT"/argocd/apps/*.yaml; do
-  need "$f" "https://github.com/rmallam/rhdh-platform-gitops"
+  need "$f" "https://github.com/rmallam-rhdh/rhdh-platform-gitops"
 done
 need "$ROOT/argocd/apps/cnpg.yaml" "charts/cnpg"
 need "$ROOT/argocd/apps/cnpg-dr.yaml" "charts/cnpg"

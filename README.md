@@ -17,7 +17,7 @@ No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
 Operators and lab tools are **not** in this repo. Install them first, then sync this repo.
 
-From [rmallam/RHDH-SM-DevSpaces](https://github.com/rmallam/RHDH-SM-DevSpaces) branch `main` (apply `bootstrap/root-app.yaml` first):
+From [rmallam-rhdh/RHDH-SM-DevSpaces](https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces) branch `main` (apply `bootstrap/root-app.yaml` first):
 
 - OpenShift GitOps (and the controller cluster-admin binding)
 - CloudNativePG operator

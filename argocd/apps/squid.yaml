@@ -14,7 +14,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/rmallam/rhdh-platform-gitops
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
     targetRevision: main
     path: charts/squid
   destination:

@@ -36,9 +36,9 @@ spec:
           default: Quarkus golden-path backend with Jenkins, Helm, and OpenAPI
         githubOwner:
           title: GitHub owner (org or user)
-          description: GitHub user or org that will own the new repository (default rmallam).
+          description: GitHub user or org that will own the new repository (default rmallam-rhdh).
           type: string
-          default: rmallam
+          default: rmallam-rhdh
           pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
         systemName:
           title: System name
@@ -76,7 +76,7 @@ spec:
       name: Fetch Quarkus golden-path skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-quarkus-golden-path
+        url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-quarkus-golden-path
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}

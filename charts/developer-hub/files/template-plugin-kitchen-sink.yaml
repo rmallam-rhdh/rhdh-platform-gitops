@@ -34,7 +34,7 @@ spec:
         githubOwner:
           title: GitHub owner (org or user)
           type: string
-          default: rmallam
+          default: rmallam-rhdh
           pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
         port:
           title: Application port
@@ -57,7 +57,7 @@ spec:
       name: Fetch kitchen-sink skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-plugin-kitchen-sink
+        url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-plugin-kitchen-sink
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}
