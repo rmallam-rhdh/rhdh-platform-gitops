@@ -1,0 +1,46 @@
+# Lab-only. Not a stand-in for customer Active Directory.
+# Build images first: ./charts/kerberos-lab/scripts/build-images.sh
+
+namespace: kerberos-lab
+createNamespace: true
+realm: LAB.LOCAL
+# Must match Service DNS used in SPNs.
+corporateProxyHostname: corporate-proxy.kerberos-lab.svc.cluster.local
+bridgeHostname: bridge.kerberos-lab.svc.cluster.local
+
+images:
+  # Built by scripts/build-images.sh and pushed to your registry.
+  # Defaults assume a local/kind tag; override for the cluster.
+  kdc: kerberos-lab-kdc:0.1.0
+  corporateProxy: kerberos-lab-corporate-proxy:0.1.0
+  bridge: kerberos-lab-bridge:0.1.0
+  pullPolicy: IfNotPresent
+
+kdc:
+  replicas: 1
+
+corporateProxy:
+  port: 3128
+  # Destinations the "corporate" Negotiate proxy may CONNECT to (lab allow list).
+  # Squid rejects mixing example.com and .example.com on the same ACL.
+  allow:
+    - .example.com
+    - .httpbin.org
+    - ifconfig.me
+    - .github.com
+    - .atlassian.net
+    - .atlassian.com
+    - .service-now.com
+
+bridge:
+  port: 3128
+  # Hub talks here with NO proxy auth. Bridge does Negotiate to corporate-proxy.
+
+# Bootstrap Job creates keytabs into Secret kerberos-lab-keytabs.
+bootstrap:
+  enabled: true
+
+networkPolicy:
+  # Hub namespaces allowed to use the bridge (no auth on bridge listen).
+  allowFromNamespaces:
+    - rhdh-kerberos

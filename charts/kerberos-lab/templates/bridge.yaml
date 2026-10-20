@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bridge
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: bridge
+spec:
+  selector:
+    app.kubernetes.io/component: bridge
+  ports:
+    - name: proxy
+      port: {{ .Values.bridge.port }}
+      targetPort: proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bridge
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: bridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: bridge
+  template:
+    metadata:
+      labels:
+        {{- include "kerberos-lab.labels" . | nindent 8 }}
+        app.kubernetes.io/component: bridge
+    spec:
+      serviceAccountName: kerberos-lab
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 13
+        runAsGroup: 13
+        fsGroup: 13
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: kdc
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: wait-keytab
+          image: {{ .Values.images.kdc | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          command: ["sh", "-c", "until test -f /keytabs/bridge-client.keytab; do echo waiting for bridge-client.keytab; sleep 3; done"]
+          volumeMounts:
+            - name: keytabs
+              mountPath: /keytabs
+              readOnly: true
+      containers:
+        - name: squid
+          image: {{ .Values.images.bridge | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          env:
+            - name: REALM
+              value: {{ .Values.realm | quote }}
+            - name: KDC_HOSTNAME
+              value: kdc.{{ .Values.namespace }}.svc.cluster.local
+            - name: CORPORATE_PROXY_HOSTNAME
+              value: corporate-proxy.{{ .Values.namespace }}.svc.cluster.local
+            - name: CORPORATE_PROXY_PORT
+              value: {{ .Values.corporateProxy.port | quote }}
+            - name: KRB5_KTNAME
+              value: /keytabs/bridge-client.keytab
+            - name: BRIDGE_CLIENT_PRINCIPAL
+              value: rhdh-bridge@{{ .Values.realm }}
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.bridge.port }}
+          readinessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: keytabs
+              mountPath: /keytabs
+              readOnly: true
+      volumes:
+        - name: keytabs
+          persistentVolumeClaim:
+            claimName: kerberos-lab-keytabs

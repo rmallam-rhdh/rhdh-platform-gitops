@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: corporate-proxy
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: corporate-proxy
+spec:
+  selector:
+    app.kubernetes.io/component: corporate-proxy
+  ports:
+    - name: proxy
+      port: {{ .Values.corporateProxy.port }}
+      targetPort: proxy
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: corporate-proxy
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: corporate-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: corporate-proxy
+  template:
+    metadata:
+      labels:
+        {{- include "kerberos-lab.labels" . | nindent 8 }}
+        app.kubernetes.io/component: corporate-proxy
+    spec:
+      serviceAccountName: kerberos-lab
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 13
+        runAsGroup: 13
+        fsGroup: 13
+      # Share RWO PVC with KDC — schedule on same node via pod affinity to kdc.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: kdc
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: wait-keytab
+          image: {{ .Values.images.kdc | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          command: ["sh", "-c", "until test -f /keytabs/corporate.keytab; do echo waiting for corporate.keytab; sleep 3; done"]
+          volumeMounts:
+            - name: keytabs
+              mountPath: /keytabs
+              readOnly: true
+      containers:
+        - name: squid
+          image: {{ .Values.images.corporateProxy | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          env:
+            - name: REALM
+              value: {{ .Values.realm | quote }}
+            - name: CORPORATE_PROXY_HOSTNAME
+              value: {{ .Values.corporateProxyHostname | quote }}
+            - name: KDC_HOSTNAME
+              value: kdc.{{ .Values.namespace }}.svc.cluster.local
+            - name: KRB5_KTNAME
+              value: /keytabs/corporate.keytab
+            - name: ALLOW_FILE
+              value: /etc/squid/allow.txt
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.corporateProxy.port }}
+          readinessProbe:
+            tcpSocket:
+              port: proxy
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: keytabs
+              mountPath: /keytabs
+              readOnly: true
+            - name: allow
+              mountPath: /etc/squid/allow.txt
+              subPath: allow.txt
+              readOnly: true
+      volumes:
+        - name: keytabs
+          persistentVolumeClaim:
+            claimName: kerberos-lab-keytabs
+        - name: allow
+          configMap:
+            name: corporate-proxy-allow

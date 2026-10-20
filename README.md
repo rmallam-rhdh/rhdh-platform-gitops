@@ -9,7 +9,9 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
 | `charts/devspaces` | `devspaces` | `CheCluster` in `openshift-devspaces` (Route labels for the existing shared ingress) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
-| `charts/squid` | `squid` | Authenticated Squid. Hub uses it when `httpProxy.enabled` is true |
+| `charts/squid` | `squid` | Authenticated Squid (Basic). Main Hub uses it when `httpProxy.enabled` is true |
+| `charts/kerberos-lab` | `kerberos-lab` | Lab-only KDC + Negotiate corporate proxy + bridge |
+| `charts/developer-hub` (`values-kerberos-lab.yaml`) | `developer-hub-kerberos` | Dedicated Hub in `rhdh-kerberos` for Kerberos proxy spike |
 
 No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 

@@ -1,0 +1,46 @@
+# Bridge accepts Hub traffic only from listed namespaces (no proxy auth on listen).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bridge-ingress
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: bridge
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+{{- range .Values.networkPolicy.allowFromNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . | quote }}
+{{- end }}
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.bridge.port }}
+---
+# Corporate proxy only accepts the bridge (simulates locked-down customer proxy).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: corporate-proxy-ingress
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: corporate-proxy
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: bridge
+      ports:
+        - protocol: TCP
+          port: {{ .Values.corporateProxy.port }}
