@@ -25,6 +25,12 @@ data:
         upgrade-insecure-requests: false
       reading:
         allow:
+      auth:
+        externalAccess:
+          - type: static
+            options:
+              token: abc123
+              subject: servicenow-api
 {{ .Values.app.readingAllow | toYaml | nindent 10 }}
       {{- if .Values.database.external.enabled }}
       database:
