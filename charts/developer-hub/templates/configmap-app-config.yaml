@@ -23,14 +23,19 @@ data:
         credentials: true
       csp:
         upgrade-insecure-requests: false
-      reading:
-        allow:
       auth:
         externalAccess:
           - type: static
             options:
-              token: abcd1234
-              subject: servicenow-api
+              token: ${SNOW_ACCESS_TOKEN}
+              subject: "servicenowapi"
+            accessRestrictions:
+              - plugin: catalog
+                permissionAttribute:
+                  action:
+                    - read
+      reading:
+        allow:
 {{ .Values.app.readingAllow | toYaml | nindent 10 }}
       {{- if .Values.database.external.enabled }}
       database:
