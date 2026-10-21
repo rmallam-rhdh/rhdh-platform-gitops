@@ -29,7 +29,7 @@ data:
         externalAccess:
           - type: static
             options:
-              token: abc123
+              token: abcd1234
               subject: servicenow-api
 {{ .Values.app.readingAllow | toYaml | nindent 10 }}
       {{- if .Values.database.external.enabled }}
