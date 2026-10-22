@@ -79,7 +79,7 @@ Rendered by the Hub chart when `kerberosBridgeSidecar.enabled: true` (`templates
 | `containerPort` | `3128` (name `proxy`) |
 | Squid `http_port` | **`127.0.0.1:3128`** (loopback only). Must match Hub `HTTP_PROXY`. |
 | Client auth on listen | **None** (`http_access allow all`). Safe **only** with the loopback bind. |
-| Startup / readiness / liveness | **exec** `bash -c 'echo >/dev/tcp/127.0.0.1:3128'` (not TCP to pod IP — that misses loopback bind) |
+| Startup / readiness / liveness | **exec** `bash -c 'echo >/dev/tcp/127.0.0.1/3128'` (not `tcpSocket` to pod IP — Squid is loopback-only) |
 
 ### 3.3 Volume: client keytab
 
@@ -228,7 +228,7 @@ networkPolicy:
 1. KDC + corporate-proxy Ready; client keytab exists on KDC PVC.
 2. `sync-bridge-keytab-secret.sh` → Secret in Hub namespace; image pullable (same-ns tag or `system:image-puller`).
 3. Hub Secret proxy URLs point at `127.0.0.1:3128`.
-4. Hub pod shows containers including `kerberos-bridge`; bridge readiness TCP :3128.
+4. Hub pod shows containers including `kerberos-bridge`; bridge Ready via loopback exec probe (not pod-IP TCP).
 5. Smoke from Hub:
 
 ```bash
@@ -266,8 +266,8 @@ Expect `http://127.0.0.1:3128` and HTTP **200** for an allow-listed host.
 |---|---|---|
 | Keytab into Hub ns | PostSync Job `keytabSync` (+ manual `sync-bridge-keytab-secret.sh`) | IAM-issued keytab → Vault/ESO → same Secret mount |
 | Image pull | Cluster IS tag or `ghcr.io/rmallam-rhdh/kerberos-lab-bridge-ubi:0.1.0` | Registry allow + pull secret |
-| Open proxy risk | Squid `http_port 127.0.0.1:3128`; probes use `/healthcheck.sh` | Never expose bridge Service; keep loopback |
-| TGT expiry | Ready/live require `klist -s`; renew every `RENEW_INTERVAL_SECONDS` | Realm `max_life`, KDC HA, clock sync |
+| Open proxy risk | Squid `http_port 127.0.0.1:3128`; probes use bash `/dev/tcp` to loopback | Never expose bridge Service; keep loopback |
+| TGT expiry | Entrypoint renews every `RENEW_INTERVAL_SECONDS`; optional `/healthcheck.sh` still does `klist -s` | Realm `max_life`, KDC HA, clock sync |
 | Wrong `HTTP_PROXY` | Example Secret + `preflight-sidecar.sh` | Lock URL to localhost in their Secret/ESO |
 | Accidental platform sync | Apps live under `argocd/apps-lab/` only | Do not add to default app-of-apps |
 | SPN / firewall / allow-list | Lab Squid + NP | Their AD SPN, egress, SaaS allow list |

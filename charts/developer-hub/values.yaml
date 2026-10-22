@@ -380,6 +380,10 @@ httpProxy:
     https: http://rhdh:change-me@squid.squid.svc:3128
     noProxy: localhost,127.0.0.1,172.30.0.1,kubernetes.default,kubernetes.default.svc,kubernetes.default.svc.cluster.local,.svc,.svc.cluster.local,.cluster.local,rhdh-pg-rw,rhdh-pg-rw.rhdh.svc,jenkins.jenkins.svc,sonarqube.sonarqube.svc,vault.vault.svc,saas-stubs.saas-stubs.svc,openldap.ldap.svc,.service-now.com
 
+# RHDH operator flavours (e.g. lightspeed). Omit the key for operator defaults.
+# Set to [] to disable all default flavours, or list entries with enabled: false.
+# flavours: []
+
 # Lab-only Negotiate bridge sidecar (charts/kerberos-lab images/bridge-ubi).
 # Not a supported RHDH feature. Off by default.
 kerberosBridgeSidecar:
