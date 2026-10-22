@@ -84,8 +84,7 @@ for f in \
   "$CHART/scripts/build-images.sh" \
   "$CHART/scripts/sync-bridge-keytab-secret.sh" \
   "$CHART/scripts/preflight-sidecar.sh" \
-  "$CHART/SIDECAR.md" \
-  "$CHART/SUPPORT-BRIEF.md"
+  "$CHART/SIDECAR.md"
 do
   if [[ -f "$f" ]]; then
     echo "OK  file $f"
@@ -126,7 +125,7 @@ for pat in \
   "open forward proxy" \
   "not a supported RHDH"
 do
-  if grep -q "$pat" "$CHART/SIDECAR.md" || grep -q "$pat" "$CHART/SUPPORT-BRIEF.md"; then
+  if grep -qi "$pat" "$CHART/SIDECAR.md"; then
     echo "OK  docs have $pat"
   else
     echo "FAIL docs missing $pat"

@@ -271,7 +271,7 @@ Expect `http://127.0.0.1:3128` and HTTP **200** for an allow-listed host.
 | Wrong `HTTP_PROXY` | Example Secret + `preflight-sidecar.sh` | Lock URL to localhost in their Secret/ESO |
 | Accidental platform sync | Apps live under `argocd/apps-lab/` only | Do not add to default app-of-apps |
 | SPN / firewall / allow-list | Lab Squid + NP | Their AD SPN, egress, SaaS allow list |
-| Support boundary | [SUPPORT-BRIEF.md](SUPPORT-BRIEF.md) | Prefer Basic; treat sidecar as custom |
+| Support boundary | Unsupported custom spike | Prefer Basic; treat sidecar as custom |
 
 Before any demo or support review: `./scripts/preflight-sidecar.sh` must exit 0.
 

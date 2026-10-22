@@ -4,8 +4,7 @@
 
 | Doc | Purpose |
 |---|---|
-| **[SUPPORT-BRIEF.md](SUPPORT-BRIEF.md)** | **Start here for support/SE endorsement** — supported vs spike, talk track, customer checklist |
-| **[SIDECAR.md](SIDECAR.md)** | Sidecar container spec, env, keytab/SPN, failure modes |
+| **[SIDECAR.md](SIDECAR.md)** | How it works — sidecar spec, env, keytab/SPN, failure modes |
 | [PROXY-AUTH.md](../developer-hub/PROXY-AUTH.md) | Supported **Basic** proxy answers |
 
 ```text

@@ -14,7 +14,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
-    targetRevision: cursor/kerberos-lab-negotiate-proxy
+    targetRevision: main
     path: charts/developer-hub
     helm:
       valueFiles:

@@ -11,4 +11,4 @@ oc apply -f argocd/apps-lab/developer-hub-kerberos.yaml
 ```
 
 Set `spec.source.targetRevision` to the branch or tag that contains this spike before applying.
-See `charts/kerberos-lab/SUPPORT-BRIEF.md`.
+See `charts/kerberos-lab/SIDECAR.md`.
