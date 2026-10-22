@@ -24,5 +24,8 @@ build_one() {
 build_one kdc "${ROOT}/images/kdc"
 build_one corporate-proxy "${ROOT}/images/corporate-proxy"
 build_one bridge "${ROOT}/images/bridge"
+# RHEL 9 Squid + krb5 (Hub sidecar / preferred standalone). Needs registry.redhat.io pull.
+build_one bridge-ubi "${ROOT}/images/bridge-ubi"
 
 echo "Done. Set charts/kerberos-lab/values-deploy.yaml images.* to your registry tags."
+echo "Sidecar image tag: kerberos-lab-bridge-ubi:${TAG}"

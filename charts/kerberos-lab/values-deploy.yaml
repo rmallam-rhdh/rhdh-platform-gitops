@@ -7,9 +7,17 @@
 images:
   kdc: image-registry.openshift-image-registry.svc:5000/kerberos-lab/kerberos-lab-kdc:0.1.0
   corporateProxy: image-registry.openshift-image-registry.svc:5000/kerberos-lab/kerberos-lab-corporate-proxy:0.1.0
-  bridge: image-registry.openshift-image-registry.svc:5000/kerberos-lab/kerberos-lab-bridge:0.1.0
+  # UBI/RHEL9 Squid bridge (sidecar + optional standalone).
+  bridge: image-registry.openshift-image-registry.svc:5000/kerberos-lab/kerberos-lab-bridge-ubi:0.1.0
   pullPolicy: Always
+
+# Prefer Hub sidecar; keep standalone Deployment scaled off.
+bridge:
+  enabled: false
 
 networkPolicy:
   allowFromNamespaces:
     - rhdh-kerberos
+
+# Namespace already exists on this cluster.
+createNamespace: false

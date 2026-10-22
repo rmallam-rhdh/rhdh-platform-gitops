@@ -1,3 +1,4 @@
+{{- if .Values.bridge.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -36,9 +37,7 @@ spec:
       serviceAccountName: kerberos-lab
       securityContext:
         runAsNonRoot: true
-        runAsUser: 13
-        runAsGroup: 13
-        fsGroup: 13
+        fsGroup: 0
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -88,3 +87,4 @@ spec:
         - name: keytabs
           persistentVolumeClaim:
             claimName: kerberos-lab-keytabs
+{{- end }}

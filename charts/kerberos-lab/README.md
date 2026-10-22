@@ -1,13 +1,16 @@
 # Kerberos lab (Negotiate proxy for RHDH)
 
-**Lab only.** Self-contained MIT Kerberos realm + Negotiate “corporate” Squid + no-auth bridge that speaks Negotiate upstream. Used to prove the Hub pattern when the customer proxy is Kerberos-only (no Basic).
+**Lab only.** Self-contained MIT Kerberos realm + Negotiate “corporate” Squid + UBI/RHEL 9 Negotiate bridge (Hub sidecar). Used to prove the Hub pattern when the customer proxy is Kerberos-only (no Basic).
+
+**Architecture and sidecar spec** (ports, env, keytab, what the corporate proxy must provide): see **[SIDECAR.md](SIDECAR.md)**.
 
 ```text
-RHDH (namespace rhdh-kerberos)
-  HTTP_PROXY=http://bridge.kerberos-lab.svc:3128   # no auth
+RHDH pod (namespace rhdh-kerberos)
+  backstage-backend
+    HTTP_PROXY=http://127.0.0.1:3128   # no auth
         │
-        ▼
-bridge (Squid, login=NEGOTIATE to parent)
+        ▼  (localhost)
+  kerberos-bridge sidecar (rhel9/squid + krb5, login=NEGOTIATE)
         │
         ▼
 corporate-proxy (Squid, requires Negotiate)  ← simulates customer
@@ -15,22 +18,25 @@ corporate-proxy (Squid, requires Negotiate)  ← simulates customer
         ▼
 allow-listed HTTPS destinations
 
-kdc (MIT krb5) issues keytabs on a shared PVC
+kdc (MIT krb5) issues keytabs; sync into Secret kerberos-bridge-keytab
 ```
 
 This is **not** Red Hat–supported RHDH Kerberos auth. It is a platform spike.
 
+Image: `ghcr.io/rmallam-rhdh/kerberos-lab-bridge-ubi:0.1.0` (also built into the cluster registry).
+
+Standalone bridge Deployment (`bridge.enabled`) remains available for debugging; the cluster overlay (`values-deploy.yaml`) turns it off when the Hub sidecar is used.
+
 ## 1. Build and push images
 
-Requires a logged-in `oc` session and a running `podman machine`.
+Requires a logged-in `oc` session and a running `podman machine` (or OpenShift binary build — see below).
 
 ```bash
 cd charts/kerberos-lab
-# Create namespace + allow push to internal registry (example)
 oc create ns kerberos-lab --dry-run=client -o yaml | oc apply -f -
 oc -n kerberos-lab policy add-role-to-user system:image-builder -z default
 
-# Local build (tags kerberos-lab-*:0.1.0)
+# Local build (tags kerberos-lab-*:0.1.0 including bridge-ubi)
 ./scripts/build-images.sh
 
 # Push after oc registry login
@@ -41,44 +47,50 @@ if [[ -n "$HOST" ]]; then
 fi
 ```
 
-Edit `values-deploy.yaml` if your registry path differs. Argo apps sync from `main` — push this chart (or `helm upgrade` from the local tree) before expecting the cluster to pull new images.
+`bridge-ubi` pulls `registry.redhat.io/rhel9/squid` — ensure the build host / cluster pull secret can reach that registry.
 
-## 2. Deploy the lab stack
+Edit `values-deploy.yaml` if your registry path differs.
+
+## 2. Deploy the lab stack (KDC + corporate proxy)
 
 ```bash
-oc apply -f argocd/apps/kerberos-lab.yaml
-# or: helm upgrade -i kerberos-lab charts/kerberos-lab \
-#       -n kerberos-lab --create-namespace \
-#       -f charts/kerberos-lab/values.yaml \
-#       -f charts/kerberos-lab/values-deploy.yaml
+helm upgrade -i kerberos-lab charts/kerberos-lab \
+  -n kerberos-lab --create-namespace \
+  -f charts/kerberos-lab/values.yaml \
+  -f charts/kerberos-lab/values-deploy.yaml
 ```
 
-Wait until `kdc`, `corporate-proxy`, and `bridge` are Ready.
+Wait until `kdc` and `corporate-proxy` are Ready.
 
-## 3. Deploy the dedicated Hub (`rhdh-kerberos`)
-
-Separate from the main `rhdh` instance:
+## 3. Sync keytab Secret into the Hub namespace
 
 ```bash
-# Create secrets first (guest-friendly lab)
-oc apply -f examples/rhdh-kerberos-secrets.example.yaml
+./charts/kerberos-lab/scripts/sync-bridge-keytab-secret.sh
+```
 
-oc apply -f argocd/apps/developer-hub-kerberos.yaml
+## 4. Deploy / upgrade the dedicated Hub (`rhdh-kerberos`)
+
+```bash
+# Secret: HTTP_PROXY=http://127.0.0.1:3128 (see examples/rhdh-kerberos-secrets.example.yaml)
+oc apply -f examples/rhdh-kerberos-secrets.example.yaml   # or patch existing
+
+helm upgrade -i developer-hub-kerberos charts/developer-hub \
+  -n rhdh-kerberos \
+  -f charts/developer-hub/values.yaml \
+  -f charts/developer-hub/values-kerberos-lab.yaml
 ```
 
 Hub URL (typical):
 
 `https://backstage-developer-hub-kerberos-rhdh-kerberos.<clusterBaseDomain>`
 
-Set `app.clusterBaseDomain` in `charts/developer-hub/values-kerberos-lab.yaml` before sync.
-
-## 4. Smoke test
+## 5. Smoke test
 
 ```bash
 ./charts/kerberos-lab/scripts/smoke-test.sh
 ```
 
-Or from the Hub pod:
+Or from the Hub pod (via sidecar localhost):
 
 ```bash
 oc -n rhdh-kerberos exec deploy/backstage-backend -c backstage-backend -- \
@@ -89,12 +101,13 @@ oc -n rhdh-kerberos exec deploy/backstage-backend -c backstage-backend -- \
 
 ```bash
 ./charts/kerberos-lab/tests/test-chart.sh
+./charts/developer-hub/tests/test-chart.sh
 ```
 
 ## Cleanup
 
 ```bash
-oc delete -f argocd/apps/developer-hub-kerberos.yaml
-oc delete -f argocd/apps/kerberos-lab.yaml
+helm uninstall developer-hub-kerberos -n rhdh-kerberos || true
+helm uninstall kerberos-lab -n kerberos-lab || true
 oc delete ns rhdh-kerberos kerberos-lab
 ```

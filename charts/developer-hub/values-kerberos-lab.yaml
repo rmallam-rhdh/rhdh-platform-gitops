@@ -178,8 +178,23 @@ database:
 secrets:
   mode: external
 
-# Point at the kerberos-lab bridge (no Basic — Negotiate happens upstream).
+# Hub → localhost sidecar (no Basic). Sidecar does Negotiate to corporate-proxy.
 httpProxy:
   enabled: true
   nodeOptions: "--no-node-snapshot --use-env-proxy"
   initContainer: ""
+
+# RHEL 9 Squid Negotiate bridge in the same pod as backstage-backend.
+# Sync keytab first: charts/kerberos-lab/scripts/sync-bridge-keytab-secret.sh
+kerberosBridgeSidecar:
+  enabled: true
+  # Prefer same-ns ImageStream (oc tag from kerberos-lab) so default SA can pull.
+  # Cross-ns pull needs: oc policy add-role-to-group system:image-puller system:serviceaccounts:rhdh-kerberos -n kerberos-lab
+  image: image-registry.openshift-image-registry.svc:5000/rhdh-kerberos/kerberos-lab-bridge-ubi:0.1.0
+  imagePullPolicy: Always
+  keytabSecret: kerberos-bridge-keytab
+  realm: LAB.LOCAL
+  kdcHostname: kdc.kerberos-lab.svc.cluster.local
+  corporateProxyHostname: corporate-proxy.kerberos-lab.svc.cluster.local
+  corporateProxyPort: "3128"
+  clientPrincipal: rhdh-bridge@LAB.LOCAL

@@ -33,8 +33,11 @@ corporateProxy:
     - .service-now.com
 
 bridge:
+  # Standalone Deployment. Prefer Hub sidecar (kerberosBridgeSidecar) and
+  # set enabled: false in values-deploy.yaml for the cluster lab.
+  enabled: true
   port: 3128
-  # Hub talks here with NO proxy auth. Bridge does Negotiate to corporate-proxy.
+  # Clients talk here with NO proxy auth. Bridge does Negotiate to corporate-proxy.
 
 # Bootstrap Job creates keytabs into Secret kerberos-lab-keytabs.
 bootstrap:
