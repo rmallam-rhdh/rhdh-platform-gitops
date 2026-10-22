@@ -24,10 +24,10 @@ spec:
     volumeSnapshot:
       className: {{ .Values.cluster.backup.volumeSnapshot.className | quote }}
       online: {{ .Values.cluster.backup.volumeSnapshot.online | quote }}
+      snapshotOwnerReference: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.snapshotOwnerReference | quote }}
       onlineConfiguration:
         immediateCheckpoint: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.immediateCheckpoint | quote }}
-        waitForArchieve: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.waitForArchive | quote }}
-      snapshotOwnerReference: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.snapshotOwnerReference | quote }}
+        waitForArchive: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.waitForArchive | quote }}
   {{- end }}
   postgresql:
     parameters:
