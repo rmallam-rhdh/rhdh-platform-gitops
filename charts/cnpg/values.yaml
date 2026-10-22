@@ -9,3 +9,13 @@ cluster:
   storageClass: ""
   imageName: ""
   maxConnections: "200"
+  backup:
+    enabled: true
+    target: prefer-standby
+    volumeSnapshot:
+      className: csi-aws-vsc
+      online: true
+      onlineConfiguration:
+        immediateCheckpoint: false
+        waitForArchive: true
+        snapshotOwnerReference: none

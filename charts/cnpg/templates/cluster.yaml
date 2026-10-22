@@ -18,6 +18,17 @@ spec:
     {{- if .Values.cluster.storageClass }}
     storageClass: {{ .Values.cluster.storageClass | quote }}
     {{- end }}
+  {{- if .Values.cluster.backup.enabled }}
+  backup:
+    target: {{ .Values.cluster.backup.target | quote }}
+    volumeSnapshot:
+      className: {{ .Values.cluster.backup.volumeSnapshot.className | quote }}
+      online: {{ .Values.cluster.backup.volumeSnapshot.online | quote }}
+      onlineConfiguration:
+        immediateCheckpoint: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.immediateCheckpoint | quote }}
+        waitForArchieve: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.waitForArchive | quote }}
+        snapshotOwnerReference: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.snapshotOwnerReference | quote }}
+  {{- end }}
   postgresql:
     parameters:
       max_connections: {{ .Values.cluster.maxConnections | quote }}
