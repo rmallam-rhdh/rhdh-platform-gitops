@@ -12,9 +12,10 @@ RUN dnf -y install krb5-workstation hostname \
  && chmod -R g+rwX /var/spool/squid /var/log/squid /var/run/squid /tmp/squid
 
 COPY entrypoint.sh /entrypoint.sh
+COPY healthcheck.sh /healthcheck.sh
 COPY squid.conf.template /etc/squid/squid.conf.template
-RUN chmod 0755 /entrypoint.sh \
- && chown 1001:0 /entrypoint.sh /etc/squid/squid.conf.template
+RUN chmod 0755 /entrypoint.sh /healthcheck.sh \
+ && chown 1001:0 /entrypoint.sh /healthcheck.sh /etc/squid/squid.conf.template
 
 ENV REALM=LAB.LOCAL \
     KRB5_KTNAME=/keytabs/bridge-client.keytab \

@@ -33,17 +33,19 @@ corporateProxy:
     - .service-now.com
 
 bridge:
-  # Standalone Deployment. Prefer Hub sidecar (kerberosBridgeSidecar) and
-  # set enabled: false in values-deploy.yaml for the cluster lab.
-  enabled: true
+  # Standalone Deployment (debug only). Prefer Hub sidecar; leave false.
+  # Do not pair UBI loopback image with this Deployment + Service.
+  enabled: false
   port: 3128
-  # Clients talk here with NO proxy auth. Bridge does Negotiate to corporate-proxy.
 
-# Bootstrap Job creates keytabs into Secret kerberos-lab-keytabs.
-bootstrap:
+# PostSync Job: copy KDC keytab into Hub namespace Secret for the sidecar.
+keytabSync:
   enabled: true
+  hubNamespace: rhdh-kerberos
+  secretName: kerberos-bridge-keytab
+  kubectlImage: registry.redhat.io/openshift4/ose-cli:latest
 
 networkPolicy:
-  # Hub namespaces allowed to use the bridge (no auth on bridge listen).
+  # Hub namespaces whose pods (sidecars) may reach corporate-proxy.
   allowFromNamespaces:
     - rhdh-kerberos

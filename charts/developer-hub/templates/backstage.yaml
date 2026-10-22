@@ -90,10 +90,14 @@ spec:
                 secret:
                   secretName: {{ .Values.kerberosBridgeSidecar.keytabSecret | quote }}
                   defaultMode: 0444
+                  items:
+                    - key: bridge-client.keytab
+                      path: bridge-client.keytab
               {{- end }}
             {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled }}
             containers:
-              {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled }}
+              # Always patch backstage-backend when we touch containers (incl. sidecar-only)
+              # so strategic merge cannot drop the Hub container.
               - name: backstage-backend
                 {{- if .Values.database.external.enabled }}
                 env:
@@ -136,7 +140,6 @@ spec:
                     readOnly: true
                   {{- end }}
                 {{- end }}
-              {{- end }}
               {{- if .Values.kerberosBridgeSidecar.enabled }}
               - name: kerberos-bridge
                 image: {{ .Values.kerberosBridgeSidecar.image | quote }}
@@ -164,14 +167,26 @@ spec:
                     value: {{ .Values.kerberosBridgeSidecar.clientPrincipal | quote }}
                   - name: HOME
                     value: /tmp
+                  - name: RENEW_INTERVAL_SECONDS
+                    value: {{ .Values.kerberosBridgeSidecar.renewIntervalSeconds | default "14400" | quote }}
                 ports:
                   - name: proxy
                     containerPort: {{ .Values.kerberosBridgeSidecar.port }}
+                # Loopback listen + valid Kerberos TGT (not TCP to pod IP).
+                startupProbe:
+                  exec:
+                    command: ["/healthcheck.sh", {{ .Values.kerberosBridgeSidecar.port | quote }}]
+                  periodSeconds: 5
+                  failureThreshold: 72
                 readinessProbe:
-                  tcpSocket:
-                    port: proxy
-                  initialDelaySeconds: 20
+                  exec:
+                    command: ["/healthcheck.sh", {{ .Values.kerberosBridgeSidecar.port | quote }}]
                   periodSeconds: 10
+                livenessProbe:
+                  exec:
+                    command: ["/healthcheck.sh", {{ .Values.kerberosBridgeSidecar.port | quote }}]
+                  periodSeconds: 30
+                  failureThreshold: 3
                 resources:
                   {{- toYaml .Values.kerberosBridgeSidecar.resources | nindent 18 }}
                 volumeMounts:

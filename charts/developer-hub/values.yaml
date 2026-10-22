@@ -384,9 +384,9 @@ httpProxy:
 # Not a supported RHDH feature. Off by default.
 kerberosBridgeSidecar:
   enabled: false
-  # Lab overlay tags this into the Hub ns; see values-kerberos-lab.yaml.
-  image: image-registry.openshift-image-registry.svc:5000/rhdh-kerberos/kerberos-lab-bridge-ubi:0.1.0
-  imagePullPolicy: Always
+  # Prefer published GHCR for demos; cluster IS also works after sync script / tag.
+  image: ghcr.io/rmallam-rhdh/kerberos-lab-bridge-ubi:0.1.0
+  imagePullPolicy: IfNotPresent
   keytabSecret: kerberos-bridge-keytab
   port: 3128
   realm: LAB.LOCAL
@@ -394,6 +394,7 @@ kerberosBridgeSidecar:
   corporateProxyHostname: corporate-proxy.kerberos-lab.svc.cluster.local
   corporateProxyPort: "3128"
   clientPrincipal: rhdh-bridge@LAB.LOCAL
+  renewIntervalSeconds: "14400"
   resources:
     requests:
       cpu: 50m
