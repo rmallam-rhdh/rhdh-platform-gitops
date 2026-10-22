@@ -85,8 +85,15 @@ spec:
                 configMap:
                   name: rhdh-golden-path
               {{- end }}
-            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled }}
+              {{- if .Values.kerberosBridgeSidecar.enabled }}
+              - name: kerberos-bridge-keytab
+                secret:
+                  secretName: {{ .Values.kerberosBridgeSidecar.keytabSecret | quote }}
+                  defaultMode: 0444
+              {{- end }}
+            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled }}
             containers:
+              {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled }}
               - name: backstage-backend
                 {{- if .Values.database.external.enabled }}
                 env:
@@ -129,4 +136,47 @@ spec:
                     readOnly: true
                   {{- end }}
                 {{- end }}
+              {{- end }}
+              {{- if .Values.kerberosBridgeSidecar.enabled }}
+              - name: kerberos-bridge
+                image: {{ .Values.kerberosBridgeSidecar.image | quote }}
+                imagePullPolicy: {{ .Values.kerberosBridgeSidecar.imagePullPolicy | quote }}
+                securityContext:
+                  # No fixed runAsUser — OpenShift restricted-v2 assigns a ns UID range.
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: ["ALL"]
+                  seccompProfile:
+                    type: RuntimeDefault
+                env:
+                  - name: REALM
+                    value: {{ .Values.kerberosBridgeSidecar.realm | quote }}
+                  - name: KDC_HOSTNAME
+                    value: {{ .Values.kerberosBridgeSidecar.kdcHostname | quote }}
+                  - name: CORPORATE_PROXY_HOSTNAME
+                    value: {{ .Values.kerberosBridgeSidecar.corporateProxyHostname | quote }}
+                  - name: CORPORATE_PROXY_PORT
+                    value: {{ .Values.kerberosBridgeSidecar.corporateProxyPort | quote }}
+                  - name: KRB5_KTNAME
+                    value: /keytabs/bridge-client.keytab
+                  - name: BRIDGE_CLIENT_PRINCIPAL
+                    value: {{ .Values.kerberosBridgeSidecar.clientPrincipal | quote }}
+                  - name: HOME
+                    value: /tmp
+                ports:
+                  - name: proxy
+                    containerPort: {{ .Values.kerberosBridgeSidecar.port }}
+                readinessProbe:
+                  tcpSocket:
+                    port: proxy
+                  initialDelaySeconds: 20
+                  periodSeconds: 10
+                resources:
+                  {{- toYaml .Values.kerberosBridgeSidecar.resources | nindent 18 }}
+                volumeMounts:
+                  - name: kerberos-bridge-keytab
+                    mountPath: /keytabs
+                    readOnly: true
+              {{- end }}
             {{- end }}

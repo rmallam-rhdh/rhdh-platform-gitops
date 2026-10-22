@@ -1,0 +1,11 @@
+apiVersion: v2
+name: kerberos-lab
+description: Lab-only Kerberos KDC + Negotiate corporate proxy + local bridge for RHDH proxy testing
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kerberos
+  - proxy
+  - rhdh
+  - lab

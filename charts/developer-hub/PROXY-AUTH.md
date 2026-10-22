@@ -54,7 +54,7 @@ Ask these before promising a design. The answers change the Vault URL, `NO_PROXY
 The proxy URL in the Secret is `http://USER:PASSWORD@proxy.example.com:8080` or the `https://` form. Node sends Basic auth to the proxy. The ServiceNow (or Jira, or Dynatrace) username and password are not that header. They are inside the tunnel.
 
 **Can we use our existing Kerberos or integrated-Windows proxy?**
-No. The Hub will not send Negotiate or NTLM. The proxy needs a Basic-auth application account, or the Hub cannot authenticate.
+No, not natively. The Hub will not send Negotiate or NTLM. Options: (1) a Basic-auth application account on the proxy, or (2) a **custom** Kerberos bridge (not Red Hat–supported as an RHDH feature). For a lab proof of option 2, see [`charts/kerberos-lab/SIDECAR.md`](../kerberos-lab/SIDECAR.md) (flow, sidecar container spec, keytab/KDC/SPN requirements) and the deploy steps in [`charts/kerberos-lab/README.md`](../kerberos-lab/README.md). Pattern: RHEL 9 Squid sidecar (`kerberosBridgeSidecar`), Hub `HTTP_PROXY=http://127.0.0.1:3128`, namespace `rhdh-kerberos`.
 
 **Can the proxy hop be TLS?**
 Yes. Use an `https://` proxy URL, terminate TLS on the proxy, and give the Hub the CA. Auth stays Basic. We have confirmed Node 24 accepts an `https://` proxy URL. The lab proxy listens on cleartext HTTP only, so that lab path is not a TLS proof.

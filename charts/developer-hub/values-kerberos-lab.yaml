@@ -1,0 +1,200 @@
+# Dedicated Hub for Kerberos proxy spike only.
+# Does NOT replace the main rhdh instance. Pair with charts/kerberos-lab.
+#
+# Apply Secret first: examples/rhdh-kerberos-secrets.example.yaml
+# (also needs JIRA_* + GITHUB_TOKEN copied from the main Hub secret for this lab)
+# Argo app: argocd/apps/developer-hub-kerberos.yaml
+
+namespace: rhdh-kerberos
+createNamespace: false
+nameOverride: developer-hub-kerberos
+
+operator:
+  enabled: false
+
+mesh:
+  ambient: false
+
+# Do not recreate cluster-scoped RBAC owned by the main Hub release.
+rbac:
+  kubernetesReader: false
+  clusterAdmin: false
+  serviceAccount: default
+
+instance:
+  name: developer-hub-kerberos
+  replicas: 1
+  database:
+    enableLocalDb: true
+  secretsName: rhdh-kerberos-secrets
+  extraEnvs:
+    nodeTlsRejectUnauthorized: "0"
+  extraFiles:
+    rbacPolicies: true
+    branding: true
+    catalogInfo: false
+
+app:
+  title: Kerberos Proxy Lab Hub
+  organization: Lab
+  clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+  baseUrl: ""
+  devspacesBaseUrl: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+  readingAllow:
+    - host: example.com
+    - host: www.example.com
+    - host: httpbin.org
+    - host: github.com
+    - host: api.github.com
+    - host: mallamrakeshkumar.atlassian.net
+    - host: "*.atlassian.net"
+    - host: "*.service-now.com"
+    - host: dev374459.service-now.com
+
+auth:
+  environment: development
+  signInPage:
+    - guest
+  guest:
+    enabled: true
+  microsoft:
+    enabled: false
+  github:
+    enabled: false
+
+catalog:
+  demoKitchenSink:
+    enabled: false
+  # Mount Node.js / kitchen-sink Templates from the chart ConfigMap.
+  goldenPath:
+    enabled: true
+  locations:
+    - type: file
+      target: /opt/app-root/src/golden-path/template-nodejs-golden-path.yaml
+      allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-plugin-kitchen-sink.yaml
+      allow: [Template]
+  providers:
+    ldapOrg: []
+    microsoftGraphOrg: []
+
+# Guest can run scaffolder + see catalog entities (incl. Jira tab).
+permission:
+  enabled: true
+  adminUsers:
+    - name: user:default/guest
+  adminGroups: []
+  pluginsWithPermission:
+    - catalog
+    - scaffolder
+    - permission
+  policiesCsv: |
+    p, role:default/developer, catalog-entity, read, allow
+    p, role:default/developer, catalog.entity.create, create, allow
+    p, role:default/developer, catalog.entity.refresh, update, allow
+    p, role:default/developer, catalog.location.create, create, allow
+    p, role:default/developer, catalog.location.read, read, allow
+    p, role:default/developer, scaffolder.template.use, use, allow
+    p, role:default/developer, scaffolder.template.parameter.read, read, allow
+    p, role:default/developer, scaffolder.template.step.read, read, allow
+    p, role:default/developer, scaffolder.action.execute, use, allow
+    p, role:default/developer, scaffolder.task.create, create, allow
+    p, role:default/developer, scaffolder.task.read, read, allow
+    p, role:default/developer, scaffolder.task.cancel, update, allow
+    g, user:default/guest, role:default/developer
+
+integrations:
+  github:
+    enabled: true
+    host: github.com
+    token: "${GITHUB_TOKEN}"
+  bitbucketCloud:
+    enabled: false
+  bitbucketServer:
+    enabled: false
+
+# Jira + GitHub scaffolder on; everything else off.
+plugins:
+  jenkins:
+    enabled: false
+  kubernetes:
+    enabled: false
+  tekton:
+    enabled: false
+  argocd:
+    enabled: false
+  sonarqube:
+    enabled: false
+  snyk:
+    enabled: false
+  jira:
+    enabled: true
+    baseUrl: "${JIRA_BASE_URL}"
+    token: "${JIRA_TOKEN}"
+    # Cloud: token value already includes "Basic …"
+    authorization: "${JIRA_TOKEN}"
+    product: cloud
+  artifactory:
+    enabled: false
+  vault:
+    enabled: false
+  servicenow:
+    enabled: true
+    baseUrl: "${SERVICENOW_BASE_URL}"
+    username: "${SERVICENOW_USERNAME}"
+    password: "${SERVICENOW_PASSWORD}"
+  dynatrace:
+    enabled: false
+  kiali:
+    enabled: false
+  apic:
+    enabled: false
+  techdocs:
+    enabled: false
+  github:
+    enabled: false
+  githubScaffolder:
+    enabled: true
+  bitbucket:
+    enabled: false
+  ldap:
+    enabled: false
+  notifications:
+    enabled: false
+  apiDocs:
+    enabled: false
+  msgraph:
+    enabled: false
+  keycloak:
+    enabled: false
+
+database:
+  cnpg:
+    enabled: false
+  external:
+    enabled: false
+
+secrets:
+  mode: external
+
+# Hub → localhost sidecar (no Basic). Sidecar does Negotiate to corporate-proxy.
+httpProxy:
+  enabled: true
+  nodeOptions: "--no-node-snapshot --use-env-proxy"
+  initContainer: ""
+
+# RHEL 9 Squid Negotiate bridge in the same pod as backstage-backend.
+# Sync keytab first: charts/kerberos-lab/scripts/sync-bridge-keytab-secret.sh
+kerberosBridgeSidecar:
+  enabled: true
+  # Prefer same-ns ImageStream (oc tag from kerberos-lab) so default SA can pull.
+  # Cross-ns pull needs: oc policy add-role-to-group system:image-puller system:serviceaccounts:rhdh-kerberos -n kerberos-lab
+  image: image-registry.openshift-image-registry.svc:5000/rhdh-kerberos/kerberos-lab-bridge-ubi:0.1.0
+  imagePullPolicy: Always
+  keytabSecret: kerberos-bridge-keytab
+  realm: LAB.LOCAL
+  kdcHostname: kdc.kerberos-lab.svc.cluster.local
+  corporateProxyHostname: corporate-proxy.kerberos-lab.svc.cluster.local
+  corporateProxyPort: "3128"
+  clientPrincipal: rhdh-bridge@LAB.LOCAL

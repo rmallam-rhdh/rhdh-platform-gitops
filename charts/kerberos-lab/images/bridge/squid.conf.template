@@ -1,0 +1,16 @@
+http_port 3128
+visible_hostname bridge
+pid_filename /var/run/squid/squid.pid
+cache_log /var/log/squid/cache.log
+access_log stdio:/var/log/squid/access.log
+cache_store_log none
+coredump_dir /var/spool/squid
+
+# No client auth — Hub (and only allowed namespaces) may use this listener.
+http_access allow all
+
+# Authenticate to the lab "corporate" proxy with Negotiate (Kerberos).
+cache_peer __CORP_HOST__ parent __CORP_PORT__ 0 no-query default login=NEGOTIATE
+never_direct allow all
+
+cache deny all

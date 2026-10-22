@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kdc
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kdc
+spec:
+  selector:
+    app.kubernetes.io/component: kdc
+  ports:
+    - name: kerberos
+      port: 88
+      targetPort: 88
+      protocol: TCP
+    - name: kerberos-udp
+      port: 88
+      targetPort: 88
+      protocol: UDP
+    - name: kadmin
+      port: 749
+      targetPort: 749
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kdc
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kdc
+spec:
+  replicas: {{ .Values.kdc.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: kdc
+  template:
+    metadata:
+      labels:
+        {{- include "kerberos-lab.labels" . | nindent 8 }}
+        app.kubernetes.io/component: kdc
+    spec:
+      serviceAccountName: kerberos-lab
+      securityContext:
+        fsGroup: 0
+      containers:
+        - name: kdc
+          image: {{ .Values.images.kdc | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          env:
+            - name: REALM
+              value: {{ .Values.realm | quote }}
+            - name: CORPORATE_PROXY_HOSTNAME
+              value: {{ .Values.corporateProxyHostname | quote }}
+            - name: BRIDGE_HOSTNAME
+              value: {{ .Values.bridgeHostname | quote }}
+            - name: KEYTAB_DIR
+              value: /keytabs
+          ports:
+            - name: kerberos
+              containerPort: 88
+            - name: kadmin
+              containerPort: 749
+          volumeMounts:
+            # Single RWO mount: keytabs + KDC DB live under /keytabs (see entrypoint).
+            - name: keytabs
+              mountPath: /keytabs
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/keytabs/bridge-client.keytab"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: keytabs
+          persistentVolumeClaim:
+            claimName: kerberos-lab-keytabs

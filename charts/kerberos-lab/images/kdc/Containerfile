@@ -1,0 +1,20 @@
+# Lab Kerberos KDC (MIT). Not for production.
+FROM docker.io/library/alpine:3.20
+
+RUN apk add --no-cache \
+      bash \
+      krb5 \
+      krb5-server \
+      krb5-libs \
+      tini \
+ && mkdir -p /var/lib/krb5kdc /etc/krb5kdc /keytabs
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod 0755 /entrypoint.sh
+
+ENV REALM=LAB.LOCAL \
+    KRB5_CONFIG=/etc/krb5.conf
+
+EXPOSE 88/tcp 88/udp 749/tcp
+
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]

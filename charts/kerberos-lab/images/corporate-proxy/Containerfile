@@ -1,0 +1,22 @@
+# Lab "corporate" forward proxy that requires Negotiate (Kerberos).
+FROM docker.io/ubuntu/squid:6.6-24.04_edge
+
+USER root
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      krb5-user \
+      ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+COPY squid.conf.template /etc/squid/squid.conf.template
+RUN chmod 0755 /entrypoint.sh \
+ && mkdir -p /var/spool/squid /var/log/squid /var/run/squid \
+ && chown -R proxy:proxy /var/spool/squid /var/log/squid /var/run/squid
+
+ENV REALM=LAB.LOCAL \
+    KRB5_KTNAME=/keytabs/corporate.keytab
+
+USER proxy
+EXPOSE 3128
+ENTRYPOINT ["/entrypoint.sh"]
