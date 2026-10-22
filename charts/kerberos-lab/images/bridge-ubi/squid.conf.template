@@ -1,4 +1,6 @@
-http_port 3128
+# Bind loopback only. Listening on 0.0.0.0:3128 with no client auth makes the
+# Hub pod IP an open forward proxy for any pod that can reach it.
+http_port 127.0.0.1:3128
 visible_hostname kerberos-bridge
 pid_filename /tmp/squid/squid.pid
 cache_log /tmp/squid/cache.log
@@ -6,7 +8,7 @@ access_log stdio:/tmp/squid/access.log
 cache_store_log none
 coredump_dir /var/spool/squid
 
-# No client auth — Hub reaches this only via localhost (sidecar).
+# No client auth — safe only because we bind 127.0.0.1 (same-pod Hub only).
 http_access allow all
 
 # Authenticate to the lab "corporate" proxy with Negotiate (Kerberos).

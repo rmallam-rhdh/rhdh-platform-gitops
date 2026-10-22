@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copy bridge-client.keytab from the lab KDC PVC into a Secret for the Hub sidecar.
 # Also tags the UBI bridge image into the Hub namespace for easy pulls.
+# Prefer the chart PostSync Job (keytabSync.enabled) when using Argo; this script is the manual path.
 set -euo pipefail
 NS_LAB="${NS_LAB:-kerberos-lab}"
 NS_HUB="${NS_HUB:-rhdh-kerberos}"
@@ -19,9 +20,9 @@ oc -n "$NS_HUB" create secret generic "$SECRET" \
   --dry-run=client -o yaml | oc apply -f -
 
 echo "==> allow ${NS_HUB} SAs to pull from ${NS_LAB}"
-oc policy add-role-to-group system:image-puller "system:serviceaccounts:${NS_HUB}" -n "$NS_LAB" 2>/dev/null || true
+oc policy add-role-to-group system:image-puller "system:serviceaccounts:${NS_HUB}" -n "$NS_LAB"
 
 echo "==> tag bridge-ubi into ${NS_HUB}"
-oc -n "$NS_HUB" tag "${NS_LAB}/kerberos-lab-bridge-ubi:${IMAGE_TAG}" "kerberos-lab-bridge-ubi:${IMAGE_TAG}" || true
+oc -n "$NS_HUB" tag "${NS_LAB}/kerberos-lab-bridge-ubi:${IMAGE_TAG}" "kerberos-lab-bridge-ubi:${IMAGE_TAG}"
 
 echo "OK"

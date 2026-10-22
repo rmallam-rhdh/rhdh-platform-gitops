@@ -77,9 +77,9 @@ Rendered by the Hub chart when `kerberosBridgeSidecar.enabled: true` (`templates
 | Field | Requirement |
 |---|---|
 | `containerPort` | `3128` (name `proxy`) |
-| Squid `http_port` | Same port; must match Hub `HTTP_PROXY` |
-| Client auth on listen | **None** (`http_access allow all`). Safe only because traffic is localhost inside the pod. |
-| Readiness | TCP on `proxy` (Squid up after `kinit` succeeds) |
+| Squid `http_port` | **`127.0.0.1:3128`** (loopback only). Must match Hub `HTTP_PROXY`. |
+| Client auth on listen | **None** (`http_access allow all`). Safe **only** with the loopback bind. |
+| Startup / readiness / liveness | **exec** `bash -c 'echo >/dev/tcp/127.0.0.1:3128'` (not TCP to pod IP — that misses loopback bind) |
 
 ### 3.3 Volume: client keytab
 
@@ -112,12 +112,13 @@ Helm keys live under `kerberosBridgeSidecar.*` in `charts/developer-hub/values.y
 From `images/bridge-ubi/squid.conf.template`:
 
 ```text
-http_port 3128
+http_port 127.0.0.1:3128
 http_access allow all
 cache_peer <CORP_HOST> parent <CORP_PORT> 0 no-query default login=NEGOTIATE
 never_direct allow all
 cache deny all
 ```
+
 
 | Directive | Meaning |
 |---|---|
@@ -251,14 +252,32 @@ Expect `http://127.0.0.1:3128` and HTTP **200** for an allow-listed host.
 
 ## 8. Security notes (lab honesty)
 
-- Localhost Squid has **no** client auth by design. Do not expose that listen on a Service/Route.
+- Squid has **no** client auth. It **must** bind `127.0.0.1` only. Binding `0.0.0.0:3128` turns the Hub **pod IP** into an open forward proxy (verified: another namespace could `CONNECT` through it).
+- Do not expose that listen on a Service/Route.
 - The keytab is as powerful as the client principal; RBAC the Secret; prefer short-lived or rotated keys in a real design.
 - This does not replace customer AD trust design, constrained delegation rules, or proxy compliance review.
 - Prefer Basic on the corporate proxy when available — supported path for Hub without a custom sidecar.
 
 ---
 
-## 9. Related files
+## 9. Lab hardening in place / still customer-owned
+
+| Item | Lab mitigation | Customer still owns |
+|---|---|---|
+| Keytab into Hub ns | PostSync Job `keytabSync` (+ manual `sync-bridge-keytab-secret.sh`) | IAM-issued keytab → Vault/ESO → same Secret mount |
+| Image pull | Cluster IS tag or `ghcr.io/rmallam-rhdh/kerberos-lab-bridge-ubi:0.1.0` | Registry allow + pull secret |
+| Open proxy risk | Squid `http_port 127.0.0.1:3128`; probes use `/healthcheck.sh` | Never expose bridge Service; keep loopback |
+| TGT expiry | Ready/live require `klist -s`; renew every `RENEW_INTERVAL_SECONDS` | Realm `max_life`, KDC HA, clock sync |
+| Wrong `HTTP_PROXY` | Example Secret + `preflight-sidecar.sh` | Lock URL to localhost in their Secret/ESO |
+| Accidental platform sync | Apps live under `argocd/apps-lab/` only | Do not add to default app-of-apps |
+| SPN / firewall / allow-list | Lab Squid + NP | Their AD SPN, egress, SaaS allow list |
+| Support boundary | Unsupported custom spike | Prefer Basic; treat sidecar as custom |
+
+Before any demo or support review: `./scripts/preflight-sidecar.sh` must exit 0.
+
+---
+
+## 10. Related files
 
 | Path | Role |
 |---|---|

@@ -7,6 +7,8 @@ CORP="${CORPORATE_PROXY_HOSTNAME:-corporate-proxy.kerberos-lab.svc.cluster.local
 CORP_PORT="${CORPORATE_PROXY_PORT:-3128}"
 CLIENT_PRINC="${BRIDGE_CLIENT_PRINCIPAL:-rhdh-bridge@${REALM}}"
 KTNAME="${KRB5_KTNAME:-/keytabs/bridge-client.keytab}"
+# Renew before typical lab max_life (10h). Override with RENEW_INTERVAL_SECONDS.
+RENEW_INTERVAL_SECONDS="${RENEW_INTERVAL_SECONDS:-14400}"
 
 mkdir -p /tmp/squid
 
@@ -26,15 +28,21 @@ cat >/tmp/krb5.conf <<EOF
 EOF
 export KRB5_CONFIG=/tmp/krb5.conf
 export KRB5_KTNAME="$KTNAME"
+# Explicit FILE ccache (KEYRING is unreliable in some restricted containers).
+export KRB5CCNAME="FILE:/tmp/krb5cc_bridge"
 
 if [[ ! -f "$KTNAME" ]]; then
   echo "ERROR: keytab missing at ${KTNAME}" >&2
   exit 1
 fi
 
-# Wait for lab KDC (sidecar may start before corporate/KDC are ready).
+kinit_once() {
+  kinit -kt "$KTNAME" "$CLIENT_PRINC" 2>/tmp/kinit.err
+}
+
+# Wait for KDC (sidecar may start before corporate/KDC are ready).
 for i in $(seq 1 60); do
-  if kinit -kt "$KTNAME" "$CLIENT_PRINC" 2>/tmp/kinit.err; then
+  if kinit_once; then
     break
   fi
   echo "waiting for KDC (${i}/60): $(cat /tmp/kinit.err 2>/dev/null || true)"
@@ -48,8 +56,10 @@ done
 
 (
   while true; do
-    sleep 21600
-    kinit -kt "$KTNAME" "$CLIENT_PRINC" || true
+    sleep "$RENEW_INTERVAL_SECONDS"
+    if ! kinit_once; then
+      echo "WARN: ticket renew failed: $(cat /tmp/kinit.err 2>/dev/null || true)" >&2
+    fi
   done
 ) &
 
