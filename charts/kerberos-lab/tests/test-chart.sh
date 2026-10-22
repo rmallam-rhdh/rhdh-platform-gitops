@@ -174,7 +174,7 @@ for pat in \
   "name: backstage-backend" \
   "kerberos-bridge-keytab" \
   "kerberos-lab-bridge-ubi" \
-  "/healthcheck.sh"
+  "/dev/tcp/127.0.0.1"
 do
   if grep -F -q "$pat" "$HUB_OUT"; then
     echo "OK  hub $pat"

@@ -21,6 +21,11 @@ rbac:
   clusterAdmin: false
   serviceAccount: default
 
+# Lightspeed is not part of this lab / customer proxy spike.
+flavours:
+  - name: lightspeed
+    enabled: false
+
 instance:
   name: developer-hub-kerberos
   replicas: 1

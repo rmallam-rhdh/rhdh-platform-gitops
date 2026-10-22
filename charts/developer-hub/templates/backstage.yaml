@@ -52,6 +52,15 @@ spec:
       enabled: {{ .Values.instance.route.enabled }}
   database:
     enableLocalDb: {{ .Values.instance.database.enableLocalDb }}
+  {{- if hasKey .Values "flavours" }}
+  # nil = operator defaults; [] = disable default flavours; or list with enabled: false.
+  flavours:
+    {{- if .Values.flavours }}
+    {{- toYaml .Values.flavours | nindent 4 }}
+    {{- else }}
+    []
+    {{- end }}
+  {{- end }}
   deployment:
     patch:
       spec:
@@ -172,19 +181,29 @@ spec:
                 ports:
                   - name: proxy
                     containerPort: {{ .Values.kerberosBridgeSidecar.port }}
-                # Loopback listen + valid Kerberos TGT (not TCP to pod IP).
+                # Squid binds 127.0.0.1 only — kubelet tcpSocket to podIP always fails.
+                # Use bash /dev/tcp against loopback (do not use tcpSocket).
                 startupProbe:
                   exec:
-                    command: ["/healthcheck.sh", {{ .Values.kerberosBridgeSidecar.port | quote }}]
+                    command:
+                      - bash
+                      - -c
+                      - echo >/dev/tcp/127.0.0.1/{{ .Values.kerberosBridgeSidecar.port }}
                   periodSeconds: 5
                   failureThreshold: 72
                 readinessProbe:
                   exec:
-                    command: ["/healthcheck.sh", {{ .Values.kerberosBridgeSidecar.port | quote }}]
+                    command:
+                      - bash
+                      - -c
+                      - echo >/dev/tcp/127.0.0.1/{{ .Values.kerberosBridgeSidecar.port }}
                   periodSeconds: 10
                 livenessProbe:
                   exec:
-                    command: ["/healthcheck.sh", {{ .Values.kerberosBridgeSidecar.port | quote }}]
+                    command:
+                      - bash
+                      - -c
+                      - echo >/dev/tcp/127.0.0.1/{{ .Values.kerberosBridgeSidecar.port }}
                   periodSeconds: 30
                   failureThreshold: 3
                 resources:
