@@ -27,7 +27,7 @@ spec:
       onlineConfiguration:
         immediateCheckpoint: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.immediateCheckpoint | quote }}
         waitForArchieve: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.waitForArchive | quote }}
-        snapshotOwnerReference: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.snapshotOwnerReference | quote }}
+      snapshotOwnerReference: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.snapshotOwnerReference | quote }}
   {{- end }}
   postgresql:
     parameters:
