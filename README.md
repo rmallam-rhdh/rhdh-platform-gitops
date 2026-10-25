@@ -50,6 +50,8 @@ This chart does not create an IngressController. Default is the cluster `*.apps`
 
 The CheCluster also sets enterprise workspace defaults: per-user PVC, one running workspace, 30 minute idle, nested container runtime off, image builds on the `container-build` SCC, metrics on, and NetworkPolicy for the Dev Spaces and workspace namespaces.
 
+When developers use the Dev Spaces Remote Connector from a laptop and the workspace cannot reach `update.code.visualstudio.com`, mirror the REH tarball in Artifactory and set `devspaces.rehDownloadUrl` in the IDE. Steps: [charts/devspaces/REH-MIRROR.md](charts/devspaces/REH-MIRROR.md).
+
 ## Deploy
 
 Day-1 (`RHDH-SM-DevSpaces` `bootstrap/root-app.yaml`) already binds the GitOps controller to cluster-admin. After operators are Ready and Secret `rhdh-secrets` exists:
