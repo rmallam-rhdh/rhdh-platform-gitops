@@ -123,3 +123,16 @@ When the laptop fallback runs on Windows, the connector downloads into `%LOCALAP
 
 - Connector setting reference: Dev Spaces Remote Connector README (`devspaces.rehDownloadUrl`)
 - This chart’s CheCluster / ingress: [README](../../README.md#dev-spaces-ingress)
+
+
+```
+metadata:
+  attributes:
+    .vscode/extensions.json: |
+      {
+        "recommendations": [
+          "redhat.vscode-yaml",
+          "dbaeumer.vscode-eslint"
+        ]
+      }
+```
