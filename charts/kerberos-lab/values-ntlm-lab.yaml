@@ -1,0 +1,32 @@
+# Lab overlay: corporate parent challenges with NTLM; Hub sidecar uses cntlm.
+# Pair with developer-hub values-kerberos-lab + values that set proxyAuthMode=ntlm
+# and the ubuntu bridge image (cntlm).
+#
+#   helm upgrade -i kerberos-lab charts/kerberos-lab \
+#     -f charts/kerberos-lab/values.yaml \
+#     -f charts/kerberos-lab/values-deploy.yaml \
+#     -f charts/kerberos-lab/values-ntlm-lab.yaml
+
+# NTLM lab does not need the MIT KDC.
+kdc:
+  replicas: 0
+
+corporateProxy:
+  authMode: ntlm
+
+ntlm:
+  createSecret: true
+  secretName: kerberos-bridge-ntlm
+  username: labntlm
+  password: labntlm-pass
+  domain: LAB
+
+# Standalone cntlm bridge for clusters without RHDH (Service listen 0.0.0.0).
+# On Hub labs set enabled=false and use values-kerberos-ntlm-lab sidecar instead.
+bridge:
+  enabled: true
+  proxyAuthMode: ntlm
+
+# No Kerberos keytab needed for NTLM parent testing.
+keytabSync:
+  enabled: false

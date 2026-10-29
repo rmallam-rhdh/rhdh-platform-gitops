@@ -1,4 +1,4 @@
-# Lab "corporate" forward proxy that requires Negotiate (Kerberos).
+# Lab "corporate" forward proxy: Negotiate (Kerberos) or NTLM (fake helper).
 FROM docker.io/ubuntu/squid:6.6-24.04_edge
 
 USER root
@@ -6,16 +6,24 @@ RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       krb5-user \
       ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && ls -la /usr/lib/squid/ | tee /tmp/squid-helpers.txt \
+ && test -e /usr/lib/squid/negotiate_kerberos_auth \
+ && (test -e /usr/lib/squid/ntlm_fake_auth || test -e /usr/lib/squid/ntlm_smb_lm_fake)
 
 COPY entrypoint.sh /entrypoint.sh
-COPY squid.conf.template /etc/squid/squid.conf.template
+COPY squid.conf.negotiate.template /etc/squid/squid.conf.negotiate.template
+COPY squid.conf.ntlm.template /etc/squid/squid.conf.ntlm.template
+# Keep legacy filename as negotiate alias for older docs/scripts.
+COPY squid.conf.negotiate.template /etc/squid/squid.conf.template
 RUN chmod 0755 /entrypoint.sh \
+ && chmod 0755 /usr/lib/squid/ntlm_fake_auth /usr/lib/squid/ntlm_smb_lm_fake 2>/dev/null || true \
  && mkdir -p /var/spool/squid /var/log/squid /var/run/squid \
  && chown -R proxy:proxy /var/spool/squid /var/log/squid /var/run/squid
 
 ENV REALM=LAB.LOCAL \
-    KRB5_KTNAME=/keytabs/corporate.keytab
+    KRB5_KTNAME=/keytabs/corporate.keytab \
+    PROXY_AUTH_MODE=negotiate
 
 USER proxy
 EXPOSE 3128

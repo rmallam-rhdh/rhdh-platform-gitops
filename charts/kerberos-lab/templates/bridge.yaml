@@ -33,11 +33,16 @@ spec:
       labels:
         {{- include "kerberos-lab.labels" . | nindent 8 }}
         app.kubernetes.io/component: bridge
+      annotations:
+        kerberos-lab/auth-mode: {{ .Values.bridge.proxyAuthMode | quote }}
     spec:
       serviceAccountName: kerberos-lab
       securityContext:
         runAsNonRoot: true
-        fsGroup: 0
+        runAsUser: 13
+        runAsGroup: 13
+        fsGroup: 13
+      {{- if ne (.Values.bridge.proxyAuthMode | default "kerberos") "ntlm" }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -54,11 +59,14 @@ spec:
             - name: keytabs
               mountPath: /keytabs
               readOnly: true
+      {{- end }}
       containers:
         - name: squid
           image: {{ .Values.images.bridge | quote }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           env:
+            - name: PROXY_AUTH_MODE
+              value: {{ .Values.bridge.proxyAuthMode | default "kerberos" | quote }}
             - name: REALM
               value: {{ .Values.realm | quote }}
             - name: KDC_HOSTNAME
@@ -71,20 +79,52 @@ spec:
               value: /keytabs/bridge-client.keytab
             - name: BRIDGE_CLIENT_PRINCIPAL
               value: rhdh-bridge@{{ .Values.realm }}
+            {{- if eq (.Values.bridge.proxyAuthMode | default "kerberos") "ntlm" }}
+            # Standalone Service needs a non-loopback listen; NetworkPolicy still gates peers.
+            - name: BRIDGE_LISTEN_ADDR
+              value: "0.0.0.0"
+            - name: NTLM_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ntlm.secretName | quote }}
+                  key: username
+            - name: NTLM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ntlm.secretName | quote }}
+                  key: password
+            - name: NTLM_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.ntlm.secretName | quote }}
+                  key: domain
+            {{- end }}
           ports:
             - name: proxy
               containerPort: {{ .Values.bridge.port }}
           readinessProbe:
+            {{- if eq (.Values.bridge.proxyAuthMode | default "kerberos") "ntlm" }}
+            # cntlm binds 0.0.0.0 in standalone NTLM mode — kubelet tcpSocket works.
             tcpSocket:
               port: proxy
+            {{- else }}
+            # Kerberos Squid binds 127.0.0.1 only.
+            exec:
+              command: ["bash", "-c", "echo >/dev/tcp/127.0.0.1/{{ .Values.bridge.port }}"]
+            {{- end }}
             initialDelaySeconds: 15
             periodSeconds: 10
+          {{- if ne (.Values.bridge.proxyAuthMode | default "kerberos") "ntlm" }}
           volumeMounts:
             - name: keytabs
               mountPath: /keytabs
               readOnly: true
+          {{- end }}
+      {{- if ne (.Values.bridge.proxyAuthMode | default "kerberos") "ntlm" }}
       volumes:
         - name: keytabs
           persistentVolumeClaim:
             claimName: kerberos-lab-keytabs
+      {{- end }}
 {{- end }}
+

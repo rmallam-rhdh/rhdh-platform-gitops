@@ -21,7 +21,9 @@ kdc:
 
 corporateProxy:
   port: 3128
-  # Destinations the "corporate" Negotiate proxy may CONNECT to (lab allow list).
+  # Parent auth challenge: negotiate (Kerberos) | ntlm (lab fake NTLM helper).
+  authMode: negotiate
+  # Destinations the "corporate" proxy may CONNECT to (lab allow list).
   # Squid rejects mixing example.com and .example.com on the same ACL.
   allow:
     - .example.com
@@ -32,11 +34,22 @@ corporateProxy:
     - .atlassian.com
     - .service-now.com
 
+# Lab-only NTLM credentials for bridge → corporate-proxy when authMode=ntlm.
+# Fake corporate helper accepts any password; these must still match what cntlm sends.
+ntlm:
+  createSecret: true
+  secretName: kerberos-bridge-ntlm
+  username: labntlm
+  password: labntlm-pass
+  domain: LAB
+
 bridge:
   # Standalone Deployment (debug only). Prefer Hub sidecar; leave false.
   # Do not pair UBI loopback image with this Deployment + Service.
   enabled: false
   port: 3128
+  # kerberos | ntlm — used when bridge.enabled=true (standalone debug).
+  proxyAuthMode: kerberos
 
 # PostSync Job: copy KDC keytab into Hub namespace Secret for the sidecar.
 keytabSync:

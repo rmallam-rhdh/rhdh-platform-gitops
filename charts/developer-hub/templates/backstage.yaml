@@ -94,7 +94,7 @@ spec:
                 configMap:
                   name: rhdh-golden-path
               {{- end }}
-              {{- if .Values.kerberosBridgeSidecar.enabled }}
+              {{- if and .Values.kerberosBridgeSidecar.enabled (ne (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm") }}
               - name: kerberos-bridge-keytab
                 secret:
                   secretName: {{ .Values.kerberosBridgeSidecar.keytabSecret | quote }}
@@ -150,7 +150,11 @@ spec:
                   {{- end }}
                 {{- end }}
               {{- if .Values.kerberosBridgeSidecar.enabled }}
+              {{- if eq (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm" }}
+              - name: cntlm
+              {{- else }}
               - name: kerberos-bridge
+              {{- end }}
                 image: {{ .Values.kerberosBridgeSidecar.image | quote }}
                 imagePullPolicy: {{ .Values.kerberosBridgeSidecar.imagePullPolicy | quote }}
                 securityContext:
@@ -162,6 +166,8 @@ spec:
                   seccompProfile:
                     type: RuntimeDefault
                 env:
+                  - name: PROXY_AUTH_MODE
+                    value: {{ .Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos" | quote }}
                   - name: REALM
                     value: {{ .Values.kerberosBridgeSidecar.realm | quote }}
                   - name: KDC_HOSTNAME
@@ -178,10 +184,27 @@ spec:
                     value: /tmp
                   - name: RENEW_INTERVAL_SECONDS
                     value: {{ .Values.kerberosBridgeSidecar.renewIntervalSeconds | default "14400" | quote }}
+                  {{- if eq (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm" }}
+                  - name: NTLM_USERNAME
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.kerberosBridgeSidecar.ntlmSecret | quote }}
+                        key: username
+                  - name: NTLM_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.kerberosBridgeSidecar.ntlmSecret | quote }}
+                        key: password
+                  - name: NTLM_DOMAIN
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.kerberosBridgeSidecar.ntlmSecret | quote }}
+                        key: domain
+                  {{- end }}
                 ports:
                   - name: proxy
                     containerPort: {{ .Values.kerberosBridgeSidecar.port }}
-                # Squid binds 127.0.0.1 only — kubelet tcpSocket to podIP always fails.
+                # Squid/cntlm bind 127.0.0.1 only — kubelet tcpSocket to podIP always fails.
                 # Use bash /dev/tcp against loopback (do not use tcpSocket).
                 startupProbe:
                   exec:
@@ -209,8 +232,10 @@ spec:
                 resources:
                   {{- toYaml .Values.kerberosBridgeSidecar.resources | nindent 18 }}
                 volumeMounts:
+                  {{- if ne (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm" }}
                   - name: kerberos-bridge-keytab
                     mountPath: /keytabs
                     readOnly: true
+                  {{- end }}
               {{- end }}
             {{- end }}

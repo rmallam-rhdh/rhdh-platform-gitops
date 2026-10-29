@@ -32,6 +32,9 @@ spec:
       labels:
         {{- include "kerberos-lab.labels" . | nindent 8 }}
         app.kubernetes.io/component: corporate-proxy
+      annotations:
+        # Roll when auth mode changes.
+        kerberos-lab/auth-mode: {{ .Values.corporateProxy.authMode | quote }}
     spec:
       serviceAccountName: kerberos-lab
       securityContext:
@@ -39,6 +42,7 @@ spec:
         runAsUser: 13
         runAsGroup: 13
         fsGroup: 13
+      {{- if eq .Values.corporateProxy.authMode "negotiate" }}
       # Share RWO PVC with KDC — schedule on same node via pod affinity to kdc.
       affinity:
         podAffinity:
@@ -56,11 +60,14 @@ spec:
             - name: keytabs
               mountPath: /keytabs
               readOnly: true
+      {{- end }}
       containers:
         - name: squid
           image: {{ .Values.images.corporateProxy | quote }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           env:
+            - name: PROXY_AUTH_MODE
+              value: {{ .Values.corporateProxy.authMode | quote }}
             - name: REALM
               value: {{ .Values.realm | quote }}
             - name: CORPORATE_PROXY_HOSTNAME
@@ -80,17 +87,21 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
           volumeMounts:
+            {{- if eq .Values.corporateProxy.authMode "negotiate" }}
             - name: keytabs
               mountPath: /keytabs
               readOnly: true
+            {{- end }}
             - name: allow
               mountPath: /etc/squid/allow.txt
               subPath: allow.txt
               readOnly: true
       volumes:
+        {{- if eq .Values.corporateProxy.authMode "negotiate" }}
         - name: keytabs
           persistentVolumeClaim:
             claimName: kerberos-lab-keytabs
+        {{- end }}
         - name: allow
           configMap:
             name: corporate-proxy-allow

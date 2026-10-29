@@ -9,3 +9,4 @@ scripts/__pycache__/
 *secret*.local.yaml
 rhdh-secrets.yaml
 .cursor/rules/no-customer-names.mdc
+.share

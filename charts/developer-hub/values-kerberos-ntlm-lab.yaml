@@ -1,0 +1,13 @@
+# Pair with values-kerberos-lab.yaml for NTLM parent testing.
+# Requires kerberos-lab deployed with values-ntlm-lab.yaml (corporateProxy.authMode=ntlm).
+# Uses ubuntu bridge image (cntlm). Rebuild: TAG=0.2.0 ./charts/kerberos-lab/scripts/build-images.sh
+
+kerberosBridgeSidecar:
+  enabled: true
+  proxyAuthMode: ntlm
+  ntlmSecret: kerberos-bridge-ntlm
+  # Ubuntu dual-mode bridge (cntlm). Override to your cluster/GHCR tag after build.
+  image: image-registry.openshift-image-registry.svc:5000/rhdh-kerberos/kerberos-lab-bridge:0.2.0
+  imagePullPolicy: Always
+  corporateProxyHostname: corporate-proxy.kerberos-lab.svc.cluster.local
+  corporateProxyPort: "3128"

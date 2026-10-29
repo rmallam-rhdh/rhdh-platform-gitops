@@ -45,6 +45,8 @@ spec:
             matchLabels:
               app.kubernetes.io/component: bridge
         {{- end }}
+        # Same-namespace Jobs (smoke probes) and any local debug pods.
+        - podSelector: {}
 {{- range .Values.networkPolicy.allowFromNamespaces }}
         - namespaceSelector:
             matchLabels:

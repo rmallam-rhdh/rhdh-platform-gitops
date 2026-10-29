@@ -1,5 +1,5 @@
-# Lab bridge: Hub uses this with no auth; bridge authenticates to corporate
-# proxy with Negotiate via Squid cache_peer login=NEGOTIATE + client keytab.
+# Dual-mode lab bridge: Kerberos Negotiate (Squid) or NTLM (cntlm).
+# Hub → 127.0.0.1:3128 (no auth) → corporate parent with Kerberos or NTLM.
 FROM docker.io/ubuntu/squid:6.6-24.04_edge
 
 USER root
@@ -7,16 +7,23 @@ RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       krb5-user \
       ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+      cntlm \
+      curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm \
+ && chown -R proxy:proxy /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm
 
 COPY entrypoint.sh /entrypoint.sh
 COPY squid.conf.template /etc/squid/squid.conf.template
+COPY cntlm.conf.template /etc/cntlm/cntlm.conf.template
 RUN chmod 0755 /entrypoint.sh \
- && mkdir -p /var/spool/squid /var/log/squid /var/run/squid \
- && chown -R proxy:proxy /var/spool/squid /var/log/squid /var/run/squid
+ && chown proxy:proxy /entrypoint.sh /etc/squid/squid.conf.template /etc/cntlm/cntlm.conf.template \
+ && command -v cntlm
 
 ENV REALM=LAB.LOCAL \
-    KRB5_KTNAME=/keytabs/bridge-client.keytab
+    KRB5_KTNAME=/keytabs/bridge-client.keytab \
+    PROXY_AUTH_MODE=kerberos \
+    HOME=/tmp
 
 USER proxy
 EXPOSE 3128

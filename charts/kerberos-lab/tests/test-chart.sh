@@ -206,6 +206,93 @@ else
   fail=$((fail + 1))
 fi
 
+# Dual-mode NTLM overlay: corporate authMode + hub secrets, no keytab wait.
+NTLM_OUT="$(mktemp)"
+helm template kerberos-lab "$CHART" \
+  -f "$CHART/values.yaml" \
+  -f "$CHART/values-ntlm-lab.yaml" >"$NTLM_OUT"
+for pat in \
+  "PROXY_AUTH_MODE" \
+  "ntlm" \
+  "kerberos-bridge-ntlm" \
+  "labntlm" \
+  "NTLM_USERNAME" \
+  "app.kubernetes.io/component: bridge"
+do
+  if grep -qi "$pat" "$NTLM_OUT"; then
+    echo "OK  ntlm overlay $pat"
+  else
+    echo "FAIL ntlm overlay missing $pat"
+    fail=$((fail + 1))
+  fi
+done
+if grep -q "wait-keytab" "$NTLM_OUT"; then
+  echo "FAIL ntlm mode must not wait for corporate keytab"
+  fail=$((fail + 1))
+else
+  echo "OK  ntlm mode skips wait-keytab"
+fi
+if grep -q 'replicas: 0' "$NTLM_OUT" && grep -q 'name: kdc' "$NTLM_OUT"; then
+  echo "OK  ntlm overlay scales kdc to 0"
+else
+  echo "FAIL ntlm overlay should set kdc.replicas=0"
+  fail=$((fail + 1))
+fi
+if grep -E '^Auth NTLM$' "$CHART/images/bridge/cntlm.conf.template" >/dev/null \
+  && ! grep -E '^Auth NTLMv2$' "$CHART/images/bridge/cntlm.conf.template" >/dev/null; then
+  echo "OK  cntlm lab uses Auth NTLM (fake helper has no target-info)"
+else
+  echo "FAIL cntlm.conf.template must use Auth NTLM for lab fake helper"
+  fail=$((fail + 1))
+fi
+
+HUB_NTLM="$(mktemp)"
+helm template developer-hub-kerberos-ntlm "$HUB_CHART" \
+  -f "$HUB_CHART/values.yaml" \
+  -f "$HUB_CHART/values-kerberos-lab.yaml" \
+  -f "$HUB_CHART/values-kerberos-ntlm-lab.yaml" \
+  --namespace rhdh-kerberos >"$HUB_NTLM"
+for pat in \
+  "PROXY_AUTH_MODE" \
+  "ntlm" \
+  "NTLM_USERNAME" \
+  "kerberos-bridge-ntlm" \
+  "kerberos-lab-bridge:0.2.0" \
+  "name: cntlm"
+do
+  if grep -F -q "$pat" "$HUB_NTLM"; then
+    echo "OK  hub-ntlm $pat"
+  else
+    echo "FAIL hub-ntlm missing $pat"
+    fail=$((fail + 1))
+  fi
+done
+if grep -q "kerberos-bridge-keytab" "$HUB_NTLM"; then
+  echo "FAIL hub ntlm mode must not mount keytab volume"
+  fail=$((fail + 1))
+else
+  echo "OK  hub ntlm mode has no keytab volume"
+fi
+if grep -E 'name: kerberos-bridge$' "$HUB_NTLM" >/dev/null; then
+  echo "FAIL hub ntlm mode must name sidecar cntlm, not kerberos-bridge"
+  fail=$((fail + 1))
+else
+  echo "OK  hub ntlm sidecar container is cntlm"
+fi
+
+for f in \
+  "$CHART/images/corporate-proxy/squid.conf.ntlm.template" \
+  "$CHART/images/bridge/cntlm.conf.template" \
+  "$CHART/scripts/smoke-ntlm-podman.sh"
+do
+  if [[ -f "$f" ]]; then
+    echo "OK  file $f"
+  else
+    echo "FAIL missing $f"
+    fail=$((fail + 1))
+  fi
+done
+
 if [[ "$fail" -gt 0 ]]; then
   echo "RESULT: $fail failure(s)"
   exit 1

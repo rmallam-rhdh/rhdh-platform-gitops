@@ -1,25 +1,26 @@
-# Negotiate bridge on Red Hat Squid (RHEL 9 / UBI lineage).
+# Negotiate (Kerberos) bridge on Red Hat Squid (RHEL 9 / UBI lineage).
 # Lab/spike only — not a supported RHDH feature.
-# Hub talks to 127.0.0.1:3128 (sidecar); this container speaks Negotiate upstream.
+# For NTLM lab mode use images/bridge (ubuntu + cntlm) instead.
 FROM registry.redhat.io/rhel9/squid:latest
 
 USER root
-# krb5-workstation provides kinit; squid image already ships negotiate helpers.
 RUN dnf -y install krb5-workstation hostname \
  && dnf clean all \
- && mkdir -p /var/spool/squid /var/log/squid /var/run/squid /tmp/squid \
- && chown -R 1001:0 /var/spool/squid /var/log/squid /var/run/squid /tmp/squid \
- && chmod -R g+rwX /var/spool/squid /var/log/squid /var/run/squid /tmp/squid
+ && mkdir -p /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm \
+ && chown -R 1001:0 /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm \
+ && chmod -R g+rwX /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm
 
 COPY entrypoint.sh /entrypoint.sh
 COPY healthcheck.sh /healthcheck.sh
 COPY squid.conf.template /etc/squid/squid.conf.template
+COPY cntlm.conf.template /etc/cntlm/cntlm.conf.template
 RUN chmod 0755 /entrypoint.sh /healthcheck.sh \
- && chown 1001:0 /entrypoint.sh /healthcheck.sh /etc/squid/squid.conf.template
+ && chown 1001:0 /entrypoint.sh /healthcheck.sh /etc/squid/squid.conf.template /etc/cntlm/cntlm.conf.template
 
 ENV REALM=LAB.LOCAL \
     KRB5_KTNAME=/keytabs/bridge-client.keytab \
-    HOME=/tmp
+    HOME=/tmp \
+    PROXY_AUTH_MODE=kerberos
 
 USER 1001
 EXPOSE 3128
