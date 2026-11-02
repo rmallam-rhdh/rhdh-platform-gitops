@@ -1,0 +1,44 @@
+# The shared gateway: one HTTPS listener per catalogue entry, all on port 443.
+# The gateway picks the listener (and so the certificate) from the hostname in SNI.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    networking.istio.io/service-type: ClusterIP   # reached through passthrough Routes on the OpenShift Router
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  gatewayClassName: istio
+  listeners:
+  {{- range .Values.hosts }}
+    - name: {{ .name }}-{{ $.Values.namePrefix }}
+      hostname: {{ include "gateway-cert-lab.host" (list $ .name) }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .name }}-{{ $.Values.namePrefix }}-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}   # only the owning namespace may attach
+  {{- end }}
+  {{- if .Values.brokenHost.enabled }}
+    - name: {{ .Values.brokenHost.name }}-{{ .Values.namePrefix }}
+      hostname: {{ include "gateway-cert-lab.host" (list $ .Values.brokenHost.name) }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .Values.brokenHost.name }}-{{ .Values.namePrefix }}-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+  {{- end }}

@@ -1,0 +1,23 @@
+{{- if .Values.hijackTest.enabled }}
+# Another team's namespace claims a hostname it does not own. Expected status: Accepted=False, NotAllowedByListeners.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: steal-{{ .Values.hijackTest.targetHost }}
+  namespace: {{ .Values.hijackTest.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Values.gateway.namespace }}
+      sectionName: {{ .Values.hijackTest.targetHost }}-{{ .Values.namePrefix }}
+  hostnames:
+    - {{ include "gateway-cert-lab.host" (list $ .Values.hijackTest.targetHost) }}
+  rules:
+    - backendRefs:
+        - name: does-not-exist
+          port: 8080
+{{- end }}

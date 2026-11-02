@@ -12,6 +12,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/squid` | `squid` | Authenticated Squid (Basic). Main Hub uses it when `httpProxy.enabled` is true |
 | `charts/kerberos-lab` | `kerberos-lab` | Lab-only KDC + Negotiate corporate proxy + bridge |
 | `charts/developer-hub` (`values-kerberos-lab.yaml`) | `developer-hub-kerberos` | Dedicated Hub in `rhdh-kerberos` for Kerberos proxy spike |
+| `charts/gateway-cert-lab` | `gateway-cert-lab` | Lab-only: one listener + one cert-manager `Certificate` + one passthrough Route per hostname on a shared gateway (no wildcards) |
 
 No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 

@@ -1,0 +1,53 @@
+{{- if .Values.scaleTest.enabled }}
+# A second gateway carrying scaleTest.count hostnames, each with its own Certificate. No Routes or apps.
+{{- range $i := until (int .Values.scaleTest.count) }}
+{{- $n := printf "h%02d" (add1 $i) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $n }}-scale
+  namespace: {{ $.Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  secretName: {{ $n }}-scale-tls
+  dnsNames:
+    - {{ $n }}-scale.{{ $.Values.clusterBaseDomain }}
+  privateKey:
+    rotationPolicy: {{ $.Values.certificate.rotationPolicy }}
+  issuerRef:
+    name: {{ $.Values.issuer.name }}
+    kind: {{ $.Values.issuer.kind }}
+{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.scaleTest.gatewayName }}
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    networking.istio.io/service-type: ClusterIP
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  gatewayClassName: istio
+  listeners:
+  {{- range $i := until (int .Values.scaleTest.count) }}
+  {{- $n := printf "h%02d" (add1 $i) }}
+    - name: {{ $n }}
+      hostname: {{ $n }}-scale.{{ $.Values.clusterBaseDomain }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ $n }}-scale-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+  {{- end }}
+{{- end }}

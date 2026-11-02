@@ -1,0 +1,22 @@
+# One passthrough Route per catalogue entry: the Router forwards the TLS stream by SNI, without decrypting it.
+{{- range .Values.hosts }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .name }}-{{ $.Values.namePrefix }}
+  namespace: {{ $.Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  host: {{ include "gateway-cert-lab.host" (list $ .name) }}
+  to:
+    kind: Service
+    name: {{ $.Values.gateway.name }}-istio
+  port:
+    targetPort: 443
+  tls:
+    termination: passthrough
+{{- end }}

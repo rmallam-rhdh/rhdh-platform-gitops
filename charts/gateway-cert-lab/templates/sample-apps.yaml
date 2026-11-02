@@ -1,0 +1,85 @@
+# A tiny web app per catalogue entry, in its own namespace, plus the app team's HTTPRoute.
+{{- range .Values.hosts }}
+{{- if .sampleApp }}
+{{- if $.Values.appNamespaces.strictMtls }}
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+spec:
+  mtls:
+    mode: STRICT
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      containers:
+        - name: web
+          image: {{ $.Values.sampleApp.image }}
+          command: ["sh", "-c", "mkdir -p /tmp/w && echo 'hello from {{ .name }}' > /tmp/w/index.html && cd /tmp/w && exec python3 -m http.server {{ $.Values.sampleApp.port }}"]
+          ports:
+            - containerPort: {{ $.Values.sampleApp.port }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+spec:
+  selector:
+    app: {{ .name }}
+  ports:
+    - name: http
+      port: {{ $.Values.sampleApp.port }}
+      targetPort: {{ $.Values.sampleApp.port }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  parentRefs:
+    - name: {{ $.Values.gateway.name }}
+      namespace: {{ $.Values.gateway.namespace }}
+      sectionName: {{ .name }}-{{ $.Values.namePrefix }}   # attaches to its own listener only
+  hostnames:
+    - {{ include "gateway-cert-lab.host" (list $ .name) }}
+  rules:
+    - backendRefs:
+        - name: {{ .name }}
+          port: {{ $.Values.sampleApp.port }}
+{{- end }}
+{{- end }}

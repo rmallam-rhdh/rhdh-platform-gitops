@@ -50,6 +50,7 @@ helm lint "$ROOT/charts/service-mesh" >/dev/null
 helm lint "$ROOT/charts/devspaces" >/dev/null
 helm lint "$ROOT/charts/developer-hub" >/dev/null
 helm lint "$ROOT/charts/squid" >/dev/null
+helm lint "$ROOT/charts/gateway-cert-lab" -f "$ROOT/charts/gateway-cert-lab/values-deploy.yaml" >/dev/null
 
 CNPG="$(mktemp)"; DR="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"; SQUID="$(mktemp)"
 trap 'rm -f "$CNPG" "$DR" "$SM" "$DS" "$HUB" "$SQUID"' EXIT
@@ -130,6 +131,17 @@ forbid "$SQUID" "kind: Route"
 forbid "$SQUID" "istio.io/dataplane-mode"
 need "$ROOT/examples/rhdh-secrets.example.yaml" ".service-now.com"
 need "$ROOT/charts/developer-hub/values.yaml" ".service-now.com"
+
+echo "== system: gateway-cert-lab =="
+GWC="$(mktemp)"
+helm template gwc "$ROOT/charts/gateway-cert-lab" -f "$ROOT/charts/gateway-cert-lab/values.yaml" -f "$ROOT/charts/gateway-cert-lab/values-deploy.yaml" >"$GWC"
+need "$GWC" "kind: Gateway"
+need "$GWC" "hostname: orders-gwcert.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com"
+need "$GWC" "termination: passthrough"
+need "$GWC" "istio-discovery: enabled"
+forbid "$GWC" "\\*\\."
+forbid "$GWC" "kind: Subscription"
+rm -f "$GWC"
 
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"
