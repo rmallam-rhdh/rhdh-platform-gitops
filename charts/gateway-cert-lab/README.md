@@ -84,7 +84,8 @@ Each change below is a commit to `main` (or a branch, see the last tip). Argo CD
    ```
    Argo CD creates the namespace, the `Certificate`, the listener, the Route and the app. Then
    `curl --cacert <(oc get secret stand-in-ca -n gwcert-ingress -o jsonpath='{.data.ca\.crt}' | base64 -d) https://cards-gwcert.<domain>/`.
-2. **Remove a hostname.** Delete the entry. `prune: true` removes its listener, `Certificate`, Route and app. The TLS Secret stays behind (cert-manager does not own it by default); delete it by hand.
+2. **Remove a hostname.** Delete the entry. `prune: true` removes its listener, `Certificate`, Route and app. The TLS Secret goes too, because
+   `argocd/apps-lab/cert-manager-operator/certmanager-cluster.yaml` turns on `--enable-certificate-owner-ref`.
 3. **Break one certificate.** Set `brokenHost.enabled: true`. The app shows Degraded, `oc get gateway shared-gw -n gwcert-ingress -o yaml`
    shows `InvalidCertificateRef` on that listener only, and `verify.sh` still passes for every other host.
 4. **Try to steal a hostname.** Set `hijackTest.enabled: true`. The intruder namespace's `HTTPRoute` claims `orders` and is
