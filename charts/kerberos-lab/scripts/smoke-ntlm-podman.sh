@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Local system smoke: NTLM corporate parent + cntlm bridge (no cluster required).
+# Local system smoke: NTLM corporate parent + UBI cntlm bridge (no cluster required).
 # Unit companion: charts/kerberos-lab/tests/test-chart.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TAG="${TAG:-0.2.0}"
+TAG="${TAG:-0.3.0}"
+PLATFORM="${PLATFORM:-linux/amd64}"
 NET="kerberos-lab-ntlm-smoke"
 CORP="kerberos-lab-corp-ntlm"
 BRIDGE="kerberos-lab-bridge-ntlm"
@@ -16,9 +17,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> build images"
-podman build -t "kerberos-lab-corporate-proxy:${TAG}" -f "$ROOT/images/corporate-proxy/Containerfile" "$ROOT/images/corporate-proxy"
-podman build -t "kerberos-lab-bridge:${TAG}" -f "$ROOT/images/bridge/Containerfile" "$ROOT/images/bridge"
+echo "==> build images (${PLATFORM})"
+podman build --platform "$PLATFORM" -t "kerberos-lab-corporate-proxy:${TAG}" \
+  -f "$ROOT/images/corporate-proxy/Containerfile" "$ROOT/images/corporate-proxy"
+podman build --platform "$PLATFORM" -t "kerberos-lab-bridge-ubi:${TAG}" \
+  -f "$ROOT/images/bridge-ubi/Containerfile" "$ROOT/images/bridge-ubi"
 
 cleanup
 podman network create "$NET" >/dev/null
@@ -41,7 +44,7 @@ for i in $(seq 1 30); do
   [[ "$i" -eq 30 ]] && { echo "FAIL corporate not listening"; podman logs "$CORP" | tail -40; exit 1; }
 done
 
-echo "==> start cntlm bridge"
+echo "==> start UBI cntlm bridge"
 podman run -d --name "$BRIDGE" --network "$NET" \
   -e PROXY_AUTH_MODE=ntlm \
   -e CORPORATE_PROXY_HOSTNAME="$CORP" \
@@ -49,7 +52,7 @@ podman run -d --name "$BRIDGE" --network "$NET" \
   -e NTLM_USERNAME=labntlm \
   -e NTLM_PASSWORD=labntlm-pass \
   -e NTLM_DOMAIN=LAB \
-  "kerberos-lab-bridge:${TAG}" >/dev/null
+  "kerberos-lab-bridge-ubi:${TAG}" >/dev/null
 
 echo "==> wait for bridge :3128"
 for i in $(seq 1 30); do
@@ -79,7 +82,7 @@ echo "$hdr" | grep -qi 'Proxy-Authenticate:.*NTLM' \
   || { echo "FAIL missing Proxy-Authenticate: NTLM"; echo "$hdr"; exit 1; }
 echo "OK  corporate NTLM challenge (${code})"
 
-echo "==> via bridge (cntlm) must be 200"
+echo "==> via UBI bridge (cntlm) must be 200"
 code="$(podman exec "$BRIDGE" bash -c \
   'curl -s -o /dev/null -w "%{http_code}" -x http://127.0.0.1:3128 --connect-timeout 20 https://httpbin.org/get' || true)"
 if [[ "$code" != "200" ]]; then

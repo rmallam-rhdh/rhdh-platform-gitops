@@ -109,10 +109,18 @@ if grep -q 'http_port 3128$' "$CHART/images/bridge-ubi/squid.conf.template"; the
   echo "FAIL bridge must not bind all interfaces"
   fail=$((fail + 1))
 fi
-if grep -q 'klist -s' "$CHART/images/bridge-ubi/healthcheck.sh"; then
-  echo "OK  healthcheck requires Kerberos TGT"
+if grep -q 'klist -s' "$CHART/images/bridge-ubi/healthcheck.sh" \
+  && grep -q 'ntlm' "$CHART/images/bridge-ubi/healthcheck.sh"; then
+  echo "OK  healthcheck TGT for Kerberos; skips klist in ntlm"
 else
-  echo "FAIL healthcheck must run klist -s"
+  echo "FAIL healthcheck must call klist -s and skip it for ntlm"
+  fail=$((fail + 1))
+fi
+if grep -q 'cntlm' "$CHART/images/bridge-ubi/Containerfile" \
+  && grep -q 'epel-release-latest-9' "$CHART/images/bridge-ubi/Containerfile"; then
+  echo "OK  bridge-ubi installs cntlm via EPEL"
+else
+  echo "FAIL bridge-ubi must install cntlm from EPEL 9"
   fail=$((fail + 1))
 fi
 for pat in \
@@ -238,11 +246,11 @@ else
   echo "FAIL ntlm overlay should set kdc.replicas=0"
   fail=$((fail + 1))
 fi
-if grep -E '^Auth NTLM$' "$CHART/images/bridge/cntlm.conf.template" >/dev/null \
-  && ! grep -E '^Auth NTLMv2$' "$CHART/images/bridge/cntlm.conf.template" >/dev/null; then
+if grep -E '^Auth NTLM$' "$CHART/images/bridge-ubi/cntlm.conf.template" >/dev/null \
+  && ! grep -E '^Auth NTLMv2$' "$CHART/images/bridge-ubi/cntlm.conf.template" >/dev/null; then
   echo "OK  cntlm lab uses Auth NTLM (fake helper has no target-info)"
 else
-  echo "FAIL cntlm.conf.template must use Auth NTLM for lab fake helper"
+  echo "FAIL bridge-ubi cntlm.conf.template must use Auth NTLM for lab fake helper"
   fail=$((fail + 1))
 fi
 
@@ -257,7 +265,7 @@ for pat in \
   "ntlm" \
   "NTLM_USERNAME" \
   "kerberos-bridge-ntlm" \
-  "kerberos-lab-bridge:0.2.0" \
+  "kerberos-lab-bridge-ubi:0.3.0" \
   "name: cntlm"
 do
   if grep -F -q "$pat" "$HUB_NTLM"; then
@@ -282,7 +290,7 @@ fi
 
 for f in \
   "$CHART/images/corporate-proxy/squid.conf.ntlm.template" \
-  "$CHART/images/bridge/cntlm.conf.template" \
+  "$CHART/images/bridge-ubi/cntlm.conf.template" \
   "$CHART/scripts/smoke-ntlm-podman.sh"
 do
   if [[ -f "$f" ]]; then

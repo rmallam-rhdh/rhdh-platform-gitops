@@ -1,6 +1,6 @@
 # Kerberos / NTLM lab (corporate proxy for RHDH)
 
-**Lab only.** Dual-mode parent: MIT Kerberos + Negotiate Squid **or** Squid `ntlm_fake_auth`. Bridge is UBI Negotiate (Kerberos) or Ubuntu **cntlm** (NTLM). Used to prove Hub outbound HTTPS when the customer proxy has no Basic.
+**Lab only.** Dual-mode parent: MIT Kerberos + Negotiate Squid **or** Squid `ntlm_fake_auth`. Bridge is **UBI/RHEL 9 Squid** (`bridge-ubi`) with Kerberos **or** EPEL **cntlm** for NTLM. Used to prove Hub outbound HTTPS when the customer proxy has no Basic.
 
 NTLM overlay: `values-ntlm-lab.yaml` + Hub `values-kerberos-ntlm-lab.yaml`. Local smoke: `scripts/smoke-ntlm-podman.sh`. Cluster smoke (no Hub): `scripts/smoke-ntlm-cluster.sh`. Design notes: `idp-platform-docs/proxy/kerberos-ntlm-dual-mode.md`.
 

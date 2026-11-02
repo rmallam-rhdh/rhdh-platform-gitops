@@ -1,5 +1,5 @@
-# Dual-mode lab bridge: Kerberos Negotiate (Squid) or NTLM (cntlm).
-# Hub → 127.0.0.1:3128 (no auth) → corporate parent with Kerberos or NTLM.
+# Optional Ubuntu dual-mode bridge (Negotiate Squid or cntlm).
+# Preferred image for Hub/lab is images/bridge-ubi (rhel9/squid + EPEL cntlm).
 FROM docker.io/ubuntu/squid:6.6-24.04_edge
 
 USER root

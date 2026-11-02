@@ -1,11 +1,16 @@
-# Negotiate (Kerberos) bridge on Red Hat Squid (RHEL 9 / UBI lineage).
+# Dual-mode bridge on Red Hat Squid (RHEL 9 / UBI lineage):
+#   PROXY_AUTH_MODE=kerberos|negotiate → Squid login=NEGOTIATE
+#   PROXY_AUTH_MODE=ntlm               → cntlm (EPEL; RH has no cntlm image/RPM in UBI)
 # Lab/spike only — not a supported RHDH feature.
-# For NTLM lab mode use images/bridge (ubuntu + cntlm) instead.
 FROM registry.redhat.io/rhel9/squid:latest
 
 USER root
-RUN dnf -y install krb5-workstation hostname \
+# krb5 for Negotiate; cntlm from EPEL 9 (not in UBI AppStream / BaseOS).
+RUN dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm \
+ && dnf -y install krb5-workstation hostname cntlm \
  && dnf clean all \
+ && command -v cntlm \
+ && (command -v curl || command -v curl-minimal || true) \
  && mkdir -p /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm \
  && chown -R 1001:0 /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm \
  && chmod -R g+rwX /var/spool/squid /var/log/squid /var/run/squid /tmp/squid /etc/cntlm

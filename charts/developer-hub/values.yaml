@@ -389,7 +389,7 @@ httpProxy:
 kerberosBridgeSidecar:
   enabled: false
   # Prefer published GHCR for demos; cluster IS also works after sync script / tag.
-  # Kerberos: bridge-ubi. NTLM lab: ubuntu bridge image (cntlm), e.g. …/kerberos-lab-bridge:0.2.0
+  # Dual-mode bridge-ubi (Negotiate Squid + EPEL cntlm). NTLM: set proxyAuthMode=ntlm.
   image: ghcr.io/rmallam-rhdh/kerberos-lab-bridge-ubi:0.1.0
   imagePullPolicy: IfNotPresent
   keytabSecret: kerberos-bridge-keytab

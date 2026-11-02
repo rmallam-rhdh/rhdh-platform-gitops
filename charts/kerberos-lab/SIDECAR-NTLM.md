@@ -4,8 +4,8 @@
 
 Negotiate (Kerberos) sibling: [SIDECAR.md](SIDECAR.md). Customer-share PDF source: [`.share/SIDECAR-NTLM-customer.md`](../../.share/SIDECAR-NTLM-customer.md).
 
-Published lab image (amd64): Ubuntu `kerberos-lab-bridge` with **cntlm** — e.g. cluster tag `…/kerberos-lab-bridge:0.2.0`.  
-Source: `charts/kerberos-lab/images/bridge/` (`PROXY_AUTH_MODE=ntlm`).
+Published lab image (amd64): `kerberos-lab-bridge-ubi` — `registry.redhat.io/rhel9/squid` + EPEL **cntlm** — e.g. `…/kerberos-lab-bridge-ubi:0.3.0`.  
+Source: `charts/kerberos-lab/images/bridge-ubi/` (`PROXY_AUTH_MODE=ntlm`). Red Hat does not ship a cntlm image; the RPM comes from EPEL.
 
 ---
 
@@ -58,7 +58,7 @@ Hub → cntlm (no auth) → corporate parent (NTLM challenge / response)
 4. cntlm sends **Type 1** (negotiate), receives **Type 2** (challenge), sends **Type 3** (authenticate) using Username/Password/Domain.
 5. On success the parent returns **200 Connection established**; Hub’s TLS continues through the tunnel.
 
-Lab cntlm template (`images/bridge/cntlm.conf.template`) uses **`Auth NTLM`** because Squid `ntlm_fake_auth` does not supply target-info for NTLMv2. Real AD parents usually need **`Auth NTLMv2`**.
+Lab cntlm template (`images/bridge-ubi/cntlm.conf.template`) uses **`Auth NTLM`** because Squid `ntlm_fake_auth` does not supply target-info for NTLMv2. Real AD parents usually need **`Auth NTLMv2`**.
 
 ---
 
@@ -74,7 +74,7 @@ Rendered when `kerberosBridgeSidecar.enabled: true` and `proxyAuthMode: ntlm`.
 
 ### 4.1 Identity / listen / probes
 
-Container name **`cntlm`** (Negotiate mode keeps `kerberos-bridge`), port **3128**, loopback listen, exec `/dev/tcp/127.0.0.1/3128` probes — see Negotiate doc. Image must include the **cntlm** binary (Ubuntu bridge), not UBI Squid-only.
+Container name **`cntlm`** (Negotiate mode keeps `kerberos-bridge`), port **3128**, loopback listen, exec `/dev/tcp/127.0.0.1/3128` probes — see Negotiate doc. Image is **bridge-ubi** with the **cntlm** binary from EPEL.
 
 ### 4.2 Secret (not keytab)
 
@@ -96,7 +96,7 @@ Container name **`cntlm`** (Negotiate mode keeps `kerberos-bridge`), port **3128
 
 ### 4.4 Entrypoint
 
-`images/bridge/entrypoint.sh` → `run_ntlm`: render cntlm.conf → `cntlm -f -c /tmp/cntlm.conf`.
+`images/bridge-ubi/entrypoint.sh` → `run_ntlm`: render cntlm.conf → `cntlm -f -c /tmp/cntlm.conf`.
 
 ---
 
@@ -114,7 +114,7 @@ kerberosBridgeSidecar:
   enabled: true
   proxyAuthMode: ntlm
   ntlmSecret: kerberos-bridge-ntlm
-  image: image-registry.openshift-image-registry.svc:5000/rhdh-kerberos/kerberos-lab-bridge:0.2.0
+  image: image-registry.openshift-image-registry.svc:5000/rhdh-kerberos/kerberos-lab-bridge-ubi:0.3.0
   corporateProxyHostname: corporate-proxy.kerberos-lab.svc.cluster.local
   corporateProxyPort: "3128"
 
@@ -155,7 +155,8 @@ Overlays: `values-ntlm-lab.yaml`, `values-kerberos-ntlm-lab.yaml`.
 
 | Path | Role |
 |---|---|
-| `images/bridge/` | Ubuntu + cntlm |
+| `images/bridge-ubi/` | rhel9/squid + EPEL cntlm (preferred) |
+| `images/bridge/` | Optional Ubuntu dual-mode fallback |
 | `images/corporate-proxy/squid.conf.ntlm.template` | Lab NTLM parent |
 | `../developer-hub/templates/backstage.yaml` | Sidecar patch (`proxyAuthMode`) |
 | `SIDECAR.md` | Negotiate sibling |
