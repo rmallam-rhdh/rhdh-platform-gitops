@@ -41,8 +41,9 @@ sampleApp:
   port: 8080
 
 # Another namespace's HTTPRoute claims a host it does not own. Expected: NotAllowedByListeners.
+# Argo CD shows the app Degraded while this is on (the refused route is reported as unhealthy).
 hijackTest:
-  enabled: true
+  enabled: false
   namespace: gwcert-intruder
   targetHost: orders
 

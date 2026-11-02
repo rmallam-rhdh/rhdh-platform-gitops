@@ -10,6 +10,9 @@ metadata:
     app.kubernetes.io/component: gateway-cert-lab
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    # Compare against the server's dry run, so Gateway API defaults (parentRefs group/kind,
+    # backendRefs weight, default path match) do not show as OutOfSync.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: default
   source:

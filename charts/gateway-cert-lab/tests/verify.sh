@@ -44,7 +44,7 @@ done < "$TMP/listeners"
 echo "== 2. Each host serves its own certificate through the Router"
 HOSTS=$($OC get route -n "$GW_NS" -o jsonpath='{range .items[?(@.spec.tls.termination=="passthrough")]}{.spec.host}{"\n"}{end}')
 for h in $HOSTS; do
-  body=$(curl -sS --max-time 10 --cacert "$TMP/ca.crt" "https://$h/" -w ' HTTP%{http_code}' 2>&1)
+  body=$(curl -sS --max-time 10 --cacert "$TMP/ca.crt" "https://$h/" -w ' HTTP%{http_code}' 2>&1 | tr -d '\n')
   san=$(echo | openssl s_client -connect "$h:443" -servername "$h" 2>/dev/null | openssl x509 -noout -ext subjectAltName 2>/dev/null | grep -o 'DNS:[^, ]*' | tr '\n' ' ')
   if [[ "$body" == *HTTP200 ]] && [ "$san" = "DNS:$h " ]; then ok "$h -> ${body% HTTP200}; certificate names only $h"
   else bad "$h -> $body; SAN: $san"; fi
@@ -79,7 +79,7 @@ else info "no attached app route; skipped"; fi
 
 if $RENEW; then
   echo "== 6. Forced renewal of the first host's certificate"
-  CERT=$($OC get certificate -n "$GW_NS" -o jsonpath='{range .items[?(@.spec.isCA!=true)]}{.metadata.name} {.spec.dnsNames[0]}{"\n"}{end}' | grep " $FIRST$" | awk '{print $1}')
+  CERT=$($OC get certificate -n "$GW_NS" -o jsonpath='{range .items[*]}{.metadata.name} {.spec.dnsNames[0]}{"\n"}{end}' | awk -v h="$FIRST" '$2==h{print $1}')
   OTHER=$(echo "$HOSTS" | grep -v -x "$FIRST" | head -1)
   b1=$(served "$FIRST"); b2=$([ -n "$OTHER" ] && served "$OTHER"); p1=$(gwpod "$GW")
   $OC patch certificate "$CERT" -n "$GW_NS" --subresource=status --type=json \
@@ -102,7 +102,8 @@ if $LIMIT; then
   echo "== 8. Listener limit (server-side dry run)"
   { echo "apiVersion: gateway.networking.k8s.io/v1"; echo "kind: Gateway"; echo "metadata: {name: limit-test, namespace: $GW_NS}"; echo "spec:"; echo "  gatewayClassName: istio"; echo "  listeners:"
     for i in $(seq -w 1 65); do echo "  - {name: l$i, hostname: l$i.$DOMAIN, port: 443, protocol: HTTPS, tls: {mode: Terminate, certificateRefs: [{name: x}]}}"; done; } > "$TMP/65.yaml"
-  $OC apply --dry-run=server -f "$TMP/65.yaml" 2>&1 | grep -q "must have at most 64 items" && ok "65 listeners rejected (at most 64)" || bad "65 listeners not rejected"
+  res=$($OC apply --dry-run=server -f "$TMP/65.yaml" 2>&1)
+  [[ "$res" == *"must have at most 64 items"* ]] && ok "65 listeners rejected (at most 64)" || bad "65 listeners not rejected: $res"
   sed '/name: l65,/d' "$TMP/65.yaml" | $OC apply --dry-run=server -f - >/dev/null 2>&1 && ok "64 listeners accepted" || bad "64 listeners refused"
 fi
 

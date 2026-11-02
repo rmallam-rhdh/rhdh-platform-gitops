@@ -23,7 +23,7 @@ Set `issuer.standIn: false` and point `issuer.name`/`issuer.kind` at a real issu
 | `Gateway` `shared-gw`, one HTTPS listener per host on 443 | `gwcert-ingress` | `hosts` |
 | One passthrough `Route` per host to Service `shared-gw-istio` | `gwcert-ingress` | `hosts` |
 | App namespace (ambient), `PeerAuthentication` STRICT, Deployment, Service, `HTTPRoute` | `<host.namespace>` | `hosts[].sampleApp` |
-| `HTTPRoute` claiming another namespace's host | `gwcert-intruder` | `hijackTest.enabled` (on) |
+| `HTTPRoute` claiming another namespace's host | `gwcert-intruder` | `hijackTest.enabled` (off) |
 | Listener whose certificate can never be issued | `gwcert-ingress` | `brokenHost.enabled` (off) |
 | Second gateway `scale-gw` with `count` listeners and Certificates | `gwcert-ingress` | `scaleTest.enabled` (off) |
 
@@ -49,7 +49,7 @@ oc get application gateway-cert-lab -n openshift-gitops -w   # wait for Synced /
 ## Verify
 
 ```bash
-CONTEXT=<your oc context> charts/gateway-cert-lab/tests/verify.sh            # read-only checks 1-5, 7, 9
+CONTEXT=<your oc context> charts/gateway-cert-lab/tests/verify.sh            # read-only checks 1-5, 7, 9 (3 needs hijackTest on)
 CONTEXT=<your oc context> charts/gateway-cert-lab/tests/verify.sh --renew --limit
 ```
 
@@ -81,7 +81,8 @@ Each change below is a commit to `main` (or a branch, see the last tip). Argo CD
 2. **Remove a hostname.** Delete the entry. `prune: true` removes its listener, `Certificate`, Route and app. The TLS Secret stays behind (cert-manager does not own it by default); delete it by hand.
 3. **Break one certificate.** Set `brokenHost.enabled: true`. The app shows Degraded, `oc get gateway shared-gw -n gwcert-ingress -o yaml`
    shows `InvalidCertificateRef` on that listener only, and `verify.sh` still passes for every other host.
-4. **Try to steal a hostname.** Change `hijackTest.targetHost` to `payments`; the intruder route stays refused.
+4. **Try to steal a hostname.** Set `hijackTest.enabled: true`. The intruder namespace's `HTTPRoute` claims `orders` and is
+   refused with `NotAllowedByListeners`; Argo CD shows the app Degraded until you turn it off. Try `targetHost: payments` too.
 5. **Renew a certificate.** `verify.sh --renew`. Watch `oc get certificate -n gwcert-ingress -w`.
 6. **Delete a Secret.** `oc delete secret orders-gwcert-tls -n gwcert-ingress`; cert-manager issues a fresh one and the gateway serves it.
 7. **Drift.** `oc label ns gwcert-ingress istio-discovery-` and watch the gateway status: istiod stops managing it.

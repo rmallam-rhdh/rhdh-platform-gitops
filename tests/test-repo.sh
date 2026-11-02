@@ -138,6 +138,7 @@ helm template gwc "$ROOT/charts/gateway-cert-lab" -f "$ROOT/charts/gateway-cert-
 need "$GWC" "kind: Gateway"
 need "$GWC" "hostname: orders-gwcert.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com"
 need "$GWC" "termination: passthrough"
+forbid "$GWC" "steal-orders"
 need "$GWC" "istio-discovery: enabled"
 forbid "$GWC" "\\*\\."
 forbid "$GWC" "kind: Subscription"
