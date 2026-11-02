@@ -42,3 +42,7 @@ spec:
       kind: Certificate
       jqPathExpressions:
         - .status
+    - group: cert-manager.io
+      kind: ClusterIssuer
+      jqPathExpressions:
+        - .status

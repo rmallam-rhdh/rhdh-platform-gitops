@@ -17,6 +17,13 @@ issuer:
   standIn: true
   name: stand-in-ca
   kind: Issuer
+  # Issuer for team-owned certificates (hosts with certInAppNamespace). Teams request certificates from
+  # their own namespaces, so this one must be reachable from them: a ClusterIssuer, or an Issuer per team.
+  team:
+    standIn: true            # true: a self-signed ClusterIssuer CA, its Secret in caNamespace
+    name: stand-in-team-ca
+    kind: ClusterIssuer
+    caNamespace: cert-manager   # cert-manager's cluster resource namespace (where ClusterIssuer CA Secrets live)
 
 certificate:
   duration: 2160h          # 90 days; cert-manager renews at two-thirds of the lifetime by default
@@ -30,6 +37,15 @@ hosts:
   - name: payments
     namespace: gwcert-payments
     sampleApp: true
+    # Team-owned certificate: the Certificate and its Secret live in gwcert-payments, not the gateway
+    # namespace. The listener points at it across namespaces, and the team's ReferenceGrant allows that.
+    certInAppNamespace: true
+    grantGateway: true        # false: no ReferenceGrant, the listener shows RefNotPermitted
+
+# Role for app teams in namespaces with team-owned certificates: manage Certificates and ReferenceGrants.
+# Bound to `group` when set (for example the team's OpenShift group); unbound otherwise.
+teamAccess:
+  group: ""
 
 # App namespaces join the ambient mesh with STRICT mTLS, as golden-path namespaces would.
 appNamespaces:
