@@ -2,13 +2,14 @@
 # Certificates share sync wave 2 with the Gateway, Routes and HTTPRoutes on purpose. If a later wave waited
 # for certificates to be healthy, one certificate that cannot be issued would block every other change.
 # The gateway already isolates it: only that listener stays down (InvalidCertificateRef).
+# A host with certInAppNamespace gets its Certificate (and Secret) in its own namespace, from the team issuer.
 {{- range .Values.hosts }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: {{ .name }}-{{ $.Values.namePrefix }}
-  namespace: {{ $.Values.gateway.namespace }}
+  namespace: {{ if .certInAppNamespace }}{{ .namespace }}{{ else }}{{ $.Values.gateway.namespace }}{{ end }}
   labels:
     {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
   annotations:
@@ -21,8 +22,13 @@ spec:
   privateKey:
     rotationPolicy: {{ $.Values.certificate.rotationPolicy }}
   issuerRef:
+    {{- if .certInAppNamespace }}
+    name: {{ $.Values.issuer.team.name }}
+    kind: {{ $.Values.issuer.team.kind }}
+    {{- else }}
     name: {{ $.Values.issuer.name }}
     kind: {{ $.Values.issuer.kind }}
+    {{- end }}
 {{- end }}
 {{- if .Values.brokenHost.enabled }}
 ---

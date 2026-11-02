@@ -10,6 +10,21 @@ client --SNI--> OpenShift Router --passthrough Route (SNI)--> shared gateway --l
        --> HTTPRoute --> mesh (HBONE, STRICT mTLS) --> app pod
 ```
 
+Two ways to own a hostname's certificate, chosen per host:
+
+- **Platform-owned (default):** the `Certificate` and its Secret live in the gateway namespace. App teams never see a key.
+- **Team-owned (`certInAppNamespace: true`, `payments` in this lab):** the `Certificate` and Secret live in the team's own
+  namespace, issued by a ClusterIssuer the team can use. The team's `ReferenceGrant` lets the shared gateway read that one
+  Secret, and the listener points at it across namespaces. OPaaS still owns the Gateway and adds the listener.
+
+```
+team namespace (gwcert-payments)                     gateway namespace (gwcert-ingress)
+  Certificate payments-gwcert  --cert-manager-->       Gateway shared-gw
+  Secret payments-gwcert-tls   <--reads (allowed by)--   listener payments-gwcert
+  ReferenceGrant allow-shared-gw-tls                        certificateRefs: {name: payments-gwcert-tls, namespace: gwcert-payments}
+  HTTPRoute payments  --attaches to-->                       (only from gwcert-payments)
+```
+
 A self-signed CA in the gateway namespace stands in for the enterprise CA (for example a Venafi issuer).
 Set `issuer.standIn: false` and point `issuer.name`/`issuer.kind` at a real issuer to use one.
 
@@ -19,7 +34,8 @@ Set `issuer.standIn: false` and point `issuer.name`/`issuer.kind` at a real issu
 |---|---|---|
 | Namespace `gwcert-ingress` with `istio-discovery: enabled` | | always |
 | Self-signed root, CA `Certificate` and `Issuer` `stand-in-ca` | `gwcert-ingress` | `issuer.standIn` |
-| One `Certificate` per host (`<name>-gwcert`, Secret `<name>-gwcert-tls`) | `gwcert-ingress` | `hosts` |
+| One `Certificate` per host (`<name>-gwcert`, Secret `<name>-gwcert-tls`) | `gwcert-ingress`, or the host's namespace when `certInAppNamespace` | `hosts` |
+| ClusterIssuer `stand-in-team-ca` (CA Secret in `cert-manager`), `ReferenceGrant` and Role `team-certificates` in the team namespace | team namespace | `hosts[].certInAppNamespace` |
 | `Gateway` `shared-gw`, one HTTPS listener per host on 443 | `gwcert-ingress` | `hosts` |
 | One passthrough `Route` per host to Service `shared-gw-istio` | `gwcert-ingress` | `hosts` |
 | App namespace (ambient), `PeerAuthentication` STRICT, Deployment, Service, `HTTPRoute` | `<host.namespace>` | `hosts[].sampleApp` |
@@ -64,6 +80,7 @@ CONTEXT=<your oc context> charts/gateway-cert-lab/tests/verify.sh --renew --limi
 | 7 | `brokenHost` on | only that host is down |
 | 8 | `--limit` | 65 listeners rejected by the API, 64 accepted (dry run) |
 | 9 | `scaleTest` on | all `count` listeners `Programmed`; gateway memory printed |
+| 10 | Team-owned hosts | Secret only in the team namespace; `ResolvedRefs` with the grant, `RefNotPermitted` without; issued by the team CA; `--renew` also renews it |
 
 ## Sync waves
 
@@ -98,6 +115,10 @@ Each change below is a commit to `main` (or a branch, see the last tip). Argo CD
    "must have at most 64 items", which is the Gateway API limit.
 9. **A real issuer.** Create an `Issuer` in `gwcert-ingress` (for example a Venafi issuer), set `issuer.standIn: false` and
    `issuer.name` to it.
+11. **Take the grant away.** For `payments`, set `grantGateway: false`. The team's `ReferenceGrant` is pruned, the listener shows
+    `RefNotPermitted` and that host stops serving; every other host carries on. Set it back to `true` and it returns.
+12. **Make another host team-owned.** Add `certInAppNamespace: true` to `orders`. Argo CD moves its `Certificate` to `gwcert-orders`,
+    adds the grant, and the listener follows.
 10. **Work on a branch.** `oc patch application gateway-cert-lab -n openshift-gitops --type merge -p '{"spec":{"source":{"targetRevision":"<branch>"}}}'`,
     then set it back to `main` when done.
 

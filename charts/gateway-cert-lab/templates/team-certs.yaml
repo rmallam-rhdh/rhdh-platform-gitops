@@ -1,0 +1,107 @@
+{{- $team := list }}
+{{- range .Values.hosts }}{{ if .certInAppNamespace }}{{ $team = append $team . }}{{ end }}{{ end }}
+{{- if $team }}
+{{- if .Values.issuer.team.standIn }}
+# Stand-in for the enterprise CA as seen from team namespaces: a self-signed CA behind a ClusterIssuer.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.issuer.team.name }}-bootstrap
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.issuer.team.name }}
+  namespace: {{ .Values.issuer.team.caNamespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  isCA: true
+  commonName: gateway-cert-lab stand-in team CA
+  secretName: {{ .Values.issuer.team.name }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: {{ .Values.issuer.team.name }}-bootstrap
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.issuer.team.name }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ca:
+    secretName: {{ .Values.issuer.team.name }}
+{{- end }}
+{{- range $team }}
+{{- if (ne (toString .grantGateway) "false") }}
+---
+# Owned by the app team: lets the shared gateway read this one Secret, nothing else in the namespace.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-{{ $.Values.gateway.name }}-tls
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: {{ $.Values.gateway.namespace }}
+  to:
+    - group: ""
+      kind: Secret
+      name: {{ .name }}-{{ $.Values.namePrefix }}-tls
+{{- end }}
+---
+# What an app team needs to own its certificate: Certificates and ReferenceGrants in its own namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: team-certificates
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "certificaterequests"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+{{- if $.Values.teamAccess.group }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: team-certificates
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: team-certificates
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: {{ $.Values.teamAccess.group }}
+{{- end }}
+{{- end }}
+{{- end }}

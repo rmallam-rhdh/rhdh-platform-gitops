@@ -22,6 +22,9 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: {{ .name }}-{{ $.Values.namePrefix }}-tls
+            {{- if .certInAppNamespace }}
+            namespace: {{ .namespace }}   # team-owned: allowed by the team's ReferenceGrant
+            {{- end }}
       allowedRoutes:
         namespaces:
           from: Selector

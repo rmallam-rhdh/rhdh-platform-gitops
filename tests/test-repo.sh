@@ -140,6 +140,8 @@ need "$GWC" "hostname: orders-gwcert.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.
 need "$GWC" "termination: passthrough"
 forbid "$GWC" "steal-orders"
 need "$GWC" "istio-discovery: enabled"
+need "$GWC" "kind: ReferenceGrant"
+need "$GWC" "namespace: gwcert-payments   # team-owned"
 forbid "$GWC" "\\*\\."
 forbid "$GWC" "kind: Subscription"
 rm -f "$GWC"

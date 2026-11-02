@@ -11,6 +11,8 @@ GW="${GW:-shared-gw}"
 INTRUDER_NS="${INTRUDER_NS:-gwcert-intruder}"
 SCALE_GW="${SCALE_GW:-scale-gw}"
 CA_SECRET="${CA_SECRET:-stand-in-ca}"
+TEAM_CA_SECRET="${TEAM_CA_SECRET:-stand-in-team-ca}"
+TEAM_CA_NS="${TEAM_CA_NS:-cert-manager}"
 RENEW=false; LIMIT=false
 for a in "$@"; do case "$a" in --renew) RENEW=true ;; --limit) LIMIT=true ;; *) echo "unknown option $a"; exit 2 ;; esac; done
 
@@ -22,6 +24,8 @@ info(){ echo "      $*"; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 $OC get secret "$CA_SECRET" -n "$GW_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d > "$TMP/ca.crt" 2>/dev/null
 [ -s "$TMP/ca.crt" ] || { echo "Cannot read CA secret $GW_NS/$CA_SECRET. Is the app synced?"; exit 1; }
+# Team-owned certificates come from a second stand-in CA behind a ClusterIssuer; trust it too when present.
+$OC get secret "$TEAM_CA_SECRET" -n "$TEAM_CA_NS" -o jsonpath='{.data.ca\.crt}' 2>/dev/null | base64 -d >> "$TMP/ca.crt" 2>/dev/null
 
 served() { # host -> "serial pubkey-hash"
   echo | openssl s_client -connect "$1:443" -servername "$1" 2>/dev/null > "$TMP/s.pem"
@@ -38,12 +42,14 @@ while read -r name prog reason; do
   [ -z "$name" ] && continue
   if [ "$prog" = True ]; then ok "listener $name Programmed"
   elif [ "$reason" = InvalidCertificateRef ]; then info "listener $name not Programmed ($reason): expected only when brokenHost is enabled"; echo "$name" >> "$TMP/broken"
+  elif [ "$reason" = RefNotPermitted ]; then info "listener $name not Programmed ($reason): expected only when that host's grantGateway is false"; echo "$name" >> "$TMP/broken"
   else bad "listener $name not Programmed ($reason)"; fi
 done < "$TMP/listeners"
 
 echo "== 2. Each host serves its own certificate through the Router"
 HOSTS=$($OC get route -n "$GW_NS" -o jsonpath='{range .items[?(@.spec.tls.termination=="passthrough")]}{.spec.host}{"\n"}{end}')
 for h in $HOSTS; do
+  if [ -s "$TMP/broken" ] && grep -qx "${h%%.*}" "$TMP/broken"; then info "$h skipped: its listener is down on purpose"; continue; fi
   body=$(curl -sS --max-time 10 --cacert "$TMP/ca.crt" "https://$h/" -w ' HTTP%{http_code}' 2>&1 | tr -d '\n')
   san=$(echo | openssl s_client -connect "$h:443" -servername "$h" 2>/dev/null | openssl x509 -noout -ext subjectAltName 2>/dev/null | grep -o 'DNS:[^, ]*' | tr '\n' ' ')
   if [[ "$body" == *HTTP200 ]] && [ "$san" = "DNS:$h " ]; then ok "$h -> ${body% HTTP200}; certificate names only $h"
@@ -77,6 +83,26 @@ if [ -n "$APP_NS" ]; then
   [[ "$line" == *":15008"* ]] && ok "ztunnel saw gateway identity -> $APP_NS on port 15008" || bad "no HBONE hop seen in ztunnel $ZT for $APP_NS"
 else info "no attached app route; skipped"; fi
 
+echo "== 10. Team-owned certificates (Secret in the app namespace, ReferenceGrant)"
+$OC get gateway "$GW" -n "$GW_NS" -o jsonpath='{range .spec.listeners[*]}{.name} {.hostname} {.tls.certificateRefs[0].name} {.tls.certificateRefs[0].namespace}{"\n"}{end}' \
+  | awk '$4!=""' > "$TMP/team"
+if [ -s "$TMP/team" ]; then
+  while read -r lname host secret ns; do
+    if $OC get secret "$secret" -n "$ns" >/dev/null 2>&1; then ok "$host: Secret $secret is in the team namespace $ns"; else bad "$host: Secret $ns/$secret missing"; fi
+    $OC get secret "$secret" -n "$GW_NS" >/dev/null 2>&1 && bad "$host: a copy of $secret is in $GW_NS" || ok "$host: no copy of the Secret in $GW_NS"
+    grant=$($OC get referencegrant -n "$ns" -o jsonpath="{range .items[*]}{.spec.from[0].namespace}/{.spec.to[0].name}{\"\\n\"}{end}" 2>/dev/null | grep -x "$GW_NS/$secret")
+    reason=$($OC get gateway "$GW" -n "$GW_NS" -o jsonpath="{range .status.listeners[?(@.name==\"$lname\")].conditions[?(@.type==\"ResolvedRefs\")]}{.reason}{end}")
+    if [ -n "$grant" ]; then
+      [ "$reason" = ResolvedRefs ] && ok "$host: ReferenceGrant in $ns lets the gateway read it (ResolvedRefs)" || bad "$host: grant present but listener says $reason"
+      iss=$(echo | openssl s_client -connect "$host:443" -servername "$host" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null)
+      [[ "$iss" == *"team CA"* ]] && ok "$host: served certificate comes from the team issuer" || bad "$host: issuer $iss"
+      echo "$host" > "$TMP/teamhost"
+    else
+      [ "$reason" = RefNotPermitted ] && ok "$host: no ReferenceGrant, gateway refused to read it (RefNotPermitted)" || bad "$host: no grant but listener says $reason"
+    fi
+  done < "$TMP/team"
+else info "no team-owned hosts; skipped"; fi
+
 if $RENEW; then
   echo "== 6. Forced renewal of the first host's certificate"
   CERT=$($OC get certificate -n "$GW_NS" -o jsonpath='{range .items[*]}{.metadata.name} {.spec.dnsNames[0]}{"\n"}{end}' | awk -v h="$FIRST" '$2==h{print $1}')
@@ -91,6 +117,17 @@ if $RENEW; then
   [ "${a1##* }" != "${b1##* }" ] && ok "new private key" || bad "key unchanged"
   [ "$p1" = "$p2" ] && ok "gateway pod not restarted ($p2)" || bad "gateway pod changed $p1 -> $p2"
   [ "$a2" = "$b2" ] && ok "other host untouched" || bad "other host changed"
+  if [ -s "$TMP/teamhost" ]; then
+    TH=$(cat "$TMP/teamhost"); TNS=$(awk -v h="$TH" '$2==h{print $4}' "$TMP/team")
+    TCERT=$($OC get certificate -n "$TNS" -o jsonpath='{range .items[*]}{.metadata.name} {.spec.dnsNames[0]}{"\n"}{end}' | awk -v h="$TH" '$2==h{print $1}')
+    t1=$(served "$TH"); p1=$(gwpod "$GW")
+    $OC patch certificate "$TCERT" -n "$TNS" --subresource=status --type=json \
+      -p "[{\"op\":\"add\",\"path\":\"/status/conditions/-\",\"value\":{\"type\":\"Issuing\",\"status\":\"True\",\"reason\":\"ManuallyTriggered\",\"message\":\"verify.sh renewal\",\"lastTransitionTime\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}]" >/dev/null
+    for i in $(seq 1 30); do sleep 3; t2=$(served "$TH"); [ "${t2%% *}" != "${t1%% *}" ] && break; done
+    info "team-owned $TH: before $t1 | after $t2 (about $((i*3)) s)"
+    [ "${t2%% *}" != "${t1%% *}" ] && [ "${t2##* }" != "${t1##* }" ] && ok "team-owned certificate renewed in $TNS: new serial and key served" || bad "team-owned certificate not renewed"
+    [ "$p1" = "$(gwpod "$GW")" ] && ok "gateway pod not restarted" || bad "gateway pod restarted"
+  fi
 fi
 
 if [ -s "$TMP/broken" ]; then
