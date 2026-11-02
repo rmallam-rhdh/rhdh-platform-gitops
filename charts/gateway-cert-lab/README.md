@@ -65,6 +65,12 @@ CONTEXT=<your oc context> charts/gateway-cert-lab/tests/verify.sh --renew --limi
 | 8 | `--limit` | 65 listeners rejected by the API, 64 accepted (dry run) |
 | 9 | `scaleTest` on | all `count` listeners `Programmed`; gateway memory printed |
 
+## Sync waves
+
+Namespaces are wave -1, the stand-in CA wave 0-1, and everything per host (Certificates, listeners, Routes, apps) wave 2.
+Do not move Certificates to an earlier wave than the Gateway: Argo CD waits for a wave to be healthy before the next one,
+so a single certificate that cannot be issued would block every later change (we hit this with `brokenHost`).
+
 ## Things to try
 
 Each change below is a commit to `main` (or a branch, see the last tip). Argo CD syncs within about three minutes;

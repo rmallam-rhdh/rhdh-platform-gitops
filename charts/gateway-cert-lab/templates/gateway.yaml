@@ -9,7 +9,7 @@ metadata:
     {{- include "gateway-cert-lab.labels" . | nindent 4 }}
   annotations:
     networking.istio.io/service-type: ClusterIP   # reached through passthrough Routes on the OpenShift Router
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   gatewayClassName: istio
   listeners:

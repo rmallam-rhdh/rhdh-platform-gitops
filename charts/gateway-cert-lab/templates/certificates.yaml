@@ -1,4 +1,7 @@
 # One Certificate per catalogue entry: exactly one DNS name, never a wildcard.
+# Certificates share sync wave 2 with the Gateway, Routes and HTTPRoutes on purpose. If a later wave waited
+# for certificates to be healthy, one certificate that cannot be issued would block every other change.
+# The gateway already isolates it: only that listener stays down (InvalidCertificateRef).
 {{- range .Values.hosts }}
 ---
 apiVersion: cert-manager.io/v1
