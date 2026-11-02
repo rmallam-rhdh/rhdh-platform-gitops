@@ -1,0 +1,47 @@
+{{- if .Values.issuer.standIn }}
+# Stand-in for the enterprise CA: a self-signed root, then a CA Issuer that signs every host certificate.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: bootstrap-selfsigned
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.issuer.name }}
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  isCA: true
+  commonName: gateway-cert-lab stand-in CA
+  secretName: {{ .Values.issuer.name }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: bootstrap-selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.issuer.name }}
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ca:
+    secretName: {{ .Values.issuer.name }}
+{{- end }}

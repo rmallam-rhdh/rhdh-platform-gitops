@@ -1,0 +1,11 @@
+apiVersion: v2
+name: gateway-cert-lab
+description: Lab-only proof of one HTTPS listener and one cert-manager Certificate per hostname on a shared Gateway API gateway (no wildcard certificates)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - gateway-api
+  - cert-manager
+  - service-mesh
+  - lab

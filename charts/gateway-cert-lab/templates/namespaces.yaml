@@ -1,0 +1,43 @@
+# The gateway namespace needs istio-discovery=enabled: istiod only watches ambient namespaces
+# and namespaces with that label. Without it the Gateway stays Pending and no gateway pod starts.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+    istio-discovery: enabled
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+{{- $seen := dict }}
+{{- range .Values.hosts }}
+{{- if not (hasKey $seen .namespace) }}
+{{- $_ := set $seen .namespace true }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
+    {{- if $.Values.appNamespaces.ambient }}
+    istio.io/dataplane-mode: ambient
+    {{- else }}
+    istio-discovery: enabled
+    {{- end }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+{{- end }}
+{{- end }}
+{{- if .Values.hijackTest.enabled }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.hijackTest.namespace }}
+  labels:
+    {{- include "gateway-cert-lab.labels" . | nindent 4 }}
+    istio-discovery: enabled
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+{{- end }}
