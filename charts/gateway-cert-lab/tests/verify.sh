@@ -59,7 +59,7 @@ else info "hijackTest disabled; skipped"; fi
 echo "== 4. No SNI, or SNI with no listener, straight to the gateway Service"
 IP=$($OC get svc "$GW-istio" -n "$GW_NS" -o jsonpath='{.spec.clusterIP}')
 FIRST=$($OC get gateway "$GW" -n "$GW_NS" -o jsonpath='{.spec.listeners[0].hostname}'); DOMAIN="${FIRST#*.}"
-out=$($OC run sni-probe-$$ -n "$INTRUDER_NS" --rm -i --restart=Never --quiet --image=registry.access.redhat.com/ubi9/ubi -- bash -c "
+out=$($OC run sni-probe-$$ -n "$GW_NS" --rm -i --restart=Never --quiet --image=registry.access.redhat.com/ubi9/ubi -- bash -c "
   curl -sk -o /dev/null https://$IP/; echo nosni=\$?
   curl -sk -o /dev/null --resolve nobody.$DOMAIN:443:$IP https://nobody.$DOMAIN/; echo unknown=\$?
   curl -sk -o /dev/null -w '%{http_code}' --resolve $FIRST:443:$IP https://$FIRST/; echo ' known'" 2>/dev/null)
