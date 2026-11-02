@@ -49,6 +49,7 @@ done < "$TMP/listeners"
 echo "== 2. Each host serves its own certificate through the Router"
 HOSTS=$($OC get route -n "$GW_NS" -o jsonpath='{range .items[?(@.spec.tls.termination=="passthrough")]}{.spec.host}{"\n"}{end}')
 for h in $HOSTS; do
+  if [ -s "$TMP/broken" ] && grep -qx "${h%%.*}" "$TMP/broken"; then info "$h skipped: its listener is down on purpose"; continue; fi
   body=$(curl -sS --max-time 10 --cacert "$TMP/ca.crt" "https://$h/" -w ' HTTP%{http_code}' 2>&1 | tr -d '\n')
   san=$(echo | openssl s_client -connect "$h:443" -servername "$h" 2>/dev/null | openssl x509 -noout -ext subjectAltName 2>/dev/null | grep -o 'DNS:[^, ]*' | tr '\n' ' ')
   if [[ "$body" == *HTTP200 ]] && [ "$san" = "DNS:$h " ]; then ok "$h -> ${body% HTTP200}; certificate names only $h"
