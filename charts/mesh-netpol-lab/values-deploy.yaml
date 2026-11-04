@@ -4,8 +4,8 @@ serverNode: ip-10-0-0-119.us-east-2.compute.internal
 istioSystemPolicy:
   enabled: true
   ztunnelSource: ztunnelNamespace
-  allowWebhook: false
-  allowConsolePlugin: false
+  allowWebhook: true
+  allowConsolePlugin: true
 server:
   netpol: appPlusHboneNoProbe
 waypoint:
