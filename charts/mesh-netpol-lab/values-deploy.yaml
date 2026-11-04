@@ -4,17 +4,17 @@ ztunnelNamespace: ztunnel
 clientNode: ip-10-0-0-171.us-east-2.compute.internal
 serverNode: ip-10-0-0-119.us-east-2.compute.internal
 istioSystemPolicy:
-  enabled: true
-  ztunnelSource: ztunnelNamespace
-  allowWebhook: true
-  allowConsolePlugin: true
-  webhookSource: hostNetwork
-  allowMetrics: true
+  enabled: false
+  ztunnelSource: none
+  allowWebhook: false
+  allowConsolePlugin: false
+  webhookSource: any
+  allowMetrics: false
 namespaces:
   serverDiscoveryLabel: true
 server:
-  netpol: appPlusHboneNoProbe
+  netpol: none
 waypoint:
-  enabled: true
+  enabled: false
 banp:
-  enabled: true
+  enabled: false
