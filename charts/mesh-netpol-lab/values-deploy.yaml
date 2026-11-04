@@ -9,7 +9,7 @@ istioSystemPolicy:
   allowWebhook: true
   allowConsolePlugin: true
   webhookSource: hostNetwork
-  allowMetrics: true
+  allowMetrics: false
 namespaces:
   serverDiscoveryLabel: true
 server:
