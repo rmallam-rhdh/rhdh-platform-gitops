@@ -20,6 +20,11 @@ istioSystemPolicy:
   ztunnelSource: none
   # Rule for istiod's webhook container port (Service 443 -> pod 15017), from any source.
   allowWebhook: false
+  # Source for the 15017 rule: any (no from) or hostNetwork (OpenShift's host-network policy group).
+  webhookSource: any
+  # Rule for user workload monitoring to scrape istiod on 15014.
+  allowMetrics: false
+  metricsNamespace: openshift-user-workload-monitoring
   # Rule for the OpenShift console to load the ossmconsole plugin (9443) in istio-system.
   allowConsolePlugin: false
 
@@ -47,3 +52,14 @@ client:
 # Waypoint in the server namespace (L7 proxy). Its pod must reach istiod on 15012.
 waypoint:
   enabled: false
+
+# A BaselineAdminNetworkPolicy like WNZL's NPRD one (cluster-scoped, named default): denies egress from
+# namespaces labelled westpac.co.nz/belongs-to: wnzlspace to the listed CIDRs. When enabled, the test
+# namespaces get that label.
+banp:
+  enabled: false
+  denyEgressTo:
+    - 10.230.219.2/32
+    - 10.230.217.8/32
+    - 10.230.105.204/32
+    - 10.230.120.8/32
