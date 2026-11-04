@@ -5,6 +5,9 @@ metadata:
   labels:
     istio.io/dataplane-mode: ambient
     istio-discovery: enabled
+    {{- if .Values.banp.enabled }}
+    westpac.co.nz/belongs-to: wnzlspace
+    {{- end }}
 ---
 apiVersion: v1
 kind: Namespace
@@ -17,6 +20,9 @@ metadata:
     {{- end }}
     {{- if .Values.waypoint.enabled }}
     istio.io/use-waypoint: waypoint
+    {{- end }}
+    {{- if .Values.banp.enabled }}
+    westpac.co.nz/belongs-to: wnzlspace
     {{- end }}
 ---
 apiVersion: v1

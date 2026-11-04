@@ -8,9 +8,13 @@ istioSystemPolicy:
   ztunnelSource: none
   allowWebhook: false
   allowConsolePlugin: false
+  webhookSource: any
+  allowMetrics: false
 namespaces:
   serverDiscoveryLabel: true
 server:
   netpol: none
 waypoint:
+  enabled: false
+banp:
   enabled: false
