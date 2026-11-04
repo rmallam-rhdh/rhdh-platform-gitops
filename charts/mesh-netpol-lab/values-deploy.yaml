@@ -1,9 +1,10 @@
 # Settings for the lab run. Each test step changes this file in Git.
+ztunnelNamespace: istio-system
 clientNode: ip-10-0-0-171.us-east-2.compute.internal
 serverNode: ip-10-0-0-119.us-east-2.compute.internal
 istioSystemPolicy:
   enabled: true
-  ztunnelSource: ztunnelNamespace
+  ztunnelSource: none
   allowWebhook: true
   allowConsolePlugin: true
 server:
