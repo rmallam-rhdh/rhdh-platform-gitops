@@ -1,0 +1,23 @@
+{{- if .Values.cleanupCronJob.enable }}
+# Global DWOC only. CleanupCronJob ignores Che-owned "devworkspace-config".
+# DWO >= 0.34 runs pruning in-process (no Kubernetes CronJob object).
+apiVersion: controller.devfile.io/v1alpha1
+kind: DevWorkspaceOperatorConfig
+metadata:
+  name: devworkspace-operator-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: workspace-cleanup
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+config:
+  workspace:
+    cleanupCronJob:
+      enable: {{ .Values.cleanupCronJob.enable }}
+      dryRun: {{ .Values.cleanupCronJob.dryRun }}
+      retainTime: {{ int .Values.cleanupCronJob.retainTime }}
+      schedule: {{ .Values.cleanupCronJob.schedule | quote }}
+{{- end }}

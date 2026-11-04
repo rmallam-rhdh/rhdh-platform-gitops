@@ -28,6 +28,18 @@ cheCluster:
   # Empty keeps the cluster trust bundle only.
   gitTrustedCertsConfigMapName: ""
 
+# Delete DevWorkspaces that have not been started within retainTime.
+# Must be the global DWOC name "devworkspace-operator-config" (not CheCluster's
+# "devworkspace-config"). Field is "enable" (CRD), not "enabled".
+# Idle timeout (CheCluster) only stops workspaces; this prunes the CR/PVC.
+cleanupCronJob:
+  enable: true
+  dryRun: false
+  # 30 days in seconds
+  retainTime: 2592000
+  # First day of each month at 00:00 UTC
+  schedule: "0 0 1 * *"
+
 # This chart does not create an IngressController. Leave domain empty and
 # labels empty to stay on the cluster default apps domain. If a cluster has
 # a Dev Spaces ingress shard, set both in values-deploy.yaml (Helm map merge

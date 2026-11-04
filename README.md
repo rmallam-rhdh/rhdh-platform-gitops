@@ -7,7 +7,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/cnpg` | `cnpg` | CloudNativePG `Cluster` `rhdh-pg` in `rhdh` (3 instances) |
 | `charts/cnpg` (`values-dr.yaml`) | `cnpg-dr` | CloudNativePG `Cluster` `rhdh-pg-dr` in `rhdh-dr` (3 instances, not used by the Hub) |
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
-| `charts/devspaces` | `devspaces` | `CheCluster` in `openshift-devspaces` (Route labels for the existing shared ingress) |
+| `charts/devspaces` | `devspaces` | `CheCluster` + global `DevWorkspaceOperatorConfig` (inactive workspace cleanup) in `openshift-devspaces` |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
 | `charts/squid` | `squid` | Authenticated Squid (Basic). Main Hub uses it when `httpProxy.enabled` is true |
 | `charts/kerberos-lab` | `kerberos-lab` | Lab-only KDC + Negotiate corporate proxy + bridge |
@@ -50,6 +50,8 @@ Hub egress (Jira, Dynatrace, Entra, GitHub) goes through in-cluster Squid when `
 This chart does not create an IngressController. Default is the cluster `*.apps` domain with no shard label. If a cluster has a Dev Spaces shard, set `networking.domain` and `networking.labels` in `charts/devspaces/values-deploy.yaml` — do not add a second overlay file.
 
 The CheCluster also sets enterprise workspace defaults: per-user PVC, one running workspace, 30 minute idle, nested container runtime off, image builds on the `container-build` SCC, metrics on, and NetworkPolicy for the Dev Spaces and workspace namespaces.
+
+Inactive workspace **deletion** is separate from idle stop. The chart renders a global `DevWorkspaceOperatorConfig` named `devworkspace-operator-config` (not CheCluster’s `devworkspace-config`) with `cleanupCronJob` enabled: default retain 30 days, schedule `0 0 1 * *`. DWO runs that prune in-process — there is no Kubernetes `CronJob` object to list. Toggle via `cleanupCronJob` in `charts/devspaces/values.yaml`.
 
 When developers use the Dev Spaces Remote Connector from a laptop and the workspace cannot reach `update.code.visualstudio.com`, mirror the REH tarball in Artifactory and set `devspaces.rehDownloadUrl` in the IDE. Steps: [charts/devspaces/REH-MIRROR.md](charts/devspaces/REH-MIRROR.md).
 
