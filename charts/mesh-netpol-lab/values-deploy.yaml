@@ -11,4 +11,4 @@ server:
 waypoint:
   enabled: true
 namespaces:
-  serverDiscoveryLabel: true
+  serverDiscoveryLabel: false
