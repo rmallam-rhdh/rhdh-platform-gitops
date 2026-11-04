@@ -6,6 +6,6 @@ istioSystemPolicy:
   ztunnelSource: ztunnelNamespace
   allowWebhook: false
 server:
-  netpol: appPlusHbone
+  netpol: appPlusHboneNoProbe
 waypoint:
   enabled: false
