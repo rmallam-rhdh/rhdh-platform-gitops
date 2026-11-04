@@ -5,6 +5,8 @@ createNamespaces: true
 istio:
   name: default
   namespace: istio-system
+  # Label the istio namespace istio-discovery: enabled (matches the discoverySelectors below).
+  namespaceDiscoveryLabel: true
   profile: ambient
   # Empty = operator default (lab). Pin e.g. v1.30.5 for a freeze.
   version: ""
@@ -32,6 +34,8 @@ istioCni:
 
 ztunnel:
   name: default
+  # Set to istio-system (and istio.trustedZtunnelNamespace to match) to run ztunnel in the
+  # control-plane namespace, as the WNZL eDev LLD section 3.4 does.
   namespace: ztunnel
 
 kiali:
