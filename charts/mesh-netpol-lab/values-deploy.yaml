@@ -8,7 +8,7 @@ istioSystemPolicy:
   ztunnelSource: ztunnelNamespace
   allowWebhook: true
   allowConsolePlugin: true
-  webhookSource: any
+  webhookSource: hostNetwork
   allowMetrics: true
 namespaces:
   serverDiscoveryLabel: true
