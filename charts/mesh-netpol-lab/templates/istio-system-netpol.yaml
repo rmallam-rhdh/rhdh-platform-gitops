@@ -38,5 +38,14 @@ spec:
     - protocol: TCP
       port: 15017
   {{- end }}
+  {{- if .allowConsolePlugin }}
+  - from:                       # OpenShift console loading the Service Mesh console plugin (ossmconsole)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-console
+    ports:
+    - protocol: TCP
+      port: 9443
+  {{- end }}
 {{- end }}
 {{- end }}

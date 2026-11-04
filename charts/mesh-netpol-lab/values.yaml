@@ -20,6 +20,8 @@ istioSystemPolicy:
   ztunnelSource: none
   # Rule for istiod's webhook container port (Service 443 -> pod 15017), from any source.
   allowWebhook: false
+  # Rule for the OpenShift console to load the ossmconsole plugin (9443) in istio-system.
+  allowConsolePlugin: false
 
 # Enrolled test namespaces carry both labels, as LLD section 3.4 does.
 namespaces:
