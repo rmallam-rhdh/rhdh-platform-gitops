@@ -13,7 +13,7 @@ spec:
   - ports:
     - {protocol: TCP, port: 8080}
 {{- end }}
-{{- if eq .Values.server.netpol "appPlusHbone" }}
+{{- if has .Values.server.netpol (list "appPlusHbone" "appPlusHboneNoProbe") }}
 ---
 # Proposed for every enrolled namespace (golden path or WNZLSpace baseline).
 apiVersion: networking.k8s.io/v1
@@ -28,6 +28,8 @@ spec:
   ingress:
   - ports:
     - {protocol: TCP, port: 15008}     # HBONE: mesh traffic arriving at the pod
+  {{- if eq .Values.server.netpol "appPlusHbone" }}
   - from:
     - ipBlock: {cidr: 169.254.7.127/32}  # kubelet probes, rewritten by ztunnel
+  {{- end }}
 {{- end }}

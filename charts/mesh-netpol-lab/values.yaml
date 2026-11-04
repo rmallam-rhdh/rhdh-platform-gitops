@@ -36,6 +36,7 @@ server:
   #   none          = no policy
   #   appOnly       = only the app port 8080 (a typical "allow my app" policy)
   #   appPlusHbone  = app port + allow-mesh-hbone (15008 and the ztunnel probe address 169.254.7.127)
+  #   appPlusHboneNoProbe = app port + 15008 only (checks whether the probe address rule is needed)
   netpol: none
 
 client:
