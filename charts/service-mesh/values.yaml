@@ -11,7 +11,7 @@ istio:
   # Empty = operator default (lab). Pin e.g. v1.30.5 for a freeze.
   version: ""
   updateStrategy: InPlace
-  trustedZtunnelNamespace: ztunnel
+  trustedZtunnelNamespace: istio-system
   discoverySelectors:
     - matchLabels:
         istio.io/dataplane-mode: ambient
@@ -36,7 +36,7 @@ ztunnel:
   name: default
   # Set to istio-system (and istio.trustedZtunnelNamespace to match) to run ztunnel in the
   # control-plane namespace, as the WNZL eDev LLD section 3.4 does.
-  namespace: ztunnel
+  namespace: istio-system
 
 kiali:
   name: kiali
