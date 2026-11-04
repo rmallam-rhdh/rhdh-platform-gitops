@@ -6,7 +6,7 @@ istio:
   name: default
   namespace: istio-system
   # Label the istio namespace istio-discovery: enabled (matches the discoverySelectors below).
-  namespaceDiscoveryLabel: true
+  namespaceDiscoveryLabel: false
   profile: ambient
   # Empty = operator default (lab). Pin e.g. v1.30.5 for a freeze.
   version: ""
