@@ -5,7 +5,9 @@ metadata:
   name: {{ .Values.istio.namespace }}
   labels:
     {{- include "mesh.labels" . | nindent 4 }}
+    {{- if .Values.istio.namespaceDiscoveryLabel }}
     istio-discovery: enabled
+    {{- end }}
 ---
 apiVersion: v1
 kind: Namespace
@@ -13,6 +15,7 @@ metadata:
   name: {{ .Values.istioCni.namespace }}
   labels:
     {{- include "mesh.labels" . | nindent 4 }}
+{{- if ne .Values.ztunnel.namespace .Values.istio.namespace }}
 ---
 apiVersion: v1
 kind: Namespace
@@ -21,4 +24,5 @@ metadata:
   labels:
     {{- include "mesh.labels" . | nindent 4 }}
     istio.io/dataplane-mode: ambient
+{{- end }}
 {{- end }}
