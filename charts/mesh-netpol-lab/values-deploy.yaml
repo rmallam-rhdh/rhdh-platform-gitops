@@ -1,15 +1,16 @@
-# Settings for the lab run. Each test step changes this file in Git.
-ztunnelNamespace: istio-system
+# Settings for a lab run. Each test step changes this file in Git (see README).
+# Defaults: the istio-system policy is off, so registering the app changes nothing mesh-wide.
+ztunnelNamespace: ztunnel
 clientNode: ip-10-0-0-171.us-east-2.compute.internal
 serverNode: ip-10-0-0-119.us-east-2.compute.internal
 istioSystemPolicy:
-  enabled: true
-  ztunnelSource: sameNamespace
-  allowWebhook: true
-  allowConsolePlugin: true
-server:
-  netpol: appPlusHboneNoProbe
-waypoint:
-  enabled: true
+  enabled: false
+  ztunnelSource: none
+  allowWebhook: false
+  allowConsolePlugin: false
 namespaces:
   serverDiscoveryLabel: true
+server:
+  netpol: none
+waypoint:
+  enabled: false
