@@ -1,0 +1,11 @@
+# Settings for the lab run. Each test step changes this file in Git.
+clientNode: ip-10-0-0-171.us-east-2.compute.internal
+serverNode: ip-10-0-0-119.us-east-2.compute.internal
+istioSystemPolicy:
+  enabled: false
+  ztunnelSource: none
+  allowWebhook: false
+server:
+  netpol: none
+waypoint:
+  enabled: false

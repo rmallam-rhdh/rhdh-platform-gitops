@@ -1,0 +1,42 @@
+{{- /*
+WNZL's monorepo-gitops apps/service-mesh/templates/network-policy.yaml, as Rudy shared it on 30 Oct 2026,
+with the values for the proposed fixes added. ztunnelSource=none and allowWebhook=false render it unchanged.
+*/ -}}
+{{- with .Values.istioSystemPolicy }}
+{{- if .enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          istio-discovery: enabled
+      podSelector: {}
+    {{- if eq .ztunnelSource "sameNamespace" }}
+    - podSelector: {}           # fix: istio-system itself, so ztunnel can reach istiod
+    {{- else if eq .ztunnelSource "ztunnelNamespace" }}
+    - namespaceSelector:        # fix: the namespace ztunnel runs in
+        matchLabels:
+          kubernetes.io/metadata.name: {{ $.Values.ztunnelNamespace }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 15010
+    - protocol: TCP
+      port: 15012
+    - protocol: TCP
+      port: 443
+  {{- if .allowWebhook }}
+  - ports:                      # istiod webhook: Service port 443 forwards to container port 15017
+    - protocol: TCP
+      port: 15017
+  {{- end }}
+{{- end }}
+{{- end }}

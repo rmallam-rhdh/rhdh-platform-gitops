@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mesh-netpol-lab
+description: Lab test of WNZL's istio-system NetworkPolicy (np-ingress-allow-sidecars) and the per-namespace allow-mesh-hbone policy in ambient mode
+type: application
+version: 0.1.0
