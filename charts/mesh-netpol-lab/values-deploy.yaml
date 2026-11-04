@@ -13,8 +13,8 @@ istioSystemPolicy:
 namespaces:
   serverDiscoveryLabel: true
 server:
-  netpol: none
+  netpol: appPlusHboneNoProbe
 waypoint:
-  enabled: false
+  enabled: true
 banp:
-  enabled: false
+  enabled: true
