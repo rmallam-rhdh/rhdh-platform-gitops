@@ -1,0 +1,30 @@
+# Lab test of WNZL's istio-system NetworkPolicy and the per-namespace allow-mesh-hbone policy (ambient mode).
+# Registered once with oc apply; not part of idp-platform. See charts/mesh-netpol-lab/README.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mesh-netpol-lab
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: mesh-netpol-lab
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/mesh-netpol-lab
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-deploy.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: netpol-server
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true

@@ -1,0 +1,49 @@
+# Lab-only. Reproduces WNZL's service-mesh chart NetworkPolicy in istio-system, plus two enrolled
+# test namespaces, to prove the fixes proposed for LLD section 3.4 before they go to WNZL.
+
+# Namespace that ztunnel runs in on this cluster (lab: ztunnel; WNZL LLD: istio-system).
+ztunnelNamespace: ztunnel
+# Node to pin the test client to, so restarting the ztunnel on that node is enough to force fresh connections.
+clientNode: ""
+# Node to pin the server to (a different node, so mesh traffic crosses nodes over HBONE).
+serverNode: ""
+
+istioSystemPolicy:
+  # WNZL's template, as Rudy shared it (monorepo-gitops apps/service-mesh/templates/network-policy.yaml).
+  enabled: false
+  namespace: istio-system
+  name: np-ingress-allow-sidecars
+  # Extra source for ztunnel -> istiod:15012.
+  #   none              = WNZL's template unchanged
+  #   sameNamespace     = podSelector: {}  (the fix proposed for ztunnel in istio-system, per LLD 3.4)
+  #   ztunnelNamespace  = the namespace in .Values.ztunnelNamespace (ztunnel in its own namespace)
+  ztunnelSource: none
+  # Rule for istiod's webhook container port (Service 443 -> pod 15017), from any source.
+  allowWebhook: false
+  # Rule for the OpenShift console to load the ossmconsole plugin (9443) in istio-system.
+  allowConsolePlugin: false
+
+# Enrolled test namespaces carry both labels, as LLD section 3.4 does.
+namespaces:
+  client: netpol-client
+  server: netpol-server
+  # A namespace outside the mesh, with no labels, used to probe istio-system ports.
+  outside: netpol-outside
+  # istio-discovery: enabled on the server namespace (LLD: yes). Set false to see a waypoint lose istiod.
+  serverDiscoveryLabel: true
+
+server:
+  image: docker.io/mccutchen/go-httpbin:v2.15.0
+  # NetworkPolicy in the server namespace:
+  #   none          = no policy
+  #   appOnly       = only the app port 8080 (a typical "allow my app" policy)
+  #   appPlusHbone  = app port + allow-mesh-hbone (15008 and the ztunnel probe address 169.254.7.127)
+  #   appPlusHboneNoProbe = app port + 15008 only (checks whether the probe address rule is needed)
+  netpol: none
+
+client:
+  image: docker.io/curlimages/curl:8.11.1
+
+# Waypoint in the server namespace (L7 proxy). Its pod must reach istiod on 15012.
+waypoint:
+  enabled: false
