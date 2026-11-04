@@ -2,7 +2,7 @@
 clientNode: ip-10-0-0-171.us-east-2.compute.internal
 serverNode: ip-10-0-0-119.us-east-2.compute.internal
 istioSystemPolicy:
-  enabled: true
+  enabled: false
   ztunnelSource: ztunnelNamespace
   allowWebhook: true
   allowConsolePlugin: true
