@@ -1,0 +1,77 @@
+# Example only — not applied by the Dev Spaces Helm chart.
+# Option B: pin full image URLs for workspace inits and selected components.
+#
+# Use when containerRegistry rewrite is wrong for one image, or you only need
+# workspace init pulls fixed. Tags must match your Dev Spaces channel / mirrors.
+---
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: devspaces
+  namespace: openshift-devspaces
+  labels:
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: devspaces-example
+spec:
+  components:
+    cheServer:
+      debug: false
+      logLevel: INFO
+    dashboard:
+      logLevel: ERROR
+      deployment:
+        containers:
+          - name: che-dashboard
+            image: artifactory.example.com/digi20/devspaces/dashboard-rhel9:3.30
+    pluginRegistry:
+      deployment:
+        containers:
+          - name: plugin-registry
+            image: artifactory.example.com/digi20/devspaces/pluginregistry-rhel9:3.30
+      # Empty selects the embedded OpenVSX in the image (disconnected-friendly).
+      openVSXURL: ""
+    metrics:
+      enable: true
+
+  devEnvironments:
+    defaultEditor: che-incubator/che-code/latest
+    defaultNamespace:
+      autoProvision: true
+      template: <username>-devspaces
+    persistUserHome:
+      enabled: true
+
+    # project-clone init (present when the workspace clones sources)
+    projectCloneContainer:
+      image: artifactory.example.com/digi20/devspaces/project-clone-rhel9:3.30
+
+    # workspace gateway container when the controller injects it
+    gatewayContainer:
+      image: artifactory.example.com/digi20/devspaces/gateway-rhel9:3.30
+
+    # Same name as a built-in init replaces that image on every workspace pod.
+    initContainers:
+      - name: init-persistent-home
+        image: artifactory.example.com/digi20/devspaces/udi-rhel9:3.30
+      # Optional extra org init (uncomment and adapt):
+      # - name: corp-bootstrap
+      #   image: artifactory.example.com/digi20/corp-bootstrap:1.0.0
+
+    disableContainerBuildCapabilities: false
+    disableContainerRunCapabilities: true
+    maxNumberOfWorkspacesPerUser: 5
+    maxNumberOfRunningWorkspacesPerUser: 1
+    secondsOfInactivityBeforeIdling: 1800
+    secondsOfRunBeforeIdling: -1
+    startTimeoutSeconds: 300
+    storage:
+      pvcStrategy: per-user
+      perUserStrategyPvcConfig:
+        claimSize: 10Gi
+        storageAccessMode:
+          - ReadWriteOnce
+
+  networking:
+    networkPolicy:
+      enabled: true
