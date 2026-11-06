@@ -104,3 +104,6 @@ examples/rhdh-secrets.example.yaml
 ```bash
 ./tests/test-repo.sh
 ```
+
+            - resolver: emailMatchingUserEntityProfileEmail
+              dangerouslyAllowSignInWithoutUserInCatalog: true
