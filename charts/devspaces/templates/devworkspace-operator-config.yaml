@@ -1,6 +1,8 @@
-{{- if .Values.cleanupCronJob.enable }}
-# Global DWOC only. CleanupCronJob ignores Che-owned "devworkspace-config".
-# DWO >= 0.34 runs pruning in-process (no Kubernetes CronJob object).
+{{- /* Global DWOC. CleanupCronJob and resource caps must live here — DWO
+     resolves this CR for all workspaces. CheCluster also mirrors caps onto
+     Che-owned "devworkspace-config", but raw DevWorkspace CRs only reliably
+     pick up the global DWOC (resolvedConfig shows cleanup + caps from here). */ -}}
+{{- if or .Values.cleanupCronJob.enable .Values.cheCluster.containerResourceCaps .Values.cheCluster.defaultContainerResources }}
 apiVersion: controller.devfile.io/v1alpha1
 kind: DevWorkspaceOperatorConfig
 metadata:
@@ -9,15 +11,25 @@ metadata:
   labels:
     app.kubernetes.io/name: devspaces
     app.kubernetes.io/part-of: idp-platform
-    app.kubernetes.io/component: workspace-cleanup
+    app.kubernetes.io/component: workspace-operator-config
   annotations:
     argocd.argoproj.io/sync-wave: "4"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 config:
   workspace:
+    {{- if .Values.cleanupCronJob.enable }}
     cleanupCronJob:
       enable: {{ .Values.cleanupCronJob.enable }}
       dryRun: {{ .Values.cleanupCronJob.dryRun }}
       retainTime: {{ int .Values.cleanupCronJob.retainTime }}
       schedule: {{ .Values.cleanupCronJob.schedule | quote }}
+    {{- end }}
+    {{- with .Values.cheCluster.containerResourceCaps }}
+    containerResourceCaps:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.cheCluster.defaultContainerResources }}
+    defaultContainerResources:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
 {{- end }}

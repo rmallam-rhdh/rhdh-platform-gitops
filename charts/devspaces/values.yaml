@@ -8,14 +8,33 @@ cheCluster:
   namespaceTemplate: <username>-devspaces
   maxWorkspacesPerUser: 5
   maxRunningWorkspacesPerUser: 1
+  # Soft cluster-wide concurrency (lab-sized). Raise for larger Non-Prod/Prod.
+  maxRunningWorkspacesPerCluster: 10
   # Idle after 30 minutes with no activity. -1 disables the cap on total run time.
   idleTimeoutSeconds: 1800
   runTimeoutSeconds: -1
   startTimeoutSeconds: 300
-  # Nested container runtime stays off. Image builds use the container-build SCC.
-  disableContainerBuildCapabilities: false
+  # Fail fast on real infra errors (do not ignore FailedScheduling).
+  ignoredUnrecoverableEvents: []
+  imagePullPolicy: IfNotPresent
+  deploymentStrategy: Recreate
+
+  # No nested builds / Podman-in-workspace. Also required for security.containerSecurityContext.
+  disableContainerBuildCapabilities: true
+  # No nested container runtimes (Docker/Podman). Keep true on OCP < 4.20 and for Digi policy.
   disableContainerRunCapabilities: true
-  containerBuildScc: container-build
+  # Only used when disableContainerBuildCapabilities is false — left empty when builds are off.
+  containerBuildScc: ""
+
+  # Restricted workspace containers (takes effect only when BOTH disable*Capabilities are true).
+  security:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      runAsNonRoot: true
+
   storage:
     pvcStrategy: per-user
     claimSize: 10Gi
@@ -24,9 +43,53 @@ cheCluster:
     accessModes:
       - ReadWriteOnce
     storageClass: ""
-  # Name of a ConfigMap labelled app.kubernetes.io/part-of=che.eclipse.org.
-  # Empty keeps the cluster trust bundle only.
-  gitTrustedCertsConfigMapName: ""
+
+  persistUserHome:
+    enabled: true
+
+  # etcd / scale: do NOT mount the huge ca-certs-merged bundle into every user ns
+  # under /etc/pki/ca-trust/extracted/pem. Still mount selected certs at /public-certs
+  # when gitTrustedCertsConfigMapName is set (see examples/che-git-custom-cert.yaml).
+  trustedCerts:
+    disableWorkspaceCaBundleMount: true
+    # Empty = OpenShift cluster trust only via /public-certs merge when Operator builds it.
+    # Set to che-git-custom-cert after applying the example ConfigMap with corp CA + githost.
+    gitTrustedCertsConfigMapName: ""
+
+  # Applied when a Devfile omits cpu/memory on a container component.
+  # Editor/gateway overhead is added on top by Dev Spaces.
+  defaultContainerResources:
+    limits:
+      cpu: "2"
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  # Ceiling for Devfile-defined resources. Excess is capped (workspace still starts).
+  # Also mirrored onto global DWOC (enforcement path). Node/Spring samples stay under this.
+  containerResourceCaps:
+    limits:
+      cpu: "4"
+      memory: 8Gi
+    requests:
+      cpu: "2"
+      memory: 4Gi
+
+components:
+  # Empty openVSXURL = embedded registry in the plugin-registry image (disconnected-friendly).
+  # Point at an internal OpenVSX URL only when running a separate registry service.
+  pluginRegistry:
+    openVSXURL: ""
+  cheServer:
+    debug: false
+    logLevel: INFO
+  dashboard:
+    logLevel: ERROR
+  metrics:
+    enable: true
+  # Community Image Puller — keep off unless pre-warming nodes is an explicit ops goal.
+  imagePuller:
+    enable: false
 
 # Delete DevWorkspaces that have not been started within retainTime.
 # Must be the global DWOC name "devworkspace-operator-config" (not CheCluster's

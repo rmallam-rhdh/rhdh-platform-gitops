@@ -13,12 +13,17 @@ metadata:
 spec:
   components:
     cheServer:
-      debug: false
-      logLevel: INFO
+      debug: {{ .Values.components.cheServer.debug }}
+      logLevel: {{ .Values.components.cheServer.logLevel | quote }}
     dashboard:
-      logLevel: ERROR
+      logLevel: {{ .Values.components.dashboard.logLevel | quote }}
     metrics:
-      enable: true
+      enable: {{ .Values.components.metrics.enable }}
+    pluginRegistry:
+      # Empty string selects the embedded OpenVSX in the plugin-registry image.
+      openVSXURL: {{ .Values.components.pluginRegistry.openVSXURL | quote }}
+    imagePuller:
+      enable: {{ .Values.components.imagePuller.enable }}
   devEnvironments:
     defaultEditor: {{ .Values.cheCluster.defaultEditor | quote }}
     defaultNamespace:
@@ -26,15 +31,44 @@ spec:
       template: {{ .Values.cheCluster.namespaceTemplate | quote }}
     disableContainerBuildCapabilities: {{ .Values.cheCluster.disableContainerBuildCapabilities }}
     disableContainerRunCapabilities: {{ .Values.cheCluster.disableContainerRunCapabilities }}
+    {{- if and (not .Values.cheCluster.disableContainerBuildCapabilities) .Values.cheCluster.containerBuildScc }}
     containerBuildConfiguration:
       openShiftSecurityContextConstraint: {{ .Values.cheCluster.containerBuildScc | quote }}
+    {{- end }}
+    {{- with .Values.cheCluster.security }}
+    security:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
     maxNumberOfWorkspacesPerUser: {{ .Values.cheCluster.maxWorkspacesPerUser }}
     maxNumberOfRunningWorkspacesPerUser: {{ .Values.cheCluster.maxRunningWorkspacesPerUser }}
+    {{- if hasKey .Values.cheCluster "maxRunningWorkspacesPerCluster" }}
+    maxNumberOfRunningWorkspacesPerCluster: {{ .Values.cheCluster.maxRunningWorkspacesPerCluster }}
+    {{- end }}
     secondsOfInactivityBeforeIdling: {{ .Values.cheCluster.idleTimeoutSeconds }}
     secondsOfRunBeforeIdling: {{ .Values.cheCluster.runTimeoutSeconds }}
     startTimeoutSeconds: {{ .Values.cheCluster.startTimeoutSeconds }}
+    {{- if hasKey .Values.cheCluster "ignoredUnrecoverableEvents" }}
+    ignoredUnrecoverableEvents:
+{{ toYaml .Values.cheCluster.ignoredUnrecoverableEvents | nindent 6 }}
+    {{- end }}
+    {{- if .Values.cheCluster.imagePullPolicy }}
+    imagePullPolicy: {{ .Values.cheCluster.imagePullPolicy | quote }}
+    {{- end }}
+    {{- if .Values.cheCluster.deploymentStrategy }}
+    deploymentStrategy: {{ .Values.cheCluster.deploymentStrategy | quote }}
+    {{- end }}
+    {{- with .Values.cheCluster.defaultContainerResources }}
+    defaultContainerResources:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.cheCluster.containerResourceCaps }}
+    containerResourceCaps:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.cheCluster.persistUserHome }}
     persistUserHome:
-      enabled: true
+{{ toYaml . | nindent 6 }}
+    {{- end }}
     storage:
       pvcStrategy: {{ .Values.cheCluster.storage.pvcStrategy | quote }}
       perUserStrategyPvcConfig:
@@ -44,9 +78,12 @@ spec:
         {{- if .Values.cheCluster.storage.storageClass }}
         storageClass: {{ .Values.cheCluster.storage.storageClass | quote }}
         {{- end }}
-    {{- if .Values.cheCluster.gitTrustedCertsConfigMapName }}
+    {{- with .Values.cheCluster.trustedCerts }}
     trustedCerts:
-      gitTrustedCertsConfigMapName: {{ .Values.cheCluster.gitTrustedCertsConfigMapName | quote }}
+      disableWorkspaceCaBundleMount: {{ .disableWorkspaceCaBundleMount }}
+      {{- if .gitTrustedCertsConfigMapName }}
+      gitTrustedCertsConfigMapName: {{ .gitTrustedCertsConfigMapName | quote }}
+      {{- end }}
     {{- end }}
   networking:
     {{- if .Values.networking.domain }}
