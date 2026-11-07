@@ -1,0 +1,59 @@
+# Example only — not applied by the Dev Spaces Helm chart.
+# Combined: registry rewrite for most defaults + explicit pins for workspace inits
+# that still ImagePullBackOff after the rewrite.
+---
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: devspaces
+  namespace: openshift-devspaces
+  labels:
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: devspaces-example
+spec:
+  containerRegistry:
+    hostname: artifactory.example.com
+    organization: digi20/devspaces
+
+  components:
+    cheServer:
+      debug: false
+      logLevel: INFO
+    dashboard:
+      logLevel: ERROR
+    metrics:
+      enable: true
+
+  devEnvironments:
+    defaultEditor: che-incubator/che-code/latest
+    defaultNamespace:
+      autoProvision: true
+      template: <username>-devspaces
+    persistUserHome:
+      enabled: true
+
+    projectCloneContainer:
+      image: artifactory.example.com/digi20/devspaces/project-clone-rhel9:3.30
+
+    initContainers:
+      - name: init-persistent-home
+        image: artifactory.example.com/digi20/devspaces/udi-rhel9:3.30
+
+    disableContainerBuildCapabilities: false
+    disableContainerRunCapabilities: true
+    maxNumberOfWorkspacesPerUser: 5
+    maxNumberOfRunningWorkspacesPerUser: 1
+    secondsOfInactivityBeforeIdling: 1800
+    secondsOfRunBeforeIdling: -1
+    startTimeoutSeconds: 300
+    storage:
+      pvcStrategy: per-user
+      perUserStrategyPvcConfig:
+        claimSize: 10Gi
+        storageAccessMode:
+          - ReadWriteOnce
+
+  networking:
+    networkPolicy:
+      enabled: true
