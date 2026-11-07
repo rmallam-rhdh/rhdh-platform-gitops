@@ -1,0 +1,27 @@
+# Example only — apply after filling ca.crt with the corporate CA bundle.
+# Label is required. Namespace must be the CheCluster namespace (openshift-devspaces).
+#
+# Then set in values / values-deploy:
+#   cheCluster.trustedCerts.gitTrustedCertsConfigMapName: che-git-custom-cert
+#
+# With disableWorkspaceCaBundleMount: true, workspaces no longer get the huge
+# per-namespace ca-certs-merged mount under /etc/pki/... (etcd scale). Supply
+# only the CAs you need here; certs appear under /public-certs in the workspace.
+# Restart workspaces after rotating this ConfigMap.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: che-git-custom-cert
+  namespace: openshift-devspaces
+  labels:
+    app.kubernetes.io/part-of: che.eclipse.org
+    app.kubernetes.io/component: che-git-custom-cert
+data:
+  # Full PEM chain for corp / Bitbucket / Artifactory TLS (replace before apply).
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    REPLACE_WITH_CORPORATE_CA_PEM
+    -----END CERTIFICATE-----
+  # Git provider base URL used for SCM TLS trust hints (no trailing path).
+  githost: https://bitbucket.example.com
