@@ -27,7 +27,7 @@ spec:
   devEnvironments:
     defaultEditor: {{ .Values.cheCluster.defaultEditor | quote }}
     defaultNamespace:
-      autoProvision: true
+      autoProvision: {{ .Values.cheCluster.autoProvisionNamespace }}
       template: {{ .Values.cheCluster.namespaceTemplate | quote }}
     disableContainerBuildCapabilities: {{ .Values.cheCluster.disableContainerBuildCapabilities }}
     disableContainerRunCapabilities: {{ .Values.cheCluster.disableContainerRunCapabilities }}

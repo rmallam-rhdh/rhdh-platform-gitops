@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${{ values.workspaceNamespace }}
+  labels:
+    app.kubernetes.io/part-of: che.eclipse.org
+    app.kubernetes.io/component: workspaces-namespace
+    app.kubernetes.io/managed-by: rhdh-gitops
+    rhdh.redhat.com/user-slug: ${{ values.userSlug }}
+  annotations:
+    che.eclipse.org/username: ${{ values.openShiftUser }}
+    rhdh.redhat.com/provisioned-by: acme-gitops-devspaces-namespace

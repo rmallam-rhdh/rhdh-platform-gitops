@@ -5,6 +5,9 @@ cheCluster:
   name: devspaces
   # Pin a release tag in production. "latest" tracks the operator channel.
   defaultEditor: che-incubator/che-code/latest
+  # Pre-created per-user namespaces (${user}-devspaces-${random}) are provisioned
+  # via RHDH Golden Path + OpenShift GitOps; CheCluster must not auto-provision.
+  autoProvisionNamespace: false
   namespaceTemplate: <username>-devspaces
   maxWorkspacesPerUser: 5
   maxRunningWorkspacesPerUser: 1

@@ -76,6 +76,9 @@ catalog:
       target: /opt/app-root/src/golden-path/template-open-devspaces-namespace.yaml
       allow: [Template]
     - type: file
+      target: /opt/app-root/src/golden-path/template-gitops-devspaces-namespace.yaml
+      allow: [Template]
+    - type: file
       target: /opt/app-root/src/catalog-demo/catalog-info.yaml
       allow: [Component, System]
 

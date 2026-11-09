@@ -21,4 +21,6 @@ data:
 {{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-start-feature-devspaces.yaml") | nindent 4 }}
   template-open-devspaces-namespace.yaml: |
 {{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-open-devspaces-namespace.yaml") | nindent 4 }}
+  template-gitops-devspaces-namespace.yaml: |
+{{ include "rhdh.goldenPathFile" (dict "root" . "file" "template-gitops-devspaces-namespace.yaml") | nindent 4 }}
 {{- end }}

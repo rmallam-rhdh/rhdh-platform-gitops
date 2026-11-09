@@ -1,0 +1,168 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: acme-gitops-devspaces-namespace
+  title: Node.js + GitOps Pre-Created Dev Spaces Namespace
+  description: >
+    Scaffolds a Node.js UDI repository AND commits a GitOps-managed
+    ${user}-devspaces-${random} namespace (Namespace with Che binding labels
+    and annotations, ResourceQuota, LimitRange, RoleBinding, and DevWorkspace)
+    so Argo CD provisions the isolated workspace namespace automatically while
+    CheCluster auto-provision is disabled.
+  tags:
+    - nodejs
+    - udi
+    - devspaces
+    - gitops
+    - golden-path
+    - recommended
+spec:
+  owner: group:platform-team
+  type: service
+  parameters:
+    - title: Application & GitOps Workspace Namespace
+      required:
+        - appName
+        - githubOwner
+        - openShiftUser
+        - userSlug
+        - namespaceSuffix
+      properties:
+        appName:
+          title: Application Name
+          type: string
+          pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+          description: New GitHub repository and DevWorkspace name
+          ui:autofocus: true
+        appDescription:
+          title: Description
+          type: string
+          default: Node.js app with GitOps pre-created Dev Spaces namespace
+        githubOwner:
+          title: GitHub owner (org or user)
+          type: string
+          default: rmallam-rhdh
+          pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+        gitopsRepoName:
+          title: Platform GitOps repository
+          type: string
+          default: rhdh-platform-gitops
+        openShiftUser:
+          title: OpenShift Username (RBAC & Che annotation target)
+          type: string
+          default: cluster-admin
+          description: Exact OpenShift User identity (oc whoami) that owns this namespace
+        userSlug:
+          title: DNS-safe user prefix (${user})
+          type: string
+          default: cluster-admin
+          pattern: '^[a-z0-9]([-a-z0-9]{0,20}[a-z0-9])?$'
+          description: Prefix used in ${user}-devspaces-${random}
+        namespaceSuffix:
+          title: Random suffix (${random})
+          type: string
+          default: a7x9k
+          pattern: '^[a-z0-9]{4,8}$'
+          description: Random lowercase alphanumeric suffix for ${user}-devspaces-${random}
+        port:
+          title: Application port
+          type: integer
+          default: 3000
+        devSpacesBaseUrl:
+          title: Dev Spaces URL
+          type: string
+          default: __DEVSPACES_BASE_URL__
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Node.js UDI application skeleton
+      action: fetch:template
+      input:
+        url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-node-udi
+        targetPath: ./app-repo
+        values:
+          appName: ${{ parameters.appName }}
+          appDescription: ${{ parameters.appDescription }}
+          githubOwner: ${{ parameters.githubOwner }}
+          port: ${{ parameters.port }}
+          devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+
+    - id: publish
+      name: Publish application repository to GitHub
+      action: publish:github
+      input:
+        sourcePath: ./app-repo
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        description: ${{ parameters.appDescription }}
+        defaultBranch: main
+        repoVisibility: public
+        gitCommitMessage: "feat: scaffold ${{ parameters.appName }} from RHDH golden path"
+
+    - id: register
+      name: Register component in RHDH Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+
+    - id: fetch-gitops-repo
+      name: Clone Platform GitOps repository
+      action: fetch:plain
+      input:
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}
+        targetPath: ./gitops-repo
+
+    - id: render-tenant-namespace
+      name: Render GitOps manifests for ${user}-devspaces-${random}
+      action: fetch:template
+      input:
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/tree/main/examples/skeleton-devspaces-tenant
+        targetPath: ./gitops-repo/tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+        values:
+          workspaceNamespace: ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+          openShiftUser: ${{ parameters.openShiftUser }}
+          userSlug: ${{ parameters.userSlug }}
+          appName: ${{ parameters.appName }}
+          appRepoUrl: https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}.git
+          port: ${{ parameters.port }}
+
+    - id: push-gitops-manifests
+      name: Commit tenant namespace + quota + RBAC + DevWorkspace to GitOps
+      action: github:repo:push
+      input:
+        sourcePath: ./gitops-repo
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.gitopsRepoName }}
+        defaultBranch: main
+        protectDefaultBranch: false
+        protectEnforceAdmins: false
+        gitCommitMessage: "feat(gitops): provision ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for ${{ parameters.appName }}"
+
+  output:
+    text:
+      - title: Provisioned Application & GitOps Dev Spaces Namespace
+        content: |
+          **Application Repository:** ${{ steps['publish'].output.remoteUrl }}
+          **Pre-Created Workspace Namespace:** `${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+          **Bound OpenShift User:** `${{ parameters.openShiftUser }}`
+          **GitOps Path:** `tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+
+          Argo CD (`devspaces-user-namespaces`) reconciles:
+          - `Namespace/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}` (`che.eclipse.org/username: ${{ parameters.openShiftUser }}`)
+          - `ResourceQuota/devspaces-tenant-quota` & `LimitRange/devspaces-container-limits`
+          - `RoleBinding/devspaces-user-admin`
+          - `DevWorkspace/${{ parameters.appName }}`
+    links:
+      - title: Application Repository
+        icon: github
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: GitOps Tenant Manifests
+        icon: github
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/tree/main/tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+      - title: Open in Dev Spaces (Pinned to Pre-Created Namespace)
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/ide/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}/${{ parameters.appName }}
+      - title: Dev Spaces Factory (Pinned to Pre-Created Namespace)
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}?new&devfilePath=devfile.yaml&namespace=${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+      - title: Open in RHDH Catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

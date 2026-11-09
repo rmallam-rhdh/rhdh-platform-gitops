@@ -105,6 +105,9 @@ catalog:
     - type: file
       target: /opt/app-root/src/golden-path/template-quarkus-golden-path.yaml
       allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-gitops-devspaces-namespace.yaml
+      allow: [Template]
 
 integrations:
   github:
