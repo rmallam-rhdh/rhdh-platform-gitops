@@ -1,0 +1,53 @@
+name: Auto-Merge RHDH Tenant Dev Spaces Namespaces
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tenants/devspaces-namespaces/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  validate-and-merge:
+    if: startsWith(github.head_ref, 'rhdh/tenant-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Validate tenant manifests
+        run: |
+          python3 - <<'EOF'
+          import glob, sys, yaml
+          files = glob.glob("tenants/devspaces-namespaces/*/*.yaml")
+          if not files:
+              print("No tenant YAML files found")
+              sys.exit(1)
+          allowed_kinds = {"Namespace", "ResourceQuota", "LimitRange", "RoleBinding", "DevWorkspace"}
+          for f in files:
+              with open(f) as fp:
+                  for doc in yaml.safe_load_all(fp):
+                      if not doc:
+                          continue
+                      kind = doc.get("kind")
+                      if kind not in allowed_kinds:
+                          print(f"Disallowed kind {kind} in {f}")
+                          sys.exit(1)
+                      if kind == "Namespace":
+                          labels = doc.get("metadata", {}).get("labels", {})
+                          ann = doc.get("metadata", {}).get("annotations", {})
+                          assert labels.get("app.kubernetes.io/part-of") == "che.eclipse.org", f"Missing che part-of label in {f}"
+                          assert labels.get("app.kubernetes.io/component") == "workspaces-namespace", f"Missing workspaces-namespace label in {f}"
+                          assert ann.get("che.eclipse.org/username"), f"Missing che.eclipse.org/username annotation in {f}"
+          print(f"Validated {len(files)} tenant YAML files successfully.")
+          EOF
+
+      - name: Auto-merge tenant provisioning PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" --squash --delete-branch

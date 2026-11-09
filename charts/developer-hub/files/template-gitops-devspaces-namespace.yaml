@@ -104,19 +104,12 @@ spec:
         repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
         catalogInfoPath: /catalog-info.yaml
 
-    - id: fetch-gitops-repo
-      name: Clone Platform GitOps repository
-      action: fetch:plain
-      input:
-        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}
-        targetPath: ./gitops-repo
-
     - id: render-tenant-namespace
       name: Render GitOps manifests for ${user}-devspaces-${random}
       action: fetch:template
       input:
         url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/tree/main/examples/skeleton-devspaces-tenant
-        targetPath: ./gitops-repo/tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+        targetPath: ./tenant-manifests
         values:
           workspaceNamespace: ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
           openShiftUser: ${{ parameters.openShiftUser }}
@@ -125,22 +118,30 @@ spec:
           appRepoUrl: https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}.git
           port: ${{ parameters.port }}
 
-    - id: push-gitops-manifests
+    - id: publish-gitops-pr
       name: Commit tenant namespace + quota + RBAC + DevWorkspace to GitOps
-      action: github:repo:push
+      action: publish:github:pull-request
       input:
-        sourcePath: ./gitops-repo
         repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.gitopsRepoName }}
-        defaultBranch: main
-        protectDefaultBranch: false
-        protectEnforceAdmins: false
-        gitCommitMessage: "feat(gitops): provision ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for ${{ parameters.appName }}"
+        branchName: rhdh/tenant-${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+        targetBranchName: main
+        sourcePath: ./tenant-manifests
+        targetPath: tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+        title: "feat(gitops): provision ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for ${{ parameters.appName }}"
+        commitMessage: "feat(gitops): provision ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for ${{ parameters.appName }}"
+        description: |
+          Automated RHDH Golden Path tenant namespace provisioning:
+          - **Workspace Namespace:** `${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+          - **OpenShift User:** `${{ parameters.openShiftUser }}`
+          - **Application:** `${{ parameters.appName }}`
+        update: true
 
   output:
     text:
       - title: Provisioned Application & GitOps Dev Spaces Namespace
         content: |
           **Application Repository:** ${{ steps['publish'].output.remoteUrl }}
+          **GitOps Pull Request:** ${{ steps['publish-gitops-pr'].output.remoteUrl }}
           **Pre-Created Workspace Namespace:** `${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
           **Bound OpenShift User:** `${{ parameters.openShiftUser }}`
           **GitOps Path:** `tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
@@ -154,6 +155,9 @@ spec:
       - title: Application Repository
         icon: github
         url: ${{ steps['publish'].output.remoteUrl }}
+      - title: GitOps Pull Request
+        icon: github
+        url: ${{ steps['publish-gitops-pr'].output.remoteUrl }}
       - title: GitOps Tenant Manifests
         icon: github
         url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/tree/main/tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
