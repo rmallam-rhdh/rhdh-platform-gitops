@@ -40,3 +40,8 @@ spec:
         - /metadata/labels
         - /metadata/annotations
         - /metadata/finalizers
+    - group: workspace.devfile.io
+      kind: DevWorkspaceTemplate
+      jsonPointers:
+        - /metadata/ownerReferences
+        - /metadata/annotations

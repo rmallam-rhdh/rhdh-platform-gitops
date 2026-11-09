@@ -8,11 +8,15 @@ metadata:
     rhdh.redhat.com/app: ${{ values.appName }}
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    che.eclipse.org/che-editor: che-incubator/che-code/latest
 spec:
   started: false
   routingClass: che
   template:
     attributes:
+      controller.devfile.io/devworkspace-config:
+        name: devworkspace-config
+        namespace: openshift-devspaces
       controller.devfile.io/storage-type: per-user
     projects:
       - name: ${{ values.appName }}
@@ -28,6 +32,7 @@ spec:
           cpuLimit: 2000m
           cpuRequest: 250m
           mountSources: true
+          sourceMapping: /projects
           env:
             - name: PORT
               value: "${{ values.port }}"
