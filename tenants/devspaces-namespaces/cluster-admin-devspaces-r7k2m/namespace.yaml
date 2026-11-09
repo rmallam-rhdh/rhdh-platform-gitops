@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cluster-admin-devspaces-r7k2m
+  labels:
+    app.kubernetes.io/part-of: che.eclipse.org
+    app.kubernetes.io/component: workspaces-namespace
+    app.kubernetes.io/managed-by: rhdh-gitops
+    rhdh.redhat.com/user-slug: cluster-admin
+  annotations:
+    che.eclipse.org/username: cluster-admin
+    rhdh.redhat.com/provisioned-by: acme-gitops-devspaces-namespace
