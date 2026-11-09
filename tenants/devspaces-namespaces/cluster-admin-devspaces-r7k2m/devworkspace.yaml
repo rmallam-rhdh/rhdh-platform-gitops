@@ -1,0 +1,44 @@
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspace
+metadata:
+  name: rhdh-gitops-ns-demo
+  namespace: cluster-admin-devspaces-r7k2m
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+    rhdh.redhat.com/app: rhdh-gitops-ns-demo
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  started: false
+  routingClass: che
+  template:
+    attributes:
+      controller.devfile.io/storage-type: per-user
+    projects:
+      - name: rhdh-gitops-ns-demo
+        git:
+          remotes:
+            origin: https://github.com/rmallam-rhdh/rhdh-gitops-ns-demo.git
+    components:
+      - name: udi-tools
+        container:
+          image: registry.redhat.io/devspaces/udi-rhel9:3.30
+          memoryLimit: 3Gi
+          memoryRequest: 512Mi
+          cpuLimit: 2000m
+          cpuRequest: 250m
+          mountSources: true
+          env:
+            - name: PORT
+              value: "3000"
+          endpoints:
+            - name: http-app
+              targetPort: 3000
+              exposure: public
+              protocol: https
+    commands:
+      - id: run-app
+        exec:
+          component: udi-tools
+          commandLine: node server.js
+          workingDir: ${PROJECT_SOURCE}
