@@ -1,0 +1,109 @@
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: '3'
+    argocd.argoproj.io/tracking-id: devspaces:org.eclipse.che/CheCluster:openshift-devspaces/devspaces
+    che.eclipse.org/checluster-defaults-cleanup: '{"containers.resources":"true","spec.components.dashboard.headerMessage":"true","spec.components.pluginRegistry.openVSXURL":"true","spec.devEnvironments.containerRunConfiguration.containerSecurityContext.capabilities.add":"true","spec.devEnvironments.defaultComponents":"true","spec.devEnvironments.defaultEditor":"true","spec.devEnvironments.disableContainerBuildCapabilities":"true"}'
+  finalizers:
+  - cheGateway.clusterpermissions.finalizers.che.eclipse.org
+  - oauthclients.finalizers.che.eclipse.org
+  - dashboard.clusterpermissions.finalizers.che.eclipse.org
+  - container-build.finalizers.che.eclipse.org
+  - consolelink.finalizers.che.eclipse.org
+  labels:
+    app.kubernetes.io/component: devspaces
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+  name: devspaces
+  namespace: openshift-devspaces
+spec:
+  components:
+    cheServer:
+      debug: false
+      logLevel: INFO
+    dashboard:
+      headerMessage:
+        show: true
+        text: 'API for this Dev Spaces: https://api.rosa-rwx5g.f8y9.p3.openshiftapps.com:443'
+      logLevel: ERROR
+    devWorkspace: {}
+    devfileRegistry: {}
+    imagePuller:
+      enable: false
+      spec: {}
+    metrics:
+      enable: true
+    openVSXRegistry:
+      enable: false
+      extensionAutoUpdate:
+        enable: false
+        schedule: 0 0 * * 0
+    pluginRegistry:
+      openVSXURL: ''
+  containerRegistry: {}
+  devEnvironments:
+    containerResourceCaps:
+      limits:
+        cpu: '4'
+        memory: 8Gi
+      requests:
+        cpu: '2'
+        memory: 4Gi
+    defaultContainerResources:
+      limits:
+        cpu: '2'
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    defaultEditor: che-incubator/che-code/latest
+    defaultNamespace:
+      autoProvision: false
+      template: "<username>-devspaces"
+    deploymentStrategy: Recreate
+    disableContainerBuildCapabilities: true
+    disableContainerRunCapabilities: true
+    ignoredUnrecoverableEvents: []
+    imagePullPolicy: IfNotPresent
+    maxNumberOfRunningWorkspacesPerCluster: 10
+    maxNumberOfRunningWorkspacesPerUser: 1
+    maxNumberOfWorkspacesPerUser: 5
+    persistUserHome:
+      enabled: true
+    secondsOfInactivityBeforeIdling: 1800
+    secondsOfRunBeforeIdling: -1
+    security:
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+    startTimeoutSeconds: 300
+    storage:
+      perUserStrategyPvcConfig:
+        claimSize: 10Gi
+        storageAccessMode:
+        - ReadWriteOnce
+      pvcStrategy: per-user
+    trustedCerts:
+      disableWorkspaceCaBundleMount: true
+  gitServices: {}
+  networking:
+    auth:
+      gateway:
+        configLabels:
+          app: che
+          component: che-gateway-config
+    labels: {}
+    networkPolicy:
+      enabled: true
+status:
+  chePhase: Active
+  cheURL: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+  cheVersion: 3.31.2
+  devfileRegistryURL: ''
+  pluginRegistryURL: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com/plugin-registry/v3
+  workspaceBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com

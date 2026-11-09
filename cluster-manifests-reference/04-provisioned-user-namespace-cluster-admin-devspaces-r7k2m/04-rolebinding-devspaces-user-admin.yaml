@@ -1,0 +1,17 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:rbac.authorization.k8s.io/RoleBinding:cluster-admin-devspaces-r7k2m/devspaces-user-admin
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+  name: devspaces-user-admin
+  namespace: cluster-admin-devspaces-r7k2m
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: cluster-admin

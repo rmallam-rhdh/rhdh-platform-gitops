@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: '2'
+    argocd.argoproj.io/tracking-id: idp-platform:argoproj.io/Application:openshift-gitops/devspaces
+  labels:
+    app.kubernetes.io/component: devspaces
+    app.kubernetes.io/part-of: idp-platform
+  name: devspaces
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: openshift-devspaces
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: org.eclipse.che
+    jqPathExpressions:
+    - ".status"
+    kind: CheCluster
+  project: default
+  source:
+    helm:
+      valueFiles:
+      - values.yaml
+      - values-deploy.yaml
+    path: charts/devspaces
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+    - SkipDryRunOnMissingResource=true

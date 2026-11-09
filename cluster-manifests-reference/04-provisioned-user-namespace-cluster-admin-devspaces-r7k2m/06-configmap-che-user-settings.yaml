@@ -1,0 +1,16 @@
+apiVersion: v1
+data:
+  SECONDS_OF_DW_INACTIVITY_BEFORE_IDLING: '1800'
+  SECONDS_OF_DW_RUN_BEFORE_IDLING: "-1"
+kind: ConfigMap
+metadata:
+  annotations:
+    controller.devfile.io/mount-as: env
+  labels:
+    app.kubernetes.io/component: user-settings
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: che.eclipse.org
+    controller.devfile.io/mount-to-devworkspace: 'true'
+    controller.devfile.io/watch-configmap: 'true'
+  name: che-user-settings
+  namespace: cluster-admin-devspaces-r7k2m

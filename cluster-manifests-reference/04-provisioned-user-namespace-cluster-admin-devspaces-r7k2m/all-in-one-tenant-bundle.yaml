@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:/Namespace:openshift-devspaces/cluster-admin-devspaces-r7k2m
+    che.eclipse.org/username: cluster-admin
+    openshift.io/sa.scc.mcs: s0:c34,c9
+    openshift.io/sa.scc.supplemental-groups: 1001140000/10000
+    openshift.io/sa.scc.uid-range: 1001140000/10000
+    rhdh.redhat.com/provisioned-by: acme-gitops-devspaces-namespace
+    security.openshift.io/MinimallySufficientPodSecurityStandard: restricted
+  labels:
+    app.kubernetes.io/component: workspaces-namespace
+    app.kubernetes.io/managed-by: rhdh-gitops
+    app.kubernetes.io/part-of: che.eclipse.org
+    kubernetes.io/metadata.name: cluster-admin-devspaces-r7k2m
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    rhdh.redhat.com/user-slug: cluster-admin
+  name: cluster-admin-devspaces-r7k2m
+spec:
+  finalizers:
+  - kubernetes
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:/ResourceQuota:cluster-admin-devspaces-r7k2m/devspaces-tenant-quota
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+  name: devspaces-tenant-quota
+  namespace: cluster-admin-devspaces-r7k2m
+spec:
+  hard:
+    limits.cpu: '8'
+    limits.memory: 16Gi
+    persistentvolumeclaims: '4'
+    pods: '10'
+    requests.cpu: '4'
+    requests.memory: 8Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:/LimitRange:cluster-admin-devspaces-r7k2m/devspaces-container-limits
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+  name: devspaces-container-limits
+  namespace: cluster-admin-devspaces-r7k2m
+spec:
+  limits:
+  - default:
+      cpu: '1'
+      memory: 2Gi
+    defaultRequest:
+      cpu: 250m
+      memory: 512Mi
+    type: Container
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:rbac.authorization.k8s.io/RoleBinding:cluster-admin-devspaces-r7k2m/devspaces-user-admin
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+  name: devspaces-user-admin
+  namespace: cluster-admin-devspaces-r7k2m
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: cluster-admin
+---
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspace
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:workspace.devfile.io/DevWorkspace:cluster-admin-devspaces-r7k2m/rhdh-gitops-ns-demo
+    controller.devfile.io/validated-kubernetes-resources: "[]"
+    controller.devfile.io/validated-scc: ''
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+    controller.devfile.io/creator: f50580df-8d82-45a2-a9e7-aa9ceda18743
+    rhdh.redhat.com/app: rhdh-gitops-ns-demo
+  name: rhdh-gitops-ns-demo
+  namespace: cluster-admin-devspaces-r7k2m
+spec:
+  routingClass: che
+  started: false
+  template:
+    attributes:
+      controller.devfile.io/devworkspace-config:
+        name: devworkspace-config
+        namespace: openshift-devspaces
+      controller.devfile.io/storage-type: per-user
+    commands:
+    - exec:
+        commandLine: node server.js
+        component: udi-tools
+        workingDir: "${PROJECT_SOURCE}"
+      id: run-app
+    components:
+    - container:
+        cpuLimit: 2000m
+        cpuRequest: 250m
+        endpoints:
+        - exposure: public
+          name: http-app
+          protocol: https
+          targetPort: 3000
+        env:
+        - name: PORT
+          value: '3000'
+        image: registry.redhat.io/devspaces/udi-rhel9:3.30
+        memoryLimit: 3Gi
+        memoryRequest: 512Mi
+        mountSources: true
+        sourceMapping: "/projects"
+      name: udi-tools
+    projects:
+    - git:
+        remotes:
+          origin: https://github.com/rmallam-rhdh/rhdh-gitops-ns-demo.git
+      name: rhdh-gitops-ns-demo

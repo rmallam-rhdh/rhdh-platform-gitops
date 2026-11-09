@@ -1,0 +1,61 @@
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspace
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:workspace.devfile.io/DevWorkspace:cluster-admin-devspaces-r7k2m/rhdh-gitops-ns-demo
+    controller.devfile.io/validated-kubernetes-resources: "[]"
+    controller.devfile.io/validated-scc: ''
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+    controller.devfile.io/creator: f50580df-8d82-45a2-a9e7-aa9ceda18743
+    rhdh.redhat.com/app: rhdh-gitops-ns-demo
+  name: rhdh-gitops-ns-demo
+  namespace: cluster-admin-devspaces-r7k2m
+spec:
+  routingClass: che
+  started: false
+  template:
+    attributes:
+      controller.devfile.io/devworkspace-config:
+        name: devworkspace-config
+        namespace: openshift-devspaces
+      controller.devfile.io/storage-type: per-user
+    commands:
+    - exec:
+        commandLine: node server.js
+        component: udi-tools
+        workingDir: "${PROJECT_SOURCE}"
+      id: run-app
+    components:
+    - container:
+        cpuLimit: 2000m
+        cpuRequest: 250m
+        endpoints:
+        - exposure: public
+          name: http-app
+          protocol: https
+          targetPort: 3000
+        env:
+        - name: PORT
+          value: '3000'
+        image: registry.redhat.io/devspaces/udi-rhel9:3.30
+        memoryLimit: 3Gi
+        memoryRequest: 512Mi
+        mountSources: true
+        sourceMapping: "/projects"
+      name: udi-tools
+    projects:
+    - git:
+        remotes:
+          origin: https://github.com/rmallam-rhdh/rhdh-gitops-ns-demo.git
+      name: rhdh-gitops-ns-demo
+status:
+  conditions:
+  - lastTransitionTime: '2026-11-09T05:27:26Z'
+    message: Workspace is stopped
+    status: 'False'
+    type: Started
+  devworkspaceId: workspace490b6f3b7d404b94
+  message: Stopped
+  phase: Stopped

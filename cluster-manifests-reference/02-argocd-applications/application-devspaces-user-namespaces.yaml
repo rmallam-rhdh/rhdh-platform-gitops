@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: '4'
+    argocd.argoproj.io/tracking-id: idp-platform:argoproj.io/Application:openshift-gitops/devspaces-user-namespaces
+  labels:
+    app.kubernetes.io/component: devspaces-tenants
+    app.kubernetes.io/part-of: idp-platform
+  name: devspaces-user-namespaces
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: openshift-devspaces
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+  - group: workspace.devfile.io
+    jsonPointers:
+    - "/spec/started"
+    - "/spec/contributions"
+    - "/status"
+    - "/metadata/labels"
+    - "/metadata/annotations"
+    - "/metadata/finalizers"
+    kind: DevWorkspace
+  - group: workspace.devfile.io
+    jsonPointers:
+    - "/metadata/ownerReferences"
+    - "/metadata/annotations"
+    kind: DevWorkspaceTemplate
+  project: default
+  source:
+    directory:
+      recurse: true
+    path: tenants/devspaces-namespaces
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - ServerSideApply=true
+    - RespectIgnoreDifferences=true
+    - SkipDryRunOnMissingResource=true
