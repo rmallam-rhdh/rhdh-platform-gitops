@@ -27,7 +27,7 @@ jobs:
           if not files:
               print("No tenant YAML files found")
               sys.exit(1)
-          allowed_kinds = {"Namespace", "ResourceQuota", "LimitRange", "RoleBinding", "DevWorkspace"}
+          allowed_kinds = {"Namespace", "ResourceQuota", "LimitRange", "RoleBinding", "DevWorkspace", "DevWorkspaceTemplate"}
           for f in files:
               with open(f) as fp:
                   for doc in yaml.safe_load_all(fp):

@@ -117,6 +117,7 @@ spec:
           appName: ${{ parameters.appName }}
           appRepoUrl: https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}.git
           port: ${{ parameters.port }}
+          devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
 
     - id: publish-gitops-pr
       name: Commit tenant namespace + quota + RBAC + DevWorkspace to GitOps

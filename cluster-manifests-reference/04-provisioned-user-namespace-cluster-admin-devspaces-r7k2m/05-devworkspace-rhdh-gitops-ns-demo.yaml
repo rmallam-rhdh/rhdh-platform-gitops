@@ -1,61 +1,158 @@
 apiVersion: workspace.devfile.io/v1alpha2
-kind: DevWorkspace
+kind: DevWorkspaceTemplate
 metadata:
-  annotations:
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-    argocd.argoproj.io/tracking-id: devspaces-user-namespaces:workspace.devfile.io/DevWorkspace:cluster-admin-devspaces-r7k2m/rhdh-gitops-ns-demo
-    controller.devfile.io/validated-kubernetes-resources: "[]"
-    controller.devfile.io/validated-scc: ''
+  name: che-code-rhdh-gitops-ns-demo
+  namespace: cluster-admin-devspaces-r7k2m
   labels:
     app.kubernetes.io/managed-by: rhdh-gitops
-    controller.devfile.io/creator: f50580df-8d82-45a2-a9e7-aa9ceda18743
-    rhdh.redhat.com/app: rhdh-gitops-ns-demo
+  annotations:
+    che.eclipse.org/components-update-policy: managed
+    che.eclipse.org/plugin-registry-url: http://127.0.0.1:8080/dashboard/api/editors/devfile?che-editor=che-incubator/che-code/latest
+spec:
+  commands:
+    - id: init-container-command
+      apply:
+        component: che-code-injector
+    - id: init-che-code-command
+      exec:
+        component: che-code-runtime-description
+        commandLine: nohup /checode/entrypoint-volume.sh > /checode/entrypoint-logs.txt 2>&1 &
+  events:
+    preStart:
+      - init-container-command
+    postStart:
+      - init-che-code-command
+  components:
+    - name: che-code-injector
+      container:
+        image: registry.redhat.io/devspaces/code-rhel9:3.30
+        command: ["/entrypoint-init-container.sh"]
+        cpuLimit: 500m
+        cpuRequest: 30m
+        memoryLimit: 256Mi
+        memoryRequest: 32Mi
+        sourceMapping: /projects
+        volumeMounts:
+          - name: checode
+            path: /checode
+        env:
+          - name: CHE_DASHBOARD_URL
+            value: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+          - name: CHE_PLUGIN_REGISTRY_URL
+            value: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com/plugin-registry/v3
+          - name: CHE_PLUGIN_REGISTRY_INTERNAL_URL
+            value: http://plugin-registry.openshift-devspaces.svc:8080/v3
+          - name: OPENVSX_REGISTRY_URL
+            value: ""
+    - name: che-code-runtime-description
+      attributes:
+        app.kubernetes.io/component: che-code-runtime
+        app.kubernetes.io/part-of: che-code.eclipse.org
+        controller.devfile.io/container-contribution: true
+      container:
+        image: registry.redhat.io/devspaces/udi-rhel9:3.30
+        cpuLimit: 500m
+        cpuRequest: 30m
+        memoryLimit: 1024Mi
+        memoryRequest: 256Mi
+        sourceMapping: /projects
+        volumeMounts:
+          - name: checode
+            path: /checode
+        env:
+          - name: CHE_DASHBOARD_URL
+            value: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+          - name: CHE_PLUGIN_REGISTRY_URL
+            value: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com/plugin-registry/v3
+          - name: CHE_PLUGIN_REGISTRY_INTERNAL_URL
+            value: http://plugin-registry.openshift-devspaces.svc:8080/v3
+          - name: OPENVSX_REGISTRY_URL
+            value: ""
+        endpoints:
+          - name: che-code
+            targetPort: 3100
+            exposure: public
+            protocol: https
+            secure: true
+            attributes:
+              cookiesAuthEnabled: true
+              discoverable: false
+              type: main
+              urlRewriteSupported: true
+          - name: code-redirect-1
+            targetPort: 13131
+            exposure: public
+            protocol: https
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+          - name: code-redirect-2
+            targetPort: 13132
+            exposure: public
+            protocol: https
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+          - name: code-redirect-3
+            targetPort: 13133
+            exposure: public
+            protocol: https
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+    - name: checode
+      volume: {}
+---
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspace
+metadata:
   name: rhdh-gitops-ns-demo
   namespace: cluster-admin-devspaces-r7k2m
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+    rhdh.redhat.com/app: rhdh-gitops-ns-demo
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    che.eclipse.org/che-editor: che-incubator/che-code/latest
 spec:
-  routingClass: che
   started: false
+  routingClass: che
+  contributions:
+    - name: editor
+      kubernetes:
+        name: che-code-rhdh-gitops-ns-demo
   template:
     attributes:
       controller.devfile.io/devworkspace-config:
         name: devworkspace-config
         namespace: openshift-devspaces
       controller.devfile.io/storage-type: per-user
-    commands:
-    - exec:
-        commandLine: node server.js
-        component: udi-tools
-        workingDir: "${PROJECT_SOURCE}"
-      id: run-app
-    components:
-    - container:
-        cpuLimit: 2000m
-        cpuRequest: 250m
-        endpoints:
-        - exposure: public
-          name: http-app
-          protocol: https
-          targetPort: 3000
-        env:
-        - name: PORT
-          value: '3000'
-        image: registry.redhat.io/devspaces/udi-rhel9:3.30
-        memoryLimit: 3Gi
-        memoryRequest: 512Mi
-        mountSources: true
-        sourceMapping: "/projects"
-      name: udi-tools
     projects:
-    - git:
-        remotes:
-          origin: https://github.com/rmallam-rhdh/rhdh-gitops-ns-demo.git
-      name: rhdh-gitops-ns-demo
-status:
-  conditions:
-  - lastTransitionTime: '2026-11-09T05:27:26Z'
-    message: Workspace is stopped
-    status: 'False'
-    type: Started
-  devworkspaceId: workspace490b6f3b7d404b94
-  message: Stopped
-  phase: Stopped
+      - name: rhdh-gitops-ns-demo
+        git:
+          remotes:
+            origin: https://github.com/rmallam-rhdh/rhdh-gitops-ns-demo.git
+    components:
+      - name: udi-tools
+        container:
+          image: registry.redhat.io/devspaces/udi-rhel9:3.30
+          memoryLimit: 3Gi
+          memoryRequest: 512Mi
+          cpuLimit: 2000m
+          cpuRequest: 250m
+          mountSources: true
+          sourceMapping: /projects
+          env:
+            - name: PORT
+              value: "3000"
+          endpoints:
+            - name: http-app
+              targetPort: 3000
+              exposure: public
+              protocol: https
+    commands:
+      - id: run-app
+        exec:
+          component: udi-tools
+          commandLine: node server.js
+          workingDir: ${PROJECT_SOURCE}

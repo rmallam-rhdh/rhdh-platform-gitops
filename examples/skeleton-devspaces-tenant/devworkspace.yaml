@@ -1,4 +1,109 @@
 apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspaceTemplate
+metadata:
+  name: che-code-${{ values.appName }}
+  namespace: ${{ values.workspaceNamespace }}
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+  annotations:
+    che.eclipse.org/components-update-policy: managed
+    che.eclipse.org/plugin-registry-url: http://127.0.0.1:8080/dashboard/api/editors/devfile?che-editor=che-incubator/che-code/latest
+spec:
+  commands:
+    - id: init-container-command
+      apply:
+        component: che-code-injector
+    - id: init-che-code-command
+      exec:
+        component: che-code-runtime-description
+        commandLine: nohup /checode/entrypoint-volume.sh > /checode/entrypoint-logs.txt 2>&1 &
+  events:
+    preStart:
+      - init-container-command
+    postStart:
+      - init-che-code-command
+  components:
+    - name: che-code-injector
+      container:
+        image: registry.redhat.io/devspaces/code-rhel9:3.30
+        command: ["/entrypoint-init-container.sh"]
+        cpuLimit: 500m
+        cpuRequest: 30m
+        memoryLimit: 256Mi
+        memoryRequest: 32Mi
+        sourceMapping: /projects
+        volumeMounts:
+          - name: checode
+            path: /checode
+        env:
+          - name: CHE_DASHBOARD_URL
+            value: ${{ values.devSpacesBaseUrl }}
+          - name: CHE_PLUGIN_REGISTRY_URL
+            value: ${{ values.devSpacesBaseUrl }}/plugin-registry/v3
+          - name: CHE_PLUGIN_REGISTRY_INTERNAL_URL
+            value: http://plugin-registry.openshift-devspaces.svc:8080/v3
+          - name: OPENVSX_REGISTRY_URL
+            value: ""
+    - name: che-code-runtime-description
+      attributes:
+        app.kubernetes.io/component: che-code-runtime
+        app.kubernetes.io/part-of: che-code.eclipse.org
+        controller.devfile.io/container-contribution: true
+      container:
+        image: registry.redhat.io/devspaces/udi-rhel9:3.30
+        cpuLimit: 500m
+        cpuRequest: 30m
+        memoryLimit: 1024Mi
+        memoryRequest: 256Mi
+        sourceMapping: /projects
+        volumeMounts:
+          - name: checode
+            path: /checode
+        env:
+          - name: CHE_DASHBOARD_URL
+            value: ${{ values.devSpacesBaseUrl }}
+          - name: CHE_PLUGIN_REGISTRY_URL
+            value: ${{ values.devSpacesBaseUrl }}/plugin-registry/v3
+          - name: CHE_PLUGIN_REGISTRY_INTERNAL_URL
+            value: http://plugin-registry.openshift-devspaces.svc:8080/v3
+          - name: OPENVSX_REGISTRY_URL
+            value: ""
+        endpoints:
+          - name: che-code
+            targetPort: 3100
+            exposure: public
+            protocol: https
+            secure: true
+            attributes:
+              cookiesAuthEnabled: true
+              discoverable: false
+              type: main
+              urlRewriteSupported: true
+          - name: code-redirect-1
+            targetPort: 13131
+            exposure: public
+            protocol: https
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+          - name: code-redirect-2
+            targetPort: 13132
+            exposure: public
+            protocol: https
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+          - name: code-redirect-3
+            targetPort: 13133
+            exposure: public
+            protocol: https
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+    - name: checode
+      volume: {}
+---
+apiVersion: workspace.devfile.io/v1alpha2
 kind: DevWorkspace
 metadata:
   name: ${{ values.appName }}
@@ -12,6 +117,10 @@ metadata:
 spec:
   started: false
   routingClass: che
+  contributions:
+    - name: editor
+      kubernetes:
+        name: che-code-${{ values.appName }}
   template:
     attributes:
       controller.devfile.io/devworkspace-config:
