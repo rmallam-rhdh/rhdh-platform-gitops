@@ -3,8 +3,9 @@ createNamespace: true
 
 cheCluster:
   name: devspaces
-  # Pin a release tag in production. "latest" tracks the operator channel.
-  defaultEditor: che-incubator/che-code/latest
+  # Central IDP policy: block browser IDE by defaulting all devfile.yaml workspaces
+  # to the no-op desktop-only editor definition (idp/vscode-desktop-only/latest).
+  defaultEditor: idp/vscode-desktop-only/latest
   # Pre-created per-user namespaces (${user}-devspaces-${random}) are provisioned
   # via RHDH Golden Path + OpenShift GitOps; CheCluster must not auto-provision.
   autoProvisionNamespace: false
@@ -88,11 +89,33 @@ components:
     logLevel: INFO
   dashboard:
     logLevel: ERROR
+    headerMessage:
+      show: true
+      text: "API for this Dev Spaces: https://api.rosa-rwx5g.f8y9.p3.openshiftapps.com:443"
+    # Hide built-in browser and SSHD editors so users cannot select a browser IDE in the Dashboard.
+    hideEditorsById:
+      - che-incubator/che-code/latest
+      - che-incubator/che-code/insiders
+      - che-incubator/che-code-sshd/latest
+      - che-incubator/che-code-sshd-bob/latest
+      - che-incubator/che-code-sshd-kiro/latest
+      - che-incubator/che-clion-server/latest
+      - che-incubator/che-goland-server/latest
+      - che-incubator/che-idea-server/latest
+      - che-incubator/che-phpstorm-server/latest
+      - che-incubator/che-pycharm-server/latest
+      - che-incubator/che-rider-server/latest
+      - che-incubator/che-rubymine-server/latest
+      - che-incubator/che-webstorm-server/latest
+      - che-incubator/jetbrains-sshd/latest
   metrics:
     enable: true
   # Community Image Puller — keep off unless pre-warming nodes is an explicit ops goal.
   imagePuller:
     enable: false
+
+desktopOnlyEditor:
+  enabled: true
 
 # Delete DevWorkspaces that have not been started within retainTime.
 # Must be the global DWOC name "devworkspace-operator-config" (not CheCluster's

@@ -17,6 +17,19 @@ spec:
       logLevel: {{ .Values.components.cheServer.logLevel | quote }}
     dashboard:
       logLevel: {{ .Values.components.dashboard.logLevel | quote }}
+      {{- with .Values.components.dashboard.headerMessage }}
+      headerMessage:
+        show: {{ .show }}
+        text: {{ .text | quote }}
+      {{- end }}
+      {{- if .Values.components.dashboard.hideEditorsById }}
+      deployment:
+        containers:
+          - name: devspaces-dashboard
+            env:
+              - name: CHE_HIDE_EDITORS_BY_ID
+                value: {{ join "," .Values.components.dashboard.hideEditorsById | quote }}
+      {{- end }}
     metrics:
       enable: {{ .Values.components.metrics.enable }}
     pluginRegistry:
