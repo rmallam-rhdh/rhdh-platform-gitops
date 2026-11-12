@@ -37,10 +37,9 @@ resources:
 
 # OpenShift Group name → Dev Spaces dashboard URL.
 # Comma-separated keys require membership in ALL listed groups (upstream AND logic).
-# Update this ConfigMap via GitOps; the app reloads without restart.
-groupMapping:
-  developers: https://devspaces.apps.example.com
-  # "platform-team, contractors": https://devspaces-dr.apps.example.com
+# Keep empty here; set real entries only in values-deploy.yaml (Helm map-merge).
+# Example: developers: https://devspaces.apps.example.com
+groupMapping: {}
 
 route:
   # Empty host → OpenShift assigns <name>-<ns>.apps.<cluster>.
