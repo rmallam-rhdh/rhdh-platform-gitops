@@ -1,6 +1,7 @@
-# Namespace for the redirector (also Argo destination).
+# Workload namespace (must already exist, or let Argo CreateNamespace create it).
+# ClusterRoleBinding in manifests/devspaces-multicluster-redirector/rbac.yaml
+# must reference this same namespace + ServiceAccount name.
 namespace: devspaces-redirector
-createNamespace: true
 
 nameOverride: ""
 fullnameOverride: ""

@@ -6,18 +6,26 @@ Helm chart for the [Red Hat Multicluster Redirector](https://catalog.redhat.com/
 Routes authenticated users to a Dev Spaces dashboard URL based on OpenShift group membership.
 Upstream OpenShift manifests (no official Helm chart): [redhat-developer/devspaces-multicluster-redirector](https://github.com/redhat-developer/devspaces-multicluster-redirector/tree/main/openshift).
 
-## What it creates
+## What the chart creates (namespace-scoped)
 
 | Resource | Purpose |
 |---|---|
-| Namespace `devspaces-redirector` | Workload namespace (optional) |
 | Deployment | Quarkus redirector + oauth-proxy |
 | Service + Route (edge TLS) | Public entry |
 | ConfigMap | `group-mapping.json` at `/etc/config` |
 | Secret | oauth-proxy session cookie |
 | ServiceAccount | OAuth client + redirect URI / Route reference |
-| ClusterRole / Binding | groups, users, tokenreviews, SAR |
 | NetworkPolicy | Ingress 8443 (optional) |
+
+Cluster-scoped RBAC is **not** in the chart. Apply once as cluster-admin:
+
+```bash
+oc apply -f manifests/devspaces-multicluster-redirector/rbac.yaml
+```
+
+That grants TokenReviews / SubjectAccessReviews / OpenShift `users`+`groups` get/list to
+`ServiceAccount/devspaces-multicluster-redirector` in `devspaces-redirector`. If you change
+`namespace` or the release name/fullname, update the binding subject to match.
 
 ## Configure
 
@@ -31,7 +39,8 @@ Comma-separated group keys require membership in **all** listed groups (upstream
 
 ## Deploy
 
-Argo Application: `argocd/apps/devspaces-multicluster-redirector.yaml`.
+1. Cluster-admin: apply `manifests/devspaces-multicluster-redirector/rbac.yaml` (and ensure the target namespace exists).
+2. Sync Argo Application `argocd/apps/devspaces-multicluster-redirector.yaml`, or Helm-install the chart into that namespace.
 
 ```bash
 helm lint charts/devspaces-multicluster-redirector

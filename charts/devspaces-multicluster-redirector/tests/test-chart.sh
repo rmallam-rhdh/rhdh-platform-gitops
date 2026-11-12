@@ -15,24 +15,18 @@ helm template mcr "$CHART" \
 
 fail=0
 for pat in \
-  "kind: Namespace" \
-  "name: devspaces-redirector" \
   "kind: Deployment" \
   "kind: Service" \
   "kind: Route" \
   "kind: ConfigMap" \
   "kind: Secret" \
   "kind: ServiceAccount" \
-  "kind: ClusterRole" \
-  "kind: ClusterRoleBinding" \
   "kind: NetworkPolicy" \
+  "namespace: devspaces-redirector" \
   "registry.redhat.io/devspaces/multicluster-redirector-rhel9" \
   "ose-oauth-proxy-rhel9@sha256:" \
   "group-mapping.json" \
   "session_secret" \
-  "user.openshift.io" \
-  "tokenreviews" \
-  "subjectaccessreviews" \
   "-http-address=:8443" \
   "-https-address=" \
   "-pass-user-headers" \
@@ -53,6 +47,36 @@ fi
 if grep -Fq "proxy-tls" "$OUT"; then
   echo "FAIL oauth-proxy uses plain HTTP on 8443 (edge TLS on Route)"
   fail=1
+fi
+
+# Cluster-scoped RBAC and Namespace stay outside the chart.
+if grep -Fq "kind: ClusterRole" "$OUT"; then
+  echo "FAIL ClusterRole must not render from the chart (see manifests/)"
+  fail=1
+fi
+if grep -Fq "kind: ClusterRoleBinding" "$OUT"; then
+  echo "FAIL ClusterRoleBinding must not render from the chart (see manifests/)"
+  fail=1
+fi
+if grep -Fq "kind: Namespace" "$OUT"; then
+  echo "FAIL Namespace must not render from the chart"
+  fail=1
+fi
+
+RBAC_MANIFEST="$(cd "$CHART/../.." && pwd)/manifests/devspaces-multicluster-redirector/rbac.yaml"
+[[ -f "$RBAC_MANIFEST" ]] || { echo "FAIL missing $RBAC_MANIFEST"; fail=1; }
+if [[ -f "$RBAC_MANIFEST" ]]; then
+  for pat in \
+    "kind: ClusterRole" \
+    "kind: ClusterRoleBinding" \
+    "tokenreviews" \
+    "subjectaccessreviews" \
+    "user.openshift.io" \
+    "name: devspaces-multicluster-redirector" \
+    "namespace: devspaces-redirector"
+  do
+    grep -Fq -- "$pat" "$RBAC_MANIFEST" || { echo "FAIL rbac manifest missing: $pat"; fail=1; }
+  done
 fi
 
 # NetworkPolicy can be disabled.
