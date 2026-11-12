@@ -1,3 +1,11 @@
+{{- range $groupKey, $targetUrl := .Values.groupMapping }}
+{{- if not (trim $groupKey) }}
+{{- fail "groupMapping keys must not be empty or whitespace-only" }}
+{{- end }}
+{{- if not (regexMatch "^https?://[^[:space:]]+$" (toString $targetUrl)) }}
+{{- fail (printf "groupMapping[%q] value %q must be a valid http(s):// URL" $groupKey (toString $targetUrl)) }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

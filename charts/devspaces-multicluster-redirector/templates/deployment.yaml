@@ -17,28 +17,55 @@ spec:
       labels:
         {{- include "mcr.selectorLabels" . | nindent 8 }}
         {{- include "mcr.labels" . | nindent 8 }}
+      {{- if .Values.rolloutOnConfigChange }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
     spec:
       serviceAccountName: {{ include "mcr.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if gt (int .Values.replicas) 1 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "mcr.selectorLabels" . | nindent 14 }}
+      {{- end }}
       containers:
         - name: redirector
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "mcr.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /hello
               port: http
+              scheme: HTTP
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 3
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /hello
               port: http
+              scheme: HTTP
             initialDelaySeconds: 15
             periodSeconds: 20
+            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.resources.redirector | nindent 12 }}
           volumeMounts:
@@ -48,6 +75,12 @@ spec:
         - name: oauth-proxy
           image: {{ .Values.oauthProxy.image | quote }}
           imagePullPolicy: {{ .Values.oauthProxy.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http-proxy
               containerPort: 8443
@@ -73,6 +106,22 @@ spec:
                 -client-id=system:serviceaccount:${NAMESPACE}:{{ include "mcr.serviceAccountName" . }} \
                 -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token \
                 -cookie-secret-file=/etc/proxy/secrets/session_secret
+          readinessProbe:
+            httpGet:
+              path: /oauth/healthz
+              port: http-proxy
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /oauth/healthz
+              port: http-proxy
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.resources.oauthProxy | nindent 12 }}
           volumeMounts:

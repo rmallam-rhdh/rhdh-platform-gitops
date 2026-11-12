@@ -22,6 +22,7 @@ for pat in \
   "kind: Secret" \
   "kind: ServiceAccount" \
   "kind: NetworkPolicy" \
+  "kind: PodDisruptionBudget" \
   "namespace: devspaces-redirector" \
   "registry.redhat.io/devspaces/multicluster-redirector-rhel9" \
   "ose-oauth-proxy-rhel9@sha256:" \
@@ -34,7 +35,13 @@ for pat in \
   "mountPath: /etc/config" \
   "termination: edge" \
   "oauth-redirectreference.primary" \
-  "targetPort: 8443"
+  "targetPort: 8443" \
+  "path: /hello" \
+  "path: /oauth/healthz" \
+  "allowPrivilegeEscalation: false" \
+  "runAsNonRoot: true" \
+  "type: RuntimeDefault" \
+  "topologySpreadConstraints:"
 do
   grep -Fq -- "$pat" "$OUT" || { echo "FAIL missing: $pat"; fail=1; }
 done
@@ -79,6 +86,18 @@ if [[ -f "$RBAC_MANIFEST" ]]; then
   done
 fi
 
+ARGO_MANIFEST="$(cd "$CHART/../.." && pwd)/argocd/apps/devspaces-multicluster-redirector.yaml"
+[[ -f "$ARGO_MANIFEST" ]] || { echo "FAIL missing $ARGO_MANIFEST"; fail=1; }
+if [[ -f "$ARGO_MANIFEST" ]]; then
+  for pat in \
+    "ignoreDifferences:" \
+    "/data/session_secret" \
+    "RespectIgnoreDifferences=true"
+  do
+    grep -Fq -- "$pat" "$ARGO_MANIFEST" || { echo "FAIL argocd manifest missing: $pat"; fail=1; }
+  done
+fi
+
 # NetworkPolicy can be disabled.
 OFF="$(mktemp)"
 helm template mcr "$CHART" \
@@ -109,6 +128,35 @@ if grep -Fq "oauth-redirectreference.primary" "$URI"; then
   fail=1
 fi
 rm -f "$URI"
+
+# oauthRedirectReference=false without host or oauthCallbackUrl must fail at template time.
+if helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  --set route.oauthRedirectReference=false \
+  --set route.host="" \
+  --set route.oauthCallbackUrl="" \
+  --namespace devspaces-redirector >/dev/null 2>&1; then
+  echo "FAIL expected template error when oauthRedirectReference=false and host/callback are empty"
+  fail=1
+fi
+
+# Invalid groupMapping URL must fail at template time.
+if helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  --set "groupMapping.developers=not-a-valid-url" \
+  --namespace devspaces-redirector >/dev/null 2>&1; then
+  echo "FAIL expected template error when groupMapping value is not an http(s) URL"
+  fail=1
+fi
+
+# Short sessionSecret.value (< 16 chars) must fail at template time.
+if helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  --set sessionSecret.value=too-short \
+  --namespace devspaces-redirector >/dev/null 2>&1; then
+  echo "FAIL expected template error when sessionSecret.value is < 16 chars"
+  fail=1
+fi
 
 # Existing session secret path.
 EXT="$(mktemp)"

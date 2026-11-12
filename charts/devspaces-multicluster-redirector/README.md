@@ -10,7 +10,8 @@ Upstream OpenShift manifests (no official Helm chart): [redhat-developer/devspac
 
 | Resource | Purpose |
 |---|---|
-| Deployment | Quarkus redirector + oauth-proxy |
+| Deployment | Quarkus redirector (`/hello` HTTP probes) + oauth-proxy (`/oauth/healthz` HTTP probes) with `restricted-v2` securityContext and anti-affinity |
+| PodDisruptionBudget | Keeps at least `pdb.minAvailable` (default `1`) pod available when `replicas > 1` |
 | Service + Route (edge TLS) | Public entry |
 | ConfigMap | `group-mapping.json` at `/etc/config` |
 | Secret | oauth-proxy session cookie |
@@ -49,4 +50,4 @@ helm lint charts/devspaces-multicluster-redirector
 
 ## Session secret
 
-Default `sessionSecret.create: true` uses Helm `lookup` so upgrades keep the existing cookie. Set `create: false` and `existingSecret` when Vault/ESO owns the Secret (key must be `session_secret`).
+Default `sessionSecret.create: true` uses Helm `lookup` for standalone Helm upgrades and `ignoreDifferences` (`/data/session_secret` + `RespectIgnoreDifferences=true`) in `argocd/apps/devspaces-multicluster-redirector.yaml` so Argo CD offline rendering keeps the existing cookie stable across syncs. Set `create: false` and `existingSecret` when Vault/ESO owns the Secret (key must be `session_secret`).

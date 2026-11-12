@@ -23,6 +23,15 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: devspaces-redirector
+  # Argo CD renders Helm templates offline (lookup returns {}), so ignore
+  # data.session_secret on the generated Secret to keep cookies stable across syncs.
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: devspaces-multicluster-redirector-session-secret
+      namespace: devspaces-redirector
+      jsonPointers:
+        - /data/session_secret
   syncPolicy:
     automated:
       prune: false
@@ -31,3 +40,4 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true

@@ -27,6 +27,19 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{ include "mcr.fullname" . }}
 {{- end -}}
 
+{{- define "mcr.image" -}}
+{{- if not .Values.image.repository -}}
+{{- fail "image.repository is required" -}}
+{{- end -}}
+{{- if .Values.image.digest -}}
+{{ .Values.image.repository }}@{{ .Values.image.digest }}
+{{- else if .Values.image.tag -}}
+{{ .Values.image.repository }}:{{ .Values.image.tag }}
+{{- else -}}
+{{- fail "either image.tag or image.digest must be set" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "mcr.sessionSecretName" -}}
 {{- if not .Values.sessionSecret.create -}}
 {{- if not .Values.sessionSecret.existingSecret -}}
@@ -40,9 +53,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "mcr.oauthCallbackUrl" -}}
 {{- if .Values.route.oauthCallbackUrl -}}
+{{- if not (regexMatch "^https?://" .Values.route.oauthCallbackUrl) -}}
+{{- fail "route.oauthCallbackUrl must start with http:// or https://" -}}
+{{- end -}}
 {{- .Values.route.oauthCallbackUrl -}}
 {{- else if .Values.route.host -}}
 https://{{ .Values.route.host }}/oauth/callback
 {{- else -}}
+{{- fail "route.oauthRedirectReference=false requires route.oauthCallbackUrl or route.host" -}}
 {{- end -}}
 {{- end -}}

@@ -10,6 +10,7 @@ fullnameOverride: ""
 image:
   repository: registry.redhat.io/devspaces/multicluster-redirector-rhel9
   tag: "3.31"
+  digest: ""
   pullPolicy: IfNotPresent
 
 # OpenShift OAuth Proxy sidecar. Listens HTTP on :8443; Route does edge TLS
@@ -20,6 +21,14 @@ oauthProxy:
   pullPolicy: IfNotPresent
 
 replicas: 2
+
+# Quarkus GroupMappingService dynamically resolves the ConfigMap symlink on every
+# request without needing a pod restart. Keep true if you also want rolling restarts.
+rolloutOnConfigChange: true
+
+pdb:
+  enabled: true
+  minAvailable: 1
 
 resources:
   redirector:
