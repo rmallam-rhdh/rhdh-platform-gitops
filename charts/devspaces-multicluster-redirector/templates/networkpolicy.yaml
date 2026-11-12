@@ -20,6 +20,8 @@ spec:
         - protocol: TCP
           port: 8443
   egress:
-    # OpenShift API + DNS + upstream health (kube-apiserver via service network).
+    # Allow all egress: oauth-proxy and the redirector need the OpenShift API,
+    # cluster DNS, and the external OAuth authorize endpoint. Tighten later if
+    # API/OAuth CIDRs are known for this cluster.
     - {}
 {{- end }}

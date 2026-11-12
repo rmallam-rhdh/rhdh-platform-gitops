@@ -13,8 +13,9 @@ image:
 
 # OpenShift OAuth Proxy sidecar. Listens HTTP on :8443; Route does edge TLS
 # (matches upstream openshift/deployment.yaml — no in-pod TLS secret).
+# Digested image keeps GitOps reproducible with pullPolicy IfNotPresent.
 oauthProxy:
-  image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:latest
+  image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9@sha256:4da6381f4f79de6a6024554aa99129e9b79b7ad7fdde0b0bebbcb87421a97d7c
   pullPolicy: IfNotPresent
 
 replicas: 2

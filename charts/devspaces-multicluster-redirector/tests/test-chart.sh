@@ -27,7 +27,7 @@ for pat in \
   "kind: ClusterRoleBinding" \
   "kind: NetworkPolicy" \
   "registry.redhat.io/devspaces/multicluster-redirector-rhel9" \
-  "ose-oauth-proxy-rhel9" \
+  "ose-oauth-proxy-rhel9@sha256:" \
   "group-mapping.json" \
   "session_secret" \
   "user.openshift.io" \
@@ -102,6 +102,26 @@ if ! grep -Fq "secretName: my-session" "$EXT"; then
   fail=1
 fi
 rm -f "$EXT"
+
+# create=false without existingSecret must fail at template time.
+if helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  --set sessionSecret.create=false \
+  --set sessionSecret.existingSecret="" \
+  --namespace devspaces-redirector >/dev/null 2>&1; then
+  echo "FAIL expected template error when existingSecret is empty"
+  fail=1
+fi
+
+# oauth-proxy must not float on :latest with IfNotPresent.
+if grep -Eq 'ose-oauth-proxy-rhel9:latest' "$OUT"; then
+  echo "FAIL oauth-proxy image must be digested, not :latest"
+  fail=1
+fi
+if ! grep -Fq 'Allow all egress' "$OUT"; then
+  echo "FAIL NetworkPolicy egress comment must describe allow-all"
+  fail=1
+fi
 
 if [[ "$fail" -ne 0 ]]; then
   echo "FAIL chart tests"

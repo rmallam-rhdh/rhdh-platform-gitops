@@ -28,7 +28,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "mcr.sessionSecretName" -}}
-{{- if and (not .Values.sessionSecret.create) .Values.sessionSecret.existingSecret -}}
+{{- if not .Values.sessionSecret.create -}}
+{{- if not .Values.sessionSecret.existingSecret -}}
+{{- fail "sessionSecret.create=false requires sessionSecret.existingSecret" -}}
+{{- end -}}
 {{- .Values.sessionSecret.existingSecret -}}
 {{- else -}}
 {{ include "mcr.fullname" . }}-session-secret
