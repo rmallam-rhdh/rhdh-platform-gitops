@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcr.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "mcr.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "mcr.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mcr.selectorLabels" . | nindent 8 }}
+        {{- include "mcr.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "mcr.serviceAccountName" . }}
+      containers:
+        - name: redirector
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources.redirector | nindent 12 }}
+          volumeMounts:
+            - name: group-mapping
+              mountPath: /etc/config
+              readOnly: true
+        - name: oauth-proxy
+          image: {{ .Values.oauthProxy.image | quote }}
+          imagePullPolicy: {{ .Values.oauthProxy.pullPolicy }}
+          ports:
+            - name: http-proxy
+              containerPort: 8443
+              protocol: TCP
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command:
+            - /bin/sh
+            - -c
+            - |
+              exec /usr/bin/oauth-proxy \
+                -provider=openshift \
+                -http-address=:8443 \
+                -https-address= \
+                -email-domain=* \
+                -upstream=http://localhost:8080 \
+                -scope=user:info \
+                -pass-user-headers \
+                -openshift-service-account={{ include "mcr.serviceAccountName" . }} \
+                -client-id=system:serviceaccount:${NAMESPACE}:{{ include "mcr.serviceAccountName" . }} \
+                -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token \
+                -cookie-secret-file=/etc/proxy/secrets/session_secret
+          resources:
+            {{- toYaml .Values.resources.oauthProxy | nindent 12 }}
+          volumeMounts:
+            - name: session-secret
+              mountPath: /etc/proxy/secrets
+              readOnly: true
+      volumes:
+        - name: group-mapping
+          configMap:
+            name: {{ include "mcr.fullname" . }}-group-mapping
+        - name: session-secret
+          secret:
+            secretName: {{ include "mcr.sessionSecretName" . }}

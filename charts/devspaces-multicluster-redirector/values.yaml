@@ -1,0 +1,70 @@
+# Namespace for the redirector (also Argo destination).
+namespace: devspaces-redirector
+createNamespace: true
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Red Hat product image (requires pull secret for registry.redhat.io on the cluster).
+image:
+  repository: registry.redhat.io/devspaces/multicluster-redirector-rhel9
+  tag: "3.31"
+  pullPolicy: IfNotPresent
+
+# OpenShift OAuth Proxy sidecar. Listens HTTP on :8443; Route does edge TLS
+# (matches upstream openshift/deployment.yaml — no in-pod TLS secret).
+oauthProxy:
+  image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:latest
+  pullPolicy: IfNotPresent
+
+replicas: 2
+
+resources:
+  redirector:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  oauthProxy:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# OpenShift Group name → Dev Spaces dashboard URL.
+# Comma-separated keys require membership in ALL listed groups (upstream AND logic).
+# Update this ConfigMap via GitOps; the app reloads without restart.
+groupMapping:
+  developers: https://devspaces.apps.example.com
+  # "platform-team, contractors": https://devspaces-dr.apps.example.com
+
+route:
+  # Empty host → OpenShift assigns <name>-<ns>.apps.<cluster>.
+  host: ""
+  # Set after the Route host is known (or set host above and leave empty to derive).
+  # Used for SA oauth-redirecturi when oauthRedirectReference is false.
+  oauthCallbackUrl: ""
+  # Prefer Route reference annotation (GitOps-friendly). Set false to use oauthCallbackUrl.
+  oauthRedirectReference: true
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Cookie secret for oauth-proxy. Prefer create=true once (Helm lookup keeps it stable).
+# Set create=false and provide sessionSecret.existingSecret for Vault/ESO-managed secrets.
+sessionSecret:
+  create: true
+  existingSecret: ""
+  # Only used when create=true and no Secret exists yet (ignored on upgrade if Secret present).
+  value: ""
+
+networkPolicy:
+  enabled: true
+
+# Optional labels for shard / LB selection.
+routeLabels: {}
+routeAnnotations: {}

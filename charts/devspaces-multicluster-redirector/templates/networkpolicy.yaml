@@ -1,0 +1,25 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcr.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "mcr.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcr.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8443
+  egress:
+    # OpenShift API + DNS + upstream health (kube-apiserver via service network).
+    - {}
+{{- end }}
