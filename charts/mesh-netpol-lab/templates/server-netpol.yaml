@@ -1,0 +1,35 @@
+{{- if ne .Values.server.netpol "none" }}
+# A typical "allow my app" policy: only the app port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-port
+  namespace: {{ .Values.namespaces.server }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - ports:
+    - {protocol: TCP, port: 8080}
+{{- end }}
+{{- if has .Values.server.netpol (list "appPlusHbone" "appPlusHboneNoProbe") }}
+---
+# Proposed for every enrolled namespace (golden path or WNZLSpace baseline).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mesh-hbone
+  namespace: {{ .Values.namespaces.server }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - ports:
+    - {protocol: TCP, port: 15008}     # HBONE: mesh traffic arriving at the pod
+  {{- if eq .Values.server.netpol "appPlusHbone" }}
+  - from:
+    - ipBlock: {cidr: 169.254.7.127/32}  # kubelet probes, rewritten by ztunnel
+  {{- end }}
+{{- end }}

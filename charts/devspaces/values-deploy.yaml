@@ -1,0 +1,4 @@
+# Default apps domain. This cluster has no Dev Spaces ingress shard.
+networking:
+  domain: ""
+  labels: {}

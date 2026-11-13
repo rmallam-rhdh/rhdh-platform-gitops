@@ -1,0 +1,34 @@
+apiVersion: controller.devfile.io/v1alpha1
+config:
+  workspace:
+    cleanupCronJob:
+      dryRun: false
+      enable: true
+      retainTime: 2592000
+      schedule: 0 0 1 * *
+    containerResourceCaps:
+      limits:
+        cpu: '4'
+        memory: 8Gi
+      requests:
+        cpu: '2'
+        memory: 4Gi
+    defaultContainerResources:
+      limits:
+        cpu: '2'
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+kind: DevWorkspaceOperatorConfig
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: '4'
+    argocd.argoproj.io/tracking-id: devspaces:controller.devfile.io/DevWorkspaceOperatorConfig:openshift-devspaces/devworkspace-operator-config
+  labels:
+    app.kubernetes.io/component: workspace-operator-config
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+  name: devworkspace-operator-config
+  namespace: openshift-devspaces

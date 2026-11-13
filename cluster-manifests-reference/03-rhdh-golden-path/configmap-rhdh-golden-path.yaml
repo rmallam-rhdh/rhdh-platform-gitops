@@ -1,0 +1,1083 @@
+apiVersion: v1
+data:
+  template-gitops-devspaces-namespace.yaml: |2
+
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-gitops-devspaces-namespace
+      title: Node.js + GitOps Pre-Created Dev Spaces Namespace
+      description: >
+        Scaffolds a Node.js UDI repository AND commits a GitOps-managed
+        ${user}-devspaces-${random} namespace (Namespace with Che binding labels
+        and annotations, ResourceQuota, LimitRange, RoleBinding, and DevWorkspace)
+        so Argo CD provisions the isolated workspace namespace automatically while
+        CheCluster auto-provision is disabled.
+      tags:
+        - nodejs
+        - udi
+        - devspaces
+        - gitops
+        - golden-path
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Application & GitOps Workspace Namespace
+          required:
+            - appName
+            - githubOwner
+            - openShiftUser
+            - userSlug
+            - namespaceSuffix
+          properties:
+            appName:
+              title: Application Name
+              type: string
+              pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+              description: New GitHub repository and DevWorkspace name
+              ui:autofocus: true
+            appDescription:
+              title: Description
+              type: string
+              default: Node.js app with GitOps pre-created Dev Spaces namespace
+            githubOwner:
+              title: GitHub owner (org or user)
+              type: string
+              default: rmallam-rhdh
+              pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+            gitopsRepoName:
+              title: Platform GitOps repository
+              type: string
+              default: rhdh-platform-gitops
+            openShiftUser:
+              title: OpenShift Username (RBAC & Che annotation target)
+              type: string
+              default: cluster-admin
+              description: Exact OpenShift User identity (oc whoami) that owns this namespace
+            userSlug:
+              title: DNS-safe user prefix (${user})
+              type: string
+              default: cluster-admin
+              pattern: '^[a-z0-9]([-a-z0-9]{0,20}[a-z0-9])?$'
+              description: Prefix used in ${user}-devspaces-${random}
+            namespaceSuffix:
+              title: Random suffix (${random})
+              type: string
+              default: a7x9k
+              pattern: '^[a-z0-9]{4,8}$'
+              description: Random lowercase alphanumeric suffix for ${user}-devspaces-${random}
+            port:
+              title: Application port
+              type: integer
+              default: 3000
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-skeleton
+          name: Fetch Node.js UDI application skeleton
+          action: fetch:template
+          input:
+            url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-node-udi
+            targetPath: ./app-repo
+            values:
+              appName: ${{ parameters.appName }}
+              appDescription: ${{ parameters.appDescription }}
+              githubOwner: ${{ parameters.githubOwner }}
+              port: ${{ parameters.port }}
+              devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+
+        - id: publish
+          name: Publish application repository to GitHub
+          action: publish:github
+          input:
+            sourcePath: ./app-repo
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+            description: ${{ parameters.appDescription }}
+            defaultBranch: main
+            repoVisibility: public
+            gitCommitMessage: "feat: scaffold ${{ parameters.appName }} from RHDH golden path"
+
+        - id: register
+          name: Register component in RHDH Catalog
+          action: catalog:register
+          input:
+            repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+            catalogInfoPath: /catalog-info.yaml
+
+        - id: render-tenant-namespace
+          name: Render GitOps manifests for ${user}-devspaces-${random}
+          action: fetch:template
+          input:
+            url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/tree/main/examples/skeleton-devspaces-tenant
+            targetPath: ./tenant-manifests
+            values:
+              workspaceNamespace: ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+              openShiftUser: ${{ parameters.openShiftUser }}
+              userSlug: ${{ parameters.userSlug }}
+              appName: ${{ parameters.appName }}
+              appRepoUrl: https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}.git
+              port: ${{ parameters.port }}
+
+        - id: publish-gitops-pr
+          name: Commit tenant namespace + quota + RBAC + DevWorkspace to GitOps
+          action: publish:github:pull-request
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.gitopsRepoName }}
+            branchName: rhdh/tenant-${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+            targetBranchName: main
+            sourcePath: ./tenant-manifests
+            targetPath: tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+            title: "feat(gitops): provision ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for ${{ parameters.appName }}"
+            commitMessage: "feat(gitops): provision ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for ${{ parameters.appName }}"
+            description: |
+              Automated RHDH Golden Path tenant namespace provisioning:
+              - **Workspace Namespace:** `${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+              - **OpenShift User:** `${{ parameters.openShiftUser }}`
+              - **Application:** `${{ parameters.appName }}`
+            update: true
+
+      output:
+        text:
+          - title: Provisioned Application & GitOps Dev Spaces Namespace
+            content: |
+              **Application Repository:** ${{ steps['publish'].output.remoteUrl }}
+              **GitOps Pull Request:** ${{ steps['publish-gitops-pr'].output.remoteUrl }}
+              **Pre-Created Workspace Namespace:** `${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+              **Bound OpenShift User:** `${{ parameters.openShiftUser }}`
+              **GitOps Path:** `tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+
+              Argo CD (`devspaces-user-namespaces`) reconciles:
+              - `Namespace/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}` (`che.eclipse.org/username: ${{ parameters.openShiftUser }}`)
+              - `ResourceQuota/devspaces-tenant-quota` & `LimitRange/devspaces-container-limits`
+              - `RoleBinding/devspaces-user-admin`
+              - `DevWorkspace/${{ parameters.appName }}`
+        links:
+          - title: Application Repository
+            icon: github
+            url: ${{ steps['publish'].output.remoteUrl }}
+          - title: GitOps Pull Request
+            icon: github
+            url: ${{ steps['publish-gitops-pr'].output.remoteUrl }}
+          - title: GitOps Tenant Manifests
+            icon: github
+            url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/tree/main/tenants/devspaces-namespaces/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+          - title: Open in Dev Spaces (Pinned to Pre-Created Namespace)
+            icon: catalog
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/ide/${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}/${{ parameters.appName }}
+          - title: Dev Spaces Factory (Pinned to Pre-Created Namespace)
+            icon: catalog
+            url: ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}?new&devfilePath=devfile.yaml&namespace=${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}
+          - title: Open in RHDH Catalog
+            icon: catalog
+            entityRef: ${{ steps['register'].output.entityRef }}
+  template-node-udi-devspaces.yaml: |2
+
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-node-udi-devspaces
+      title: Node.js + UDI + Dev Spaces (ROSA demo)
+      description: >
+        Creates a tiny Node.js repo with a UDI devfile, publishes it to GitHub,
+        and gives you an Open in Dev Spaces link for this cluster.
+      tags:
+        - nodejs
+        - udi
+        - golden-path
+        - demo
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Application
+          required: [appName, githubOwner]
+          properties:
+            appName:
+              title: Application Name
+              type: string
+              pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+              description: New GitHub repo name under your user
+              ui:autofocus: true
+            appDescription:
+              title: Description
+              type: string
+              default: Node.js app on Red Hat UDI for Dev Spaces
+            githubOwner:
+              title: GitHub owner (org or user)
+              type: string
+              default: rmallam-rhdh
+              pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+            port:
+              title: Application port
+              type: integer
+              default: 3000
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-skeleton
+          name: Fetch Node UDI skeleton
+          action: fetch:template
+          input:
+            url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-node-udi
+            values:
+              appName: ${{ parameters.appName }}
+              appDescription: ${{ parameters.appDescription }}
+              githubOwner: ${{ parameters.githubOwner }}
+              port: ${{ parameters.port }}
+              devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+        - id: publish
+          name: Publish to GitHub
+          action: publish:github
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+            description: ${{ parameters.appDescription }}
+            defaultBranch: main
+            repoVisibility: public
+            gitCommitMessage: "Initial Node.js UDI app from golden path"
+        - id: register
+          name: Register in catalog
+          action: catalog:register
+          input:
+            repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+            catalogInfoPath: /catalog-info.yaml
+      output:
+        text:
+          - title: What was created
+            content: |
+              **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+              Catalog entity: `${{ steps['register'].output.entityRef }}`
+
+              | In Git | Path |
+              |---|---|
+              | catalog-info.yaml | `/catalog-info.yaml` |
+              | Devfile | `/devfile.yaml` |
+              | App | `/server.js` |
+        links:
+          - title: GitHub repository
+            url: ${{ steps['publish'].output.remoteUrl }}
+            icon: github
+          - title: catalog-info.yaml
+            url: ${{ steps['publish'].output.remoteUrl }}/blob/main/catalog-info.yaml
+            icon: github
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ steps['register'].output.entityRef }}
+          - title: Open in Dev Spaces
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+            icon: catalog
+          - title: Dev Spaces dashboard
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+            icon: catalog
+  template-nodejs-golden-path.yaml: |2
+
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-nodejs-golden-path
+      title: Node.js golden path (Jenkins + Helm + Sonar)
+      description: >
+        Creates a Node.js 20 service from the lab sample: unit tests, Sonar
+        properties, Jenkinsfile (lint/test/Sonar/Helm), a deploy Helm chart,
+        catalog annotations for the working Hub plugins, and an Open in Dev Spaces
+        URL. Publishes to GitHub (Bitbucket scaffolder is not loaded).
+      tags:
+        - nodejs
+        - golden-path
+        - jenkins
+        - helm
+        - sonarqube
+        - demo
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Application
+          required: [appName, githubOwner]
+          properties:
+            appName:
+              title: GitHub repository name
+              description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+              type: string
+              pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+              ui:autofocus: true
+            appDescription:
+              title: Description
+              type: string
+              default: Node.js golden-path service with Jenkins, Helm, and Sonar
+            githubOwner:
+              title: GitHub owner (org or user)
+              description: GitHub user or org that will own the new repository (default rmallam-rhdh).
+              type: string
+              default: rmallam-rhdh
+              pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+            port:
+              title: Application port
+              type: integer
+              default: 3000
+            targetNamespace:
+              title: Deploy namespace
+              type: string
+              default: demo-dev
+            clusterBaseDomain:
+              title: OpenShift apps domain
+              description: Host suffix for the mesh ingress Route (no scheme). Default is this ROSA cluster.
+              type: string
+              default: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+            sonarHostUrl:
+              title: SonarQube URL (in-cluster)
+              type: string
+              default: http://sonarqube.sonarqube.svc:9000
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-skeleton
+          name: Fetch Node.js golden-path skeleton
+          action: fetch:template
+          input:
+            url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-nodejs-golden-path
+            values:
+              appName: ${{ parameters.appName }}
+              appDescription: ${{ parameters.appDescription }}
+              githubOwner: ${{ parameters.githubOwner }}
+              port: ${{ parameters.port }}
+              targetNamespace: ${{ parameters.targetNamespace }}
+              clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
+              sonarHostUrl: ${{ parameters.sonarHostUrl }}
+              sonarProjectKey: ${{ parameters.appName }}
+              devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+        - id: publish
+          name: Publish to GitHub
+          action: publish:github
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+            description: ${{ parameters.appDescription }}
+            defaultBranch: main
+            repoVisibility: public
+            gitCommitMessage: "Initial Node.js golden path (Jenkins, Helm, Sonar)"
+        - id: register
+          name: Register in catalog
+          action: catalog:register
+          input:
+            repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+            catalogInfoPath: /catalog-info.yaml
+      output:
+        text:
+          - title: What was created
+            content: |
+              **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+              Catalog entity: `${{ steps['register'].output.entityRef }}`
+
+              | In Git | Path |
+              |---|---|
+              | catalog-info.yaml | `/catalog-info.yaml` |
+              | Devfile | `/devfile.yaml` |
+              | Helm chart | `/chart` (mesh: Route → Gateway → HTTPRoute, deny-all, STRICT mTLS) |
+              | Jenkinsfile | `/Jenkinsfile` |
+              | Sonar properties | `/sonar-project.properties` |
+
+              **Not created automatically:** Jenkins job, Helm release, Argo CD Application,
+              Sonar project, or OpenShift namespace (it must already exist).
+        links:
+          # File links must use repoContentsUrl (no .git). remoteUrl is the clone URL
+          # (…/repo.git); GitHub 404s on …/repo.git/blob/… and …/repo.git/tree/….
+          # Parameter defaults do not interpolate in output.links on this Hub.
+          - title: GitHub repository
+            url: ${{ steps['publish'].output.remoteUrl }}
+            icon: github
+          - title: catalog-info.yaml
+            url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
+            icon: github
+          - title: Helm chart
+            url: ${{ steps['publish'].output.repoContentsUrl }}/chart
+            icon: github
+          - title: Jenkinsfile
+            url: ${{ steps['publish'].output.repoContentsUrl }}/Jenkinsfile
+            icon: github
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ steps['register'].output.entityRef }}
+          - title: Open in Dev Spaces
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+            icon: catalog
+          - title: Dev Spaces dashboard
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+            icon: catalog
+          - title: OpenShift project
+            url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
+            icon: catalog
+  template-nodejs-website.yaml: |2
+
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-nodejs-website
+      title: Node.js website (link backend)
+      description: >
+        Creates a Node.js 20 website and links it to an existing backend. Pick the
+        System, service Component, and API from the Quarkus (or other) backend
+        template. Writes consumesApis, dependsOn, and system on the catalog entity.
+        Publishes to GitHub.
+      tags:
+        - nodejs
+        - website
+        - golden-path
+        - jenkins
+        - helm
+        - demo
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: website
+      parameters:
+        - title: Website
+          required: [appName, githubOwner, system, backendService, backendApi]
+          properties:
+            appName:
+              title: GitHub repository name
+              description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+              type: string
+              pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+              ui:autofocus: true
+            appDescription:
+              title: Description
+              type: string
+              default: Node.js website linked to a catalog backend API
+            githubOwner:
+              title: GitHub owner (org or user)
+              type: string
+              default: rmallam-rhdh
+              pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+            system:
+              title: System
+              description: Product created by the Quarkus backend template (default acme-demo).
+              type: string
+              ui:field: EntityPicker
+              ui:options:
+                allowedKinds: [System]
+            backendService:
+              title: Backend service
+              description: "Component (spec.type: service) this website depends on."
+              type: string
+              ui:field: EntityPicker
+              ui:options:
+                allowedKinds: [Component]
+                catalogFilter:
+                  - kind: Component
+                    spec.type: service
+            backendApi:
+              title: Backend API
+              description: API this website consumes (providesApis on the backend).
+              type: string
+              ui:field: EntityPicker
+              ui:options:
+                allowedKinds: [API]
+            backendPort:
+              title: Backend service port
+              type: integer
+              default: 8080
+            port:
+              title: Website port
+              type: integer
+              default: 3000
+            targetNamespace:
+              title: Deploy namespace
+              type: string
+              default: demo-dev
+            clusterBaseDomain:
+              title: OpenShift apps domain
+              type: string
+              default: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+            sonarHostUrl:
+              title: SonarQube URL (in-cluster)
+              type: string
+              default: http://sonarqube.sonarqube.svc:9000
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-skeleton
+          name: Fetch Node.js website skeleton
+          action: fetch:template
+          input:
+            url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-nodejs-website
+            values:
+              appName: ${{ parameters.appName }}
+              appDescription: ${{ parameters.appDescription }}
+              githubOwner: ${{ parameters.githubOwner }}
+              systemName: ${{ parameters.system | parseEntityRef | pick('name') }}
+              backendServiceRef: ${{ parameters.backendService }}
+              backendServiceName: ${{ parameters.backendService | parseEntityRef | pick('name') }}
+              backendApiRef: ${{ parameters.backendApi }}
+              backendApiName: ${{ parameters.backendApi | parseEntityRef | pick('name') }}
+              backendUrl: http://${{ parameters.backendService | parseEntityRef | pick('name') }}.${{ parameters.targetNamespace }}.svc:${{ parameters.backendPort }}
+              port: ${{ parameters.port }}
+              targetNamespace: ${{ parameters.targetNamespace }}
+              clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
+              sonarHostUrl: ${{ parameters.sonarHostUrl }}
+              sonarProjectKey: ${{ parameters.appName }}
+              devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+        - id: publish
+          name: Publish to GitHub
+          action: publish:github
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+            description: ${{ parameters.appDescription }}
+            defaultBranch: main
+            repoVisibility: public
+            gitCommitMessage: "Initial Node.js website (consumes backend API)"
+        - id: register
+          name: Register in catalog
+          action: catalog:register
+          input:
+            repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+            catalogInfoPath: /catalog-info.yaml
+      output:
+        text:
+          - title: What was created
+            content: |
+              **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+              Catalog entity: `${{ steps['register'].output.entityRef }}` (type: website)
+
+              Relations: system `${{ parameters.system | parseEntityRef | pick('name') }}`,
+              dependsOn `${{ parameters.backendService }}`,
+              consumesApis `${{ parameters.backendApi }}`.
+
+              In-cluster the website calls
+              `http://${{ parameters.backendService | parseEntityRef | pick('name') }}.${{ parameters.targetNamespace }}.svc:${{ parameters.backendPort }}/api`.
+
+              | In Git | Path |
+              |---|---|
+              | catalog-info.yaml | `/catalog-info.yaml` |
+              | Helm chart | `/chart` (mesh: Route → Gateway → HTTPRoute, deny-all, STRICT mTLS) |
+              | Jenkinsfile | `/Jenkinsfile` |
+
+              **Not created automatically:** Jenkins job, Helm release, Argo CD Application,
+              Sonar project, or OpenShift namespace (it must already exist).
+        links:
+          - title: GitHub repository
+            url: ${{ steps['publish'].output.remoteUrl }}
+            icon: github
+          - title: catalog-info.yaml
+            url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
+            icon: github
+          - title: Helm chart
+            url: ${{ steps['publish'].output.repoContentsUrl }}/chart
+            icon: github
+          - title: Jenkinsfile
+            url: ${{ steps['publish'].output.repoContentsUrl }}/Jenkinsfile
+            icon: github
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ steps['register'].output.entityRef }}
+          - title: Open in Dev Spaces
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+            icon: catalog
+          - title: Dev Spaces dashboard
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+            icon: catalog
+          - title: OpenShift project
+            url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
+            icon: catalog
+  template-open-devspaces-namespace.yaml: |2
+
+    ---
+    # Open an existing service in Dev Spaces in a namespace you already have.
+    # Does not create a repo, branch, or OpenShift project. The project must exist
+    # and your AD group must already grant edit + DevWorkspace in that namespace.
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-open-devspaces-namespace
+      title: Open Dev Spaces in my namespace
+      description: >
+        Pick an existing catalog service and the OpenShift namespace you already
+        have (AD group). Returns a Dev Spaces link that starts the workspace in
+        that namespace only. Does not provision a namespace.
+      tags:
+        - day-2
+        - devspaces
+        - namespace
+        - demo
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Service and branch
+          required: [component, githubOwner, revision]
+          properties:
+            component:
+              title: Catalog component
+              type: string
+              description: Service already on the catalog
+              ui:field: EntityPicker
+              ui:autofocus: true
+              ui:options:
+                allowedKinds: [Component]
+                catalogFilter:
+                  - kind: Component
+                    spec.type: service
+            githubOwner:
+              title: GitHub owner
+              type: string
+              default: rmallam-rhdh
+            revision:
+              title: Git branch or tag
+              type: string
+              description: Branch already on the repo (create it first with Start feature if needed)
+              default: main
+              pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{0,70}$'
+        - title: Workspace namespace
+          required: [workspaceNamespace]
+          properties:
+            namespaceEntity:
+              title: Catalog namespace (optional)
+              type: string
+              description: Approved Resource — use the Resource name as the OpenShift project, or type it below
+              ui:field: EntityPicker
+              ui:options:
+                allowedKinds: [Resource]
+                catalogFilter:
+                  - kind: Resource
+                    spec.type: kubernetes-namespace
+            workspaceNamespace:
+              title: OpenShift namespace
+              type: string
+              description: >
+                Existing project only (example demo-dev or jsmith-devspaces).
+                Must already have your AD group. This template will not create it.
+              pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+              ui:help: CheCluster auto-provision should be off in the bank so workspaces cannot land in a random ns.
+            workspaceName:
+              title: Workspace name (optional)
+              type: string
+              description: DNS-1123 name for the DevWorkspace. Leave blank to derive from the service and branch.
+              pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-component
+          name: Read catalog component
+          action: catalog:fetch
+          input:
+            entityRef: ${{ parameters.component }}
+      output:
+        text:
+          - title: Dev Spaces in your namespace
+            content: |
+              Service: `${{ parameters.component | parseEntityRef | pick('name') }}`
+              Branch: `${{ parameters.revision }}`
+              Namespace: `${{ parameters.workspaceNamespace }}`
+
+              That project must already exist. Your AD group must already allow
+              DevWorkspace create in it. This template does not create a namespace.
+
+              GitHub: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}
+
+              Open (factory, pinned to that namespace):
+              ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}?new&devfilePath=devfile.yaml&namespace=${{ parameters.workspaceNamespace }}
+
+              IDE after it starts:
+              ${{ parameters.devSpacesBaseUrl }}/dashboard/#/ide/${{ parameters.workspaceNamespace }}/${{ parameters.component | parseEntityRef | pick('name') }}
+        links:
+          - title: GitHub repository (this branch)
+            icon: github
+            url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}
+          - title: Open in Dev Spaces (this namespace)
+            icon: catalog
+            url: ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.revision }}?new&devfilePath=devfile.yaml&namespace=${{ parameters.workspaceNamespace }}
+          - title: Dev Spaces dashboard for that namespace
+            icon: catalog
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces?namespace=${{ parameters.workspaceNamespace }}
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ parameters.component }}
+  template-plugin-kitchen-sink.yaml: |2
+
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-plugin-kitchen-sink
+      title: Plugin kitchen-sink + Dev Spaces (ROSA demo)
+      description: >
+        Creates a Node.js UDI repo whose catalog-info.yaml has annotations for every
+        Hub plugin that works on this lab, registers it, and returns an Open in
+        Dev Spaces factory URL. Bitbucket is skipped (module does not load).
+      tags:
+        - nodejs
+        - udi
+        - golden-path
+        - demo
+        - plugins
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Application
+          required: [appName, githubOwner]
+          properties:
+            appName:
+              title: GitHub repository name
+              type: string
+              pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+              description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+              ui:autofocus: true
+            appDescription:
+              title: Description
+              type: string
+              default: Kitchen-sink service that exercises RHDH plugin tabs
+            githubOwner:
+              title: GitHub owner (org or user)
+              type: string
+              default: rmallam-rhdh
+              pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+            port:
+              title: Application port
+              type: integer
+              default: 3000
+            targetNamespace:
+              title: Kubernetes namespace for Topology
+              type: string
+              default: demo-dev
+            clusterBaseDomain:
+              title: OpenShift apps domain
+              type: string
+              default: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-skeleton
+          name: Fetch kitchen-sink skeleton
+          action: fetch:template
+          input:
+            url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-plugin-kitchen-sink
+            values:
+              appName: ${{ parameters.appName }}
+              appDescription: ${{ parameters.appDescription }}
+              githubOwner: ${{ parameters.githubOwner }}
+              port: ${{ parameters.port }}
+              targetNamespace: ${{ parameters.targetNamespace }}
+              devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+        - id: publish
+          name: Publish to GitHub
+          action: publish:github
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+            description: ${{ parameters.appDescription }}
+            defaultBranch: main
+            repoVisibility: public
+            gitCommitMessage: "Initial kitchen-sink app from golden path"
+        - id: register
+          name: Register in catalog
+          action: catalog:register
+          input:
+            repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+            catalogInfoPath: /catalog-info.yaml
+      output:
+        text:
+          - title: What was created
+            content: |
+              **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+              Catalog entity: `${{ steps['register'].output.entityRef }}`
+
+              Topology looks for label `backstage.io/kubernetes-id` on the catalog entity
+              in namespace `demo-dev` (namespace is not created by this template).
+        links:
+          - title: GitHub repository
+            url: ${{ steps['publish'].output.remoteUrl }}
+            icon: github
+          - title: catalog-info.yaml
+            url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
+            icon: github
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ steps['register'].output.entityRef }}
+          - title: Open in Dev Spaces
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+            icon: catalog
+          - title: Dev Spaces dashboard
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+            icon: catalog
+          - title: OpenShift project
+            url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
+            icon: catalog
+  template-quarkus-golden-path.yaml: |2
+
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-quarkus-golden-path
+      title: Quarkus backend (Jenkins + Helm + API)
+      description: >
+        Creates a Quarkus 3 / Java 21 service and registers System + Component
+        (type: service) + API with providesApis. Use this first when you need a
+        website + backend. Then run the Node.js website template and pick this
+        System, Component, and API. Publishes to GitHub.
+      tags:
+        - quarkus
+        - java
+        - golden-path
+        - jenkins
+        - helm
+        - sonarqube
+        - demo
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Backend service
+          required: [appName, githubOwner, systemName]
+          properties:
+            appName:
+              title: GitHub repository name
+              description: Required. New public GitHub repo name (lowercase letters, numbers, hyphens).
+              type: string
+              pattern: '^[a-z][a-z0-9-]{2,28}[a-z0-9]$'
+              ui:autofocus: true
+            appDescription:
+              title: Description
+              type: string
+              default: Quarkus golden-path backend with Jenkins, Helm, and OpenAPI
+            githubOwner:
+              title: GitHub owner (org or user)
+              description: GitHub user or org that will own the new repository (default rmallam-rhdh).
+              type: string
+              default: rmallam-rhdh
+              pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
+            systemName:
+              title: System name
+              description: Catalog System this backend belongs to. The website template will pick this System.
+              type: string
+              default: acme-demo
+              pattern: '^[a-z][a-z0-9-]{1,40}$'
+            systemDescription:
+              title: System description
+              type: string
+              default: Demo product (website + backend)
+            port:
+              title: Application port
+              type: integer
+              default: 8080
+            targetNamespace:
+              title: Deploy namespace
+              type: string
+              default: demo-dev
+            clusterBaseDomain:
+              title: OpenShift apps domain
+              description: Host suffix for the mesh ingress Route (no scheme). Default is this ROSA cluster.
+              type: string
+              default: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+            sonarHostUrl:
+              title: SonarQube URL (in-cluster)
+              type: string
+              default: http://sonarqube.sonarqube.svc:9000
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-skeleton
+          name: Fetch Quarkus golden-path skeleton
+          action: fetch:template
+          input:
+            url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-quarkus-golden-path
+            values:
+              appName: ${{ parameters.appName }}
+              appDescription: ${{ parameters.appDescription }}
+              githubOwner: ${{ parameters.githubOwner }}
+              systemName: ${{ parameters.systemName }}
+              systemDescription: ${{ parameters.systemDescription }}
+              port: ${{ parameters.port }}
+              targetNamespace: ${{ parameters.targetNamespace }}
+              clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
+              sonarHostUrl: ${{ parameters.sonarHostUrl }}
+              sonarProjectKey: ${{ parameters.appName }}
+              devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
+        - id: publish
+          name: Publish to GitHub
+          action: publish:github
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+            description: ${{ parameters.appDescription }}
+            defaultBranch: main
+            repoVisibility: public
+            gitCommitMessage: "Initial Quarkus golden path (Jenkins, Helm, API)"
+        - id: register
+          name: Register in catalog
+          action: catalog:register
+          input:
+            repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+            catalogInfoPath: /catalog-info.yaml
+      output:
+        text:
+          - title: What was created
+            content: |
+              **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
+
+              Catalog: System `${{ parameters.systemName }}` · Component `${{ parameters.appName }}` (service) · API `${{ parameters.appName }}-api` (providesApis).
+
+              Next: run **Node.js website** and pick this System, Component, and API.
+
+              | In Git | Path |
+              |---|---|
+              | catalog-info.yaml | `/catalog-info.yaml` |
+              | OpenAPI | `/openapi.yaml` |
+              | Helm chart | `/chart` (mesh: Route → Gateway → HTTPRoute, deny-all, STRICT mTLS) |
+              | Jenkinsfile | `/Jenkinsfile` |
+
+              **Not created automatically:** Jenkins job, Helm release, Argo CD Application,
+              Sonar project, or OpenShift namespace (it must already exist).
+        links:
+          - title: GitHub repository
+            url: ${{ steps['publish'].output.remoteUrl }}
+            icon: github
+          - title: catalog-info.yaml
+            url: ${{ steps['publish'].output.repoContentsUrl }}/catalog-info.yaml
+            icon: github
+          - title: Helm chart
+            url: ${{ steps['publish'].output.repoContentsUrl }}/chart
+            icon: github
+          - title: Jenkinsfile
+            url: ${{ steps['publish'].output.repoContentsUrl }}/Jenkinsfile
+            icon: github
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ steps['register'].output.entityRef }}
+          - title: Open in Dev Spaces
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['publish'].output.remoteUrl }}&devfilePath=devfile.yaml
+            icon: catalog
+          - title: Dev Spaces dashboard
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+            icon: catalog
+          - title: OpenShift project
+            url: https://console-openshift-console.${{ parameters.clusterBaseDomain }}/k8s/cluster/projects/demo-dev
+            icon: catalog
+  template-start-feature-devspaces.yaml: |2
+
+    ---
+    # Day-2 helper — does not create a repo. Use after acme-node-udi-devspaces.
+    apiVersion: scaffolder.backstage.io/v1beta3
+    kind: Template
+    metadata:
+      name: acme-start-feature-devspaces
+      title: Start feature + Dev Spaces (day 2)
+      description: >
+        For an existing catalog service only. Creates a feature branch from the
+        current default branch and gives you an Open in Dev Spaces link for that
+        branch. Does not scaffold a new application.
+      tags:
+        - day-2
+        - feature-branch
+        - devspaces
+        - demo
+        - recommended
+    spec:
+      owner: group:platform-team
+      type: service
+      parameters:
+        - title: Existing service
+          required: [component, githubOwner, featureBranch]
+          properties:
+            component:
+              title: Catalog component
+              type: string
+              description: Service already created by the Node.js + UDI golden path
+              ui:field: EntityPicker
+              ui:autofocus: true
+              ui:options:
+                allowedKinds: [Component]
+                catalogFilter:
+                  - kind: Component
+                    spec.type: service
+            githubOwner:
+              title: GitHub owner
+              type: string
+              default: rmallam-rhdh
+            jiraKey:
+              title: Jira story key
+              type: string
+              description: Optional. Used in the branch-start commit message
+              pattern: '^[A-Z][A-Z0-9]+-\d+$'
+            featureBranch:
+              title: Feature branch
+              type: string
+              description: Created from the repo default branch if it does not exist
+              default: feature/DEMO-123-my-change
+              pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{1,70}$'
+            devSpacesBaseUrl:
+              title: Dev Spaces URL
+              type: string
+              default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+      steps:
+        - id: fetch-component
+          name: Read catalog component
+          action: catalog:fetch
+          input:
+            entityRef: ${{ parameters.component }}
+        - id: fetch-repo
+          name: Fetch default branch
+          action: fetch:plain
+          input:
+            url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}
+        - id: push-branch
+          name: Create feature branch
+          action: github:repo:push
+          input:
+            repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.component | parseEntityRef | pick('name') }}
+            defaultBranch: ${{ parameters.featureBranch }}
+            protectDefaultBranch: false
+            protectEnforceAdmins: false
+            gitCommitMessage: "chore: start ${{ parameters.featureBranch }}"
+      output:
+        text:
+          - title: Day-2 workspace
+            content: |
+              Repo: ${{ steps['push-branch'].output.remoteUrl }}
+              Branch was pushed with `github:repo:push`.
+        links:
+          - title: GitHub repository
+            icon: github
+            url: ${{ steps['push-branch'].output.remoteUrl }}
+          - title: Open in Dev Spaces
+            icon: catalog
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['push-branch'].output.remoteUrl }}&devfilePath=devfile.yaml
+          - title: Dev Spaces dashboard
+            icon: catalog
+            url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
+          - title: Open in catalog
+            icon: catalog
+            entityRef: ${{ parameters.component }}
+kind: ConfigMap
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: developer-hub:/ConfigMap:rhdh/rhdh-golden-path
+  labels:
+    app.kubernetes.io/component: developer-hub
+    app.kubernetes.io/instance: developer-hub
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: developer-hub
+    app.kubernetes.io/part-of: acme-platform
+    helm.sh/chart: developer-hub-0.1.0
+  name: rhdh-golden-path
+  namespace: rhdh

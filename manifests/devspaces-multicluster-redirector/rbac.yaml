@@ -1,0 +1,56 @@
+# Cluster-scoped RBAC for the Dev Spaces Multicluster Redirector.
+# Apply once as cluster-admin before (or with) the Helm/Argo workload:
+#   oc apply -f manifests/devspaces-multicluster-redirector/rbac.yaml
+#
+# Subject namespace must match charts/devspaces-multicluster-redirector values
+# namespace (default: devspaces-redirector) and the ServiceAccount name
+# (default: chart fullname = devspaces-multicluster-redirector).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: devspaces-multicluster-redirector
+  labels:
+    app.kubernetes.io/name: devspaces-multicluster-redirector
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: multicluster-redirector
+rules:
+  - apiGroups:
+      - ""
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+      - selfsubjectrulesreviews
+    verbs:
+      - create
+  - apiGroups:
+      - user.openshift.io
+    resources:
+      - users
+      - groups
+    verbs:
+      - get
+      - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: devspaces-multicluster-redirector
+  labels:
+    app.kubernetes.io/name: devspaces-multicluster-redirector
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: multicluster-redirector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: devspaces-multicluster-redirector
+subjects:
+  - kind: ServiceAccount
+    name: devspaces-multicluster-redirector
+    namespace: devspaces-redirector

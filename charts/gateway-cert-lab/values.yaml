@@ -1,0 +1,77 @@
+# Lab-only. One HTTPS listener + one cert-manager Certificate + one passthrough Route per hostname,
+# all rendered from the `hosts` list below (the "ingress catalogue"). No wildcard certificate anywhere.
+
+# This cluster's *.apps domain. Set it in values-deploy.yaml.
+clusterBaseDomain: ""
+
+# Hostnames are <host.name>-<namePrefix>.<clusterBaseDomain>, e.g. orders-gwcert.apps.example.com
+namePrefix: gwcert
+
+gateway:
+  name: shared-gw
+  namespace: gwcert-ingress
+
+issuer:
+  # true: a self-signed CA in the gateway namespace stands in for the enterprise CA (e.g. Venafi).
+  # false: point name/kind at an issuer that already exists in the gateway namespace (e.g. a Venafi Issuer).
+  standIn: true
+  name: stand-in-ca
+  kind: Issuer
+  # Issuer for team-owned certificates (hosts with certInAppNamespace). Teams request certificates from
+  # their own namespaces, so this one must be reachable from them: a ClusterIssuer, or an Issuer per team.
+  team:
+    standIn: true            # true: a self-signed ClusterIssuer CA, its Secret in caNamespace
+    name: stand-in-team-ca
+    kind: ClusterIssuer
+    caNamespace: cert-manager   # cert-manager's cluster resource namespace (where ClusterIssuer CA Secrets live)
+
+certificate:
+  duration: 2160h          # 90 days; cert-manager renews at two-thirds of the lifetime by default
+  rotationPolicy: Always   # new private key on every renewal
+
+# The ingress catalogue. Add an entry, open a PR, merge: Argo CD renders the listener, Certificate and Route.
+hosts:
+  - name: orders
+    namespace: gwcert-orders
+    sampleApp: true
+  - name: payments
+    namespace: gwcert-payments
+    sampleApp: true
+    # Team-owned certificate: the Certificate and its Secret live in gwcert-payments, not the gateway
+    # namespace. The listener points at it across namespaces, and the team's ReferenceGrant allows that.
+    certInAppNamespace: true
+    grantGateway: true        # false: no ReferenceGrant, the listener shows RefNotPermitted
+
+# Role for app teams in namespaces with team-owned certificates: manage Certificates and ReferenceGrants.
+# Bound to `group` when set (for example the team's OpenShift group); unbound otherwise.
+teamAccess:
+  group: ""
+
+# App namespaces join the ambient mesh with STRICT mTLS, as golden-path namespaces would.
+appNamespaces:
+  ambient: true
+  strictMtls: true
+
+sampleApp:
+  image: registry.access.redhat.com/ubi9/python-311
+  port: 8080
+
+# Another namespace's HTTPRoute claims a host it does not own. Expected: NotAllowedByListeners.
+# Argo CD shows the app Degraded while this is on (the refused route is reported as unhealthy).
+hijackTest:
+  enabled: false
+  namespace: gwcert-intruder
+  targetHost: orders
+
+# A listener whose certificate can never be issued. Expected: only that listener is down.
+# Argo CD shows the app Degraded while this is on.
+brokenHost:
+  enabled: false
+  name: cards
+
+# A second gateway with `count` listeners and Certificates, to measure the cost of many hostnames.
+# Gateway API v1.2.1 allows at most 64 listeners per Gateway.
+scaleTest:
+  enabled: false
+  gatewayName: scale-gw
+  count: 50

@@ -1,0 +1,66 @@
+{{- /*
+acme's monorepo-gitops apps/service-mesh/templates/network-policy.yaml
+with the values for the proposed fixes added. ztunnelSource=none and allowWebhook=false render it unchanged.
+*/ -}}
+{{- with .Values.istioSystemPolicy }}
+{{- if .enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          istio-discovery: enabled
+      podSelector: {}
+    {{- if eq .ztunnelSource "sameNamespace" }}
+    - podSelector: {}           # fix: istio-system itself, so ztunnel can reach istiod
+    {{- else if eq .ztunnelSource "ztunnelNamespace" }}
+    - namespaceSelector:        # fix: the namespace ztunnel runs in
+        matchLabels:
+          kubernetes.io/metadata.name: {{ $.Values.ztunnelNamespace }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 15010
+    - protocol: TCP
+      port: 15012
+    - protocol: TCP
+      port: 443
+  {{- if .allowWebhook }}
+  - {{- if eq (.webhookSource | default "any") "hostNetwork" }}
+    from:                       # the API server reaches webhooks through host-network konnectivity agents
+    - namespaceSelector:
+        matchLabels:
+          policy-group.network.openshift.io/host-network: ""
+    {{- end }}
+    ports:                      # istiod webhook: Service port 443 forwards to container port 15017
+    - protocol: TCP
+      port: 15017
+  {{- end }}
+  {{- if .allowMetrics }}
+  - from:                       # user workload monitoring scraping istiod
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .metricsNamespace | default "openshift-user-workload-monitoring" }}
+    ports:
+    - protocol: TCP
+      port: 15014
+  {{- end }}
+  {{- if .allowConsolePlugin }}
+  - from:                       # OpenShift console loading the Service Mesh console plugin (ossmconsole)
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-console
+    ports:
+    - protocol: TCP
+      port: 9443
+  {{- end }}
+{{- end }}
+{{- end }}

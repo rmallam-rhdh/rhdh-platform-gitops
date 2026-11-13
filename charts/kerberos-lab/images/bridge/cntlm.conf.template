@@ -1,0 +1,12 @@
+# Lab NTLM client (cntlm) — Hub → 127.0.0.1:3128 → corporate NTLM parent.
+Username __NTLM_USER__
+Password __NTLM_PASS__
+Domain __NTLM_DOMAIN__
+Proxy __CORP_HOST__:__CORP_PORT__
+Listen __LISTEN_ADDR__:__LISTEN_PORT__
+NoProxy localhost, 127.0.0.*, 10.*, 172.16.*, 172.17.*, 172.18.*, 172.19.*, 172.2*, 172.30.*, 172.31.*, 192.168.*
+Gateway yes
+# Lab corporate parent uses Squid ntlm_fake_auth (no target-info) — NTLMv2 fails.
+# Real AD/proxy NTLMv2: set Auth NTLMv2 (and matching Flags if required).
+Auth NTLM
+Flags 0x06820000

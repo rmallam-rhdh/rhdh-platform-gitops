@@ -1,0 +1,19 @@
+Red Hat Developer Hub {{ .Chart.AppVersion }}
+
+  Namespace: {{ include "rhdh.namespace" . }}
+  Backstage CR: {{ include "rhdh.fullname" . }}
+  Base URL: {{ include "rhdh.baseUrl" . }}
+  Secrets: {{ .Values.secrets.mode }} ({{ .Values.secrets.name }})
+
+Plugin flags (enabled=loaded, disabled=package present but off):
+{{- range $name, $p := .Values.plugins }}
+{{- if kindIs "map" $p }}
+{{- if hasKey $p "enabled" }}
+  {{ $name }}: {{ if $p.enabled }}on{{ else }}off{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+Render locally:
+  helm template rhdh charts/developer-hub -f charts/developer-hub/values.yaml
+  helm template rhdh charts/developer-hub -f charts/developer-hub/values.yaml -f charts/developer-hub/values-demo.yaml

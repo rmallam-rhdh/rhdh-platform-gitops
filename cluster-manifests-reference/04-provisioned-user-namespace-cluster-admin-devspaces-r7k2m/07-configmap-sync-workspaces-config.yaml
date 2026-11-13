@@ -1,0 +1,12 @@
+apiVersion: v1
+data:
+  v1_ConfigMap.ca-certs-merged.cluster-admin-devspaces-r7k2m: '17654687'
+  v1_ConfigMap.ca-certs-merged.openshift-devspaces: '15854781'
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: workspaces-config
+    app.kubernetes.io/managed-by: devspaces-operator
+    app.kubernetes.io/part-of: che.eclipse.org
+  name: sync-workspaces-config
+  namespace: cluster-admin-devspaces-r7k2m

@@ -1,0 +1,52 @@
+# Lab stand-in for a customer authenticated forward proxy.
+# The Hub chart does not use this Service until httpProxy.enabled is true.
+namespace: squid
+createNamespace: true
+
+image: docker.io/ubuntu/squid:6.6-24.04_edge
+# basic_ncsa_auth path inside that image. Squid reads the htpasswd file from Secret squid-htpasswd.
+authHelper: /usr/lib/squid/basic_ncsa_auth
+username: rhdh
+
+# This lab has no ClusterSecretStore. Keep mode=external and apply Secret
+# squid-htpasswd yourself (see examples/squid-htpasswd.example.yaml).
+# Use eso only when Vault + External Secrets already exist.
+secrets:
+  mode: external # eso | external | placeholder
+  # Used only when secrets.mode=placeholder. Never a live apr1 hash.
+  placeholderPasswd: "rhdh:placeholder"
+
+# Ubuntu's proxy user. anyuid is required because restricted SCC will not
+# allow a fixed uid outside the namespace range.
+runAsUser: 13
+runAsGroup: 13
+
+service:
+  port: 3128
+
+vault:
+  storeName: vault-secret-store
+  storeKind: ClusterSecretStore
+  refreshInterval: 5m
+  # KV v2 mount is "secrets". This key is secrets/squid/htpasswd, property value.
+  # The value is one htpasswd line: rhdh:<apr1 hash>
+  htpasswdKey: squid/htpasswd
+
+# Exact hosts, or a leading dot for the domain and its subdomains.
+# In-cluster names are intentionally absent.
+allow:
+  - .service-now.com
+  - mallamrakeshkumar.atlassian.net
+  - wkf10640.live.dynatrace.com
+  - wkf10640.apps.dynatrace.com
+  - sso.dynatrace.com
+  - login.microsoftonline.com
+  - graph.microsoft.com
+  # Leading-dot matches the apex and subdomains. Hub fetch:template uses
+  # api.github.com then codeload.github.com for the tarball.
+  - .github.com
+  - codeload.github.com
+  - .githubusercontent.com
+  - bitbucket.org
+  - ghcr.io
+  - registry.access.redhat.com

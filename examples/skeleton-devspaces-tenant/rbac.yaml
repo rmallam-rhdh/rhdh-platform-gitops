@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: devspaces-user-admin
+  namespace: ${{ values.workspaceNamespace }}
+  labels:
+    app.kubernetes.io/managed-by: rhdh-gitops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: ${{ values.openShiftUser }}

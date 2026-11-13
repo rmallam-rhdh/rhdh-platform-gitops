@@ -1,0 +1,38 @@
+# CheCluster + global DevWorkspaceOperatorConfig (workspace cleanup).
+# Dev Spaces / DWO operators must already be installed.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devspaces
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: devspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/devspaces
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-deploy.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-devspaces
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+  ignoreDifferences:
+    - group: org.eclipse.che
+      kind: CheCluster
+      jqPathExpressions:
+        - .status

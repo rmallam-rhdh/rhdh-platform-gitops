@@ -1,0 +1,11 @@
+{{- if .Values.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "cnpg.namespace" . }}
+  labels:
+    {{- include "cnpg.labels" . | nindent 4 }}
+    # Hub/Postgres must stay off the mesh. Explicit none so a leftover ambient
+    # label cannot keep capturing CNPG probes.
+    istio.io/dataplane-mode: none
+{{- end }}

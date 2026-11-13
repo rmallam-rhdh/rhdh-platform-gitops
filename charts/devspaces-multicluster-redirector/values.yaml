@@ -1,0 +1,80 @@
+# Workload namespace (must already exist, or let Argo CreateNamespace create it).
+# ClusterRoleBinding in manifests/devspaces-multicluster-redirector/rbac.yaml
+# must reference this same namespace + ServiceAccount name.
+namespace: devspaces-redirector
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Red Hat product image (requires pull secret for registry.redhat.io on the cluster).
+image:
+  repository: registry.redhat.io/devspaces/multicluster-redirector-rhel9
+  tag: "3.31"
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# OpenShift OAuth Proxy sidecar. Listens HTTP on :8443; Route does edge TLS
+# (matches upstream openshift/deployment.yaml — no in-pod TLS secret).
+# Digested image keeps GitOps reproducible with pullPolicy IfNotPresent.
+oauthProxy:
+  image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9@sha256:4da6381f4f79de6a6024554aa99129e9b79b7ad7fdde0b0bebbcb87421a97d7c
+  pullPolicy: IfNotPresent
+
+replicas: 2
+
+# Quarkus GroupMappingService dynamically resolves the ConfigMap symlink on every
+# request without needing a pod restart. Keep true if you also want rolling restarts.
+rolloutOnConfigChange: true
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+resources:
+  redirector:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  oauthProxy:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# OpenShift Group name → Dev Spaces dashboard URL.
+# Comma-separated keys require membership in ALL listed groups (upstream AND logic).
+# Keep empty here; set real entries only in values-deploy.yaml (Helm map-merge).
+# Example: developers: https://devspaces.apps.example.com
+groupMapping: {}
+
+route:
+  # Empty host → OpenShift assigns <name>-<ns>.apps.<cluster>.
+  host: ""
+  # Set after the Route host is known (or set host above and leave empty to derive).
+  # Used for SA oauth-redirecturi when oauthRedirectReference is false.
+  oauthCallbackUrl: ""
+  # Prefer Route reference annotation (GitOps-friendly). Set false to use oauthCallbackUrl.
+  oauthRedirectReference: true
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Cookie secret for oauth-proxy. Prefer create=true once (Helm lookup keeps it stable).
+# Set create=false and provide sessionSecret.existingSecret for Vault/ESO-managed secrets.
+sessionSecret:
+  create: true
+  existingSecret: ""
+  # Only used when create=true and no Secret exists yet (ignored on upgrade if Secret present).
+  value: ""
+
+networkPolicy:
+  enabled: true
+
+# Optional labels for shard / LB selection.
+routeLabels: {}
+routeAnnotations: {}

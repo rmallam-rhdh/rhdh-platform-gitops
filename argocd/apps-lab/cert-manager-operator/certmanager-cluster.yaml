@@ -1,0 +1,14 @@
+# Operator-level cert-manager settings. --enable-certificate-owner-ref makes each TLS Secret owned by its
+# Certificate, so removing a hostname from the catalogue also removes its Secret (and private key).
+apiVersion: operator.openshift.io/v1alpha1
+kind: CertManager
+metadata:
+  name: cluster
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  managementState: Managed
+  controllerConfig:
+    overrideArgs:
+      - --enable-certificate-owner-ref

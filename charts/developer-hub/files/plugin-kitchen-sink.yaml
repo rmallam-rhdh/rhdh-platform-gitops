@@ -1,0 +1,45 @@
+# Demo-only catalog entities so every Hub plugin tab has an annotation to match.
+# Not a golden-path template. Cards may be empty or stubbed.
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: plugin-kitchen-sink
+  description: Lab system for exercising RHDH plugin tabs
+  tags:
+    - demo
+    - plugins
+spec:
+  owner: group:default/developers
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: plugin-kitchen-sink
+  description: Open this entity to see Jenkins, Sonar, Argo, Vault, Jira, Snyk, and other plugin tabs
+  tags:
+    - demo
+    - plugins
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    jenkins.io/job-full-name: demo/plugin-kitchen-sink
+    sonarqube.org/project-key: demo-plugin-kitchen-sink
+    argocd/app-name: developer-hub
+    argocd/app-namespace: openshift-gitops
+    backstage.io/kubernetes-id: developer-hub
+    backstage.io/kubernetes-namespace: rhdh
+    kiali.io/namespace: demo-dev
+    vault.io/secrets-path: rhdh
+    jira/project-key: SCRUM
+    snyk.io/org-id: stub-org
+    snyk.io/org-name: stub-org
+    snyk.io/project-ids: stub
+    servicenow.com/entity-id: demo
+    jfrog-artifactory/image-name: plugin-kitchen-sink
+    dynatrace.com/dynatrace-entity-id: SERVICE-39720C1E0047A5C0
+    github.com/project-slug: rmallam/RHDH
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/developers
+  system: plugin-kitchen-sink

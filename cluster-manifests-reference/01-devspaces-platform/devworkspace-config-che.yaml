@@ -1,0 +1,48 @@
+apiVersion: controller.devfile.io/v1alpha1
+config:
+  routing:
+    tlsCertificateConfigmapRef:
+      name: ca-certs-merged
+      namespace: openshift-devspaces
+  workspace:
+    containerResourceCaps:
+      limits:
+        cpu: '4'
+        memory: 8Gi
+      requests:
+        cpu: '2'
+        memory: 4Gi
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsNonRoot: true
+    defaultContainerResources:
+      limits:
+        cpu: '2'
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    defaultStorageSize:
+      common: 10Gi
+    deploymentStrategy: Recreate
+    imagePullPolicy: IfNotPresent
+    persistUserHome:
+      enabled: true
+    progressTimeout: 300s
+    serviceAccount:
+      disableCreation: false
+    storageAccessMode:
+    - ReadWriteOnce
+kind: DevWorkspaceOperatorConfig
+metadata:
+  name: devworkspace-config
+  namespace: openshift-devspaces
+  ownerReferences:
+  - apiVersion: org.eclipse.che/v2
+    blockOwnerDeletion: true
+    controller: true
+    kind: CheCluster
+    name: devspaces

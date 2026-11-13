@@ -1,0 +1,45 @@
+# Istio / IstioCNI / ZTunnel / Kiali CRs. Sail + Kiali operators must already be installed.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: service-mesh
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: service-mesh
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/service-mesh
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+  ignoreDifferences:
+    - group: sailoperator.io
+      kind: Istio
+      jqPathExpressions:
+        - .status
+    - group: sailoperator.io
+      kind: IstioCNI
+      jqPathExpressions:
+        - .status
+    - group: sailoperator.io
+      kind: ZTunnel
+      jqPathExpressions:
+        - .status
+    - group: kiali.io
+      kind: Kiali
+      jqPathExpressions:
+        - .status

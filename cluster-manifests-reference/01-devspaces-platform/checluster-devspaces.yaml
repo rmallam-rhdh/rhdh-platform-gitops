@@ -1,0 +1,95 @@
+---
+# Source: devspaces/templates/checluster.yaml
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: devspaces
+  namespace: openshift-devspaces
+  labels:
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: devspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  components:
+    cheServer:
+      debug: false
+      logLevel: "INFO"
+    dashboard:
+      logLevel: "ERROR"
+      headerMessage:
+        show: true
+        text: "API for this Dev Spaces: https://api.rosa-rwx5g.f8y9.p3.openshiftapps.com:443"
+      deployment:
+        containers:
+          - name: devspaces-dashboard
+            env:
+              - name: CHE_HIDE_EDITORS_BY_ID
+                value: "che-incubator/che-code/latest,che-incubator/che-code/insiders,che-incubator/che-code-sshd/latest,che-incubator/che-code-sshd-bob/latest,che-incubator/che-code-sshd-kiro/latest,che-incubator/che-clion-server/latest,che-incubator/che-goland-server/latest,che-incubator/che-idea-server/latest,che-incubator/che-phpstorm-server/latest,che-incubator/che-pycharm-server/latest,che-incubator/che-rider-server/latest,che-incubator/che-rubymine-server/latest,che-incubator/che-webstorm-server/latest,che-incubator/jetbrains-sshd/latest"
+    metrics:
+      enable: true
+    pluginRegistry:
+      # Empty string selects the embedded OpenVSX in the plugin-registry image.
+      openVSXURL: ""
+    imagePuller:
+      enable: false
+  devEnvironments:
+    defaultEditor: "idp/vscode-desktop-only/latest"
+    defaultNamespace:
+      autoProvision: false
+      template: "<username>-devspaces"
+    disableContainerBuildCapabilities: true
+    disableContainerRunCapabilities: true
+    security:
+
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+    maxNumberOfWorkspacesPerUser: 5
+    maxNumberOfRunningWorkspacesPerUser: 1
+    maxNumberOfRunningWorkspacesPerCluster: 10
+    secondsOfInactivityBeforeIdling: 1800
+    secondsOfRunBeforeIdling: -1
+    startTimeoutSeconds: 300
+    ignoredUnrecoverableEvents:
+
+      []
+    imagePullPolicy: "IfNotPresent"
+    deploymentStrategy: "Recreate"
+    defaultContainerResources:
+
+      limits:
+        cpu: "2"
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    containerResourceCaps:
+
+      limits:
+        cpu: "4"
+        memory: 8Gi
+      requests:
+        cpu: "2"
+        memory: 4Gi
+    persistUserHome:
+
+      enabled: true
+    storage:
+      pvcStrategy: "per-user"
+      perUserStrategyPvcConfig:
+        claimSize: "10Gi"
+        storageAccessMode:
+          - ReadWriteOnce
+    trustedCerts:
+      disableWorkspaceCaBundleMount: true
+  networking:
+    labels:
+      {}
+    networkPolicy:
+      enabled: true

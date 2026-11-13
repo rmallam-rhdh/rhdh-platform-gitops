@@ -1,0 +1,241 @@
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: {{ include "rhdh.fullname" . }}
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  application:
+    appConfig:
+      configMaps:
+        - name: app-config-rhdh
+        {{- if .Values.instance.extraFiles.branding }}
+        - name: app-config-rhdh-branding
+        {{- end }}
+      mountPath: /opt/app-root/src
+    dynamicPluginsConfigMapName: dynamic-plugins-rhdh
+    extraEnvs:
+      envs:
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: {{ .Values.instance.extraEnvs.nodeTlsRejectUnauthorized | quote }}
+        {{- if .Values.httpProxy.enabled }}
+        - name: NODE_OPTIONS
+          value: {{ .Values.httpProxy.nodeOptions | quote }}
+        {{- end }}
+      secrets:
+        - name: {{ .Values.instance.secretsName }}
+        {{- if and .Values.httpProxy.enabled .Values.httpProxy.initContainer }}
+        - name: {{ .Values.instance.secretsName }}
+          key: HTTP_PROXY
+          containers:
+            - {{ .Values.httpProxy.initContainer | quote }}
+        - name: {{ .Values.instance.secretsName }}
+          key: HTTPS_PROXY
+          containers:
+            - {{ .Values.httpProxy.initContainer | quote }}
+        - name: {{ .Values.instance.secretsName }}
+          key: NO_PROXY
+          containers:
+            - {{ .Values.httpProxy.initContainer | quote }}
+        {{- end }}
+    extraFiles:
+      mountPath: /opt/app-root/src
+      {{- if .Values.instance.extraFiles.rbacPolicies }}
+      configMaps:
+        - name: rbac-policies
+      {{- end }}
+    route:
+      enabled: {{ .Values.instance.route.enabled }}
+  database:
+    enableLocalDb: {{ .Values.instance.database.enableLocalDb }}
+  {{- if hasKey .Values "flavours" }}
+  # nil = operator defaults; [] = disable default flavours; or list with enabled: false.
+  flavours:
+    {{- if .Values.flavours }}
+    {{- toYaml .Values.flavours | nindent 4 }}
+    {{- else }}
+    []
+    {{- end }}
+  {{- end }}
+  deployment:
+    patch:
+      spec:
+        replicas: {{ .Values.instance.replicas }}
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: backstage
+              backstage.io/kubernetes-id: {{ include "rhdh.fullname" . }}
+          spec:
+            # Operator defaults this to false; the Kubernetes/Topology plugins
+            # read /var/run/secrets/kubernetes.io/serviceaccount/token.
+            automountServiceAccountToken: true
+            serviceAccountName: {{ .Values.rbac.serviceAccount | quote }}
+            volumes:
+              - name: dynamic-plugins-root
+                ephemeral:
+                  volumeClaimTemplate:
+                    spec:
+                      accessModes: ["ReadWriteOnce"]
+                      resources:
+                        requests:
+                          storage: {{ .Values.instance.dynamicPluginsRoot.size }}
+              {{- if .Values.catalog.demoKitchenSink.enabled }}
+              - name: demo-catalog
+                configMap:
+                  name: rhdh-demo-catalog
+              {{- end }}
+              {{- if .Values.catalog.goldenPath.enabled }}
+              - name: golden-path
+                configMap:
+                  name: rhdh-golden-path
+              {{- end }}
+              {{- if and .Values.kerberosBridgeSidecar.enabled (ne (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm") }}
+              - name: kerberos-bridge-keytab
+                secret:
+                  secretName: {{ .Values.kerberosBridgeSidecar.keytabSecret | quote }}
+                  defaultMode: 0444
+                  items:
+                    - key: bridge-client.keytab
+                      path: bridge-client.keytab
+              {{- end }}
+            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled }}
+            containers:
+              # Always patch backstage-backend when we touch containers (incl. sidecar-only)
+              # so strategic merge cannot drop the Hub container.
+              - name: backstage-backend
+                {{- if .Values.database.external.enabled }}
+                env:
+                  - name: POSTGRES_HOST
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.host | quote }}
+                  - name: POSTGRES_PORT
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.port | quote }}
+                  - name: POSTGRES_USER
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.user | quote }}
+                  - name: POSTGRES_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.password | quote }}
+                  - name: POSTGRES_DB
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.database.external.secretName | quote }}
+                        key: {{ .Values.database.external.keys.database | quote }}
+                {{- end }}
+                {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled }}
+                volumeMounts:
+                  {{- if .Values.catalog.demoKitchenSink.enabled }}
+                  - name: demo-catalog
+                    mountPath: /opt/app-root/src/catalog-demo
+                    readOnly: true
+                  {{- end }}
+                  {{- if .Values.catalog.goldenPath.enabled }}
+                  - name: golden-path
+                    mountPath: /opt/app-root/src/golden-path
+                    readOnly: true
+                  {{- end }}
+                {{- end }}
+              {{- if .Values.kerberosBridgeSidecar.enabled }}
+              {{- if eq (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm" }}
+              - name: cntlm
+              {{- else }}
+              - name: kerberos-bridge
+              {{- end }}
+                image: {{ .Values.kerberosBridgeSidecar.image | quote }}
+                imagePullPolicy: {{ .Values.kerberosBridgeSidecar.imagePullPolicy | quote }}
+                securityContext:
+                  # No fixed runAsUser — OpenShift restricted-v2 assigns a ns UID range.
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: ["ALL"]
+                  seccompProfile:
+                    type: RuntimeDefault
+                env:
+                  - name: PROXY_AUTH_MODE
+                    value: {{ .Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos" | quote }}
+                  - name: REALM
+                    value: {{ .Values.kerberosBridgeSidecar.realm | quote }}
+                  - name: KDC_HOSTNAME
+                    value: {{ .Values.kerberosBridgeSidecar.kdcHostname | quote }}
+                  - name: CORPORATE_PROXY_HOSTNAME
+                    value: {{ .Values.kerberosBridgeSidecar.corporateProxyHostname | quote }}
+                  - name: CORPORATE_PROXY_PORT
+                    value: {{ .Values.kerberosBridgeSidecar.corporateProxyPort | quote }}
+                  - name: KRB5_KTNAME
+                    value: /keytabs/bridge-client.keytab
+                  - name: BRIDGE_CLIENT_PRINCIPAL
+                    value: {{ .Values.kerberosBridgeSidecar.clientPrincipal | quote }}
+                  - name: HOME
+                    value: /tmp
+                  - name: RENEW_INTERVAL_SECONDS
+                    value: {{ .Values.kerberosBridgeSidecar.renewIntervalSeconds | default "14400" | quote }}
+                  {{- if eq (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm" }}
+                  - name: NTLM_USERNAME
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.kerberosBridgeSidecar.ntlmSecret | quote }}
+                        key: username
+                  - name: NTLM_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.kerberosBridgeSidecar.ntlmSecret | quote }}
+                        key: password
+                  - name: NTLM_DOMAIN
+                    valueFrom:
+                      secretKeyRef:
+                        name: {{ .Values.kerberosBridgeSidecar.ntlmSecret | quote }}
+                        key: domain
+                  {{- end }}
+                ports:
+                  - name: proxy
+                    containerPort: {{ .Values.kerberosBridgeSidecar.port }}
+                # Squid/cntlm bind 127.0.0.1 only — kubelet tcpSocket to podIP always fails.
+                # Use bash /dev/tcp against loopback (do not use tcpSocket).
+                startupProbe:
+                  exec:
+                    command:
+                      - bash
+                      - -c
+                      - echo >/dev/tcp/127.0.0.1/{{ .Values.kerberosBridgeSidecar.port }}
+                  periodSeconds: 5
+                  failureThreshold: 72
+                readinessProbe:
+                  exec:
+                    command:
+                      - bash
+                      - -c
+                      - echo >/dev/tcp/127.0.0.1/{{ .Values.kerberosBridgeSidecar.port }}
+                  periodSeconds: 10
+                livenessProbe:
+                  exec:
+                    command:
+                      - bash
+                      - -c
+                      - echo >/dev/tcp/127.0.0.1/{{ .Values.kerberosBridgeSidecar.port }}
+                  periodSeconds: 30
+                  failureThreshold: 3
+                resources:
+                  {{- toYaml .Values.kerberosBridgeSidecar.resources | nindent 18 }}
+                volumeMounts:
+                  {{- if ne (.Values.kerberosBridgeSidecar.proxyAuthMode | default "kerberos") "ntlm" }}
+                  - name: kerberos-bridge-keytab
+                    mountPath: /keytabs
+                    readOnly: true
+                  {{- end }}
+              {{- end }}
+            {{- end }}

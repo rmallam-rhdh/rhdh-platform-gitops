@@ -1,0 +1,32 @@
+# Lab Kerberos KDC + Negotiate corporate proxy + bridge.
+# Build/push images first (charts/kerberos-lab/README.md).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kerberos-lab
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: kerberos-lab
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/kerberos-lab
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-deploy.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kerberos-lab
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,2 @@
+# Set clusterBaseDomain to this cluster's *.apps domain before the first sync.
+clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com

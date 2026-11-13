@@ -1,0 +1,12 @@
+{{- if .Values.catalog.demoKitchenSink.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rhdh-demo-catalog
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  catalog-info.yaml: |
+{{ .Files.Get "files/plugin-kitchen-sink.yaml" | nindent 4 }}
+{{- end }}

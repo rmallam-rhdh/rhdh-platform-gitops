@@ -1,0 +1,18 @@
+apiVersion: sailoperator.io/v1
+kind: IstioCNI
+metadata:
+  name: {{ .Values.istioCni.name }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  namespace: {{ .Values.istioCni.namespace }}
+  profile: {{ .Values.istioCni.profile }}
+  {{- if .Values.istioCni.version }}
+  version: {{ .Values.istioCni.version | quote }}
+  {{- end }}
+  values:
+    cni:
+      istioOwnedCNIConfig: true

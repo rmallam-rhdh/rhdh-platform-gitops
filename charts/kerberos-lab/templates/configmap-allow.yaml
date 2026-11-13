@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: corporate-proxy-allow
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+data:
+  allow.txt: |
+{{- range .Values.corporateProxy.allow }}
+    {{ . }}
+{{- end }}

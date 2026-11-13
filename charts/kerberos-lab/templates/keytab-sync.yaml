@@ -1,0 +1,143 @@
+{{- if .Values.keytabSync.enabled }}
+# Copies bridge-client.keytab from the KDC pod into a Secret in the Hub namespace
+# so the Negotiate sidecar can mount it. Lab bootstrap only — customer path is
+# IAM-issued keytab → Vault/ESO → Secret (same mount contract).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.keytabSync.hubNamespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: hub-target
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keytab-sync
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keytab-sync-lab
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
+  - apiGroups: ["apps"]
+    resources: [deployments]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keytab-sync-lab
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keytab-sync-lab
+subjects:
+  - kind: ServiceAccount
+    name: keytab-sync
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keytab-sync-hub
+  namespace: {{ .Values.keytabSync.hubNamespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keytab-sync-hub
+  namespace: {{ .Values.keytabSync.hubNamespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keytab-sync-hub
+subjects:
+  - kind: ServiceAccount
+    name: keytab-sync
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keytab-sync
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "kerberos-lab.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        {{- include "kerberos-lab.labels" . | nindent 8 }}
+        app.kubernetes.io/component: keytab-sync
+    spec:
+      serviceAccountName: keytab-sync
+      restartPolicy: OnFailure
+      containers:
+        - name: sync
+          image: {{ .Values.keytabSync.kubectlImage | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          env:
+            - name: NS_LAB
+              value: {{ .Values.namespace | quote }}
+            - name: NS_HUB
+              value: {{ .Values.keytabSync.hubNamespace | quote }}
+            - name: SECRET
+              value: {{ .Values.keytabSync.secretName | quote }}
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              set -euo pipefail
+              echo "waiting for deploy/kdc"
+              kubectl -n "$NS_LAB" rollout status deploy/kdc --timeout=300s
+              TMP="$(mktemp)"
+              for i in $(seq 1 36); do
+                if kubectl -n "$NS_LAB" exec deploy/kdc -- test -s /keytabs/bridge-client.keytab; then
+                  break
+                fi
+                echo "waiting for keytab on KDC (${i}/36)"
+                sleep 5
+                if [[ "$i" -eq 36 ]]; then
+                  echo "keytab never appeared on KDC" >&2
+                  exit 1
+                fi
+              done
+              kubectl -n "$NS_LAB" exec deploy/kdc -- cat /keytabs/bridge-client.keytab >"$TMP"
+              [[ -s "$TMP" ]] || { echo "empty keytab" >&2; exit 1; }
+              kubectl -n "$NS_HUB" create secret generic "$SECRET" \
+                --from-file=bridge-client.keytab="$TMP" \
+                --dry-run=client -o yaml | kubectl apply -f -
+              echo "OK Secret ${NS_HUB}/${SECRET}"
+{{- end }}

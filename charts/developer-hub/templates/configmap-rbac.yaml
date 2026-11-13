@@ -1,0 +1,12 @@
+{{- if .Values.instance.extraFiles.rbacPolicies }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rbac-policies
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  rbac-policies.csv: |
+{{ .Values.permission.policiesCsv | nindent 4 }}
+{{- end }}

@@ -1,0 +1,23 @@
+http_port 3128
+visible_hostname corporate-proxy
+pid_filename /var/run/squid/squid.pid
+cache_log /var/log/squid/cache.log
+access_log stdio:/var/log/squid/access.log
+cache_store_log none
+coredump_dir /var/spool/squid
+
+auth_param negotiate program __NEGOTIATE_HELPER__ -s __HTTP_SPN__
+auth_param negotiate children 5
+auth_param negotiate keep_alive on
+
+acl authenticated proxy_auth REQUIRED
+__ALLOW_ACL__
+acl SSL_ports port 443
+acl CONNECT method CONNECT
+
+http_access deny !authenticated
+http_access deny CONNECT !SSL_ports
+http_access allow authenticated lab_dst
+http_access deny all
+
+cache deny all

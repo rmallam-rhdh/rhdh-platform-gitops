@@ -1,0 +1,6 @@
+apiVersion: v2
+name: service-mesh
+description: OSSM 3 / Sail CRs (Istio, IstioCNI, ZTunnel, Kiali). Operators must already be installed.
+type: application
+version: 0.1.0
+appVersion: "3.4"

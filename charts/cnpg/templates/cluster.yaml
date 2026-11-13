@@ -1,0 +1,34 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.cluster.name }}
+  namespace: {{ include "cnpg.namespace" . }}
+  labels:
+    {{- include "cnpg.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  instances: {{ .Values.cluster.instances }}
+  {{- if .Values.cluster.imageName }}
+  imageName: {{ .Values.cluster.imageName | quote }}
+  {{- end }}
+  storage:
+    size: {{ .Values.cluster.storage | quote }}
+    {{- if .Values.cluster.storageClass }}
+    storageClass: {{ .Values.cluster.storageClass | quote }}
+    {{- end }}
+  {{- if .Values.cluster.backup.enabled }}
+  backup:
+    target: {{ .Values.cluster.backup.target | quote }}
+    volumeSnapshot:
+      className: {{ .Values.cluster.backup.volumeSnapshot.className | quote }}
+      online: {{ .Values.cluster.backup.volumeSnapshot.online }}
+      snapshotOwnerReference: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.snapshotOwnerReference | quote }}
+      onlineConfiguration:
+        immediateCheckpoint: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.immediateCheckpoint }}
+        waitForArchive: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.waitForArchive }}
+  {{- end }}
+  postgresql:
+    parameters:
+      max_connections: {{ .Values.cluster.maxConnections | quote }}

@@ -1,0 +1,9 @@
+# Second Cluster, not used by the Hub. Same Postgres major as the running
+# primary so a later dump or replica join does not cross a major version.
+namespace: rhdh-dr
+createNamespace: true
+
+cluster:
+  name: rhdh-pg-dr
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie

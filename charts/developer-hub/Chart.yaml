@@ -1,0 +1,12 @@
+apiVersion: v2
+name: developer-hub
+description: Red Hat Developer Hub GitOps chart — Backstage CR, dynamic plugins, app-config, RBAC
+type: application
+version: 0.1.0
+appVersion: "1.10"
+keywords:
+  - rhdh
+  - backstage
+  - gitops
+maintainers:
+  - name: platform-team

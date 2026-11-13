@@ -1,0 +1,16 @@
+{{- if and .Values.pdb.enabled (gt (int .Values.replicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "mcr.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "mcr.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "mcr.selectorLabels" . | nindent 6 }}
+{{- end }}

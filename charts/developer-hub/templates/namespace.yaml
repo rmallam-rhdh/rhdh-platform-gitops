@@ -1,0 +1,13 @@
+{{- if .Values.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+    {{- if .Values.mesh.ambient }}
+    istio.io/dataplane-mode: ambient
+    {{- else }}
+    istio.io/dataplane-mode: none
+    {{- end }}
+{{- end }}

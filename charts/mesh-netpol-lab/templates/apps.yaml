@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: httpbin
+  namespace: {{ .Values.namespaces.server }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+  namespace: {{ .Values.namespaces.server }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: httpbin}
+  template:
+    metadata:
+      labels: {app: httpbin}
+    spec:
+      serviceAccountName: httpbin
+      {{- if .Values.serverNode }}
+      nodeSelector:
+        kubernetes.io/hostname: {{ .Values.serverNode }}
+      {{- end }}
+      containers:
+      - name: httpbin
+        image: {{ .Values.server.image }}
+        ports:
+        - containerPort: 8080
+        readinessProbe:          # kubelet probe: ztunnel rewrites it to come from 169.254.7.127
+          httpGet: {path: /status/200, port: 8080}
+          periodSeconds: 5
+          failureThreshold: 2
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  namespace: {{ .Values.namespaces.server }}
+spec:
+  selector: {app: httpbin}
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: {{ .Values.namespaces.client }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: client}
+  template:
+    metadata:
+      labels: {app: client}
+    spec:
+      {{- if .Values.clientNode }}
+      nodeSelector:
+        kubernetes.io/hostname: {{ .Values.clientNode }}
+      {{- end }}
+      containers:
+      - name: curl
+        image: {{ .Values.client.image }}
+        command: ["sleep", "infinity"]
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: probe
+  namespace: {{ .Values.namespaces.outside }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: probe}
+  template:
+    metadata:
+      labels: {app: probe}
+    spec:
+      containers:
+      - name: curl
+        image: {{ .Values.client.image }}
+        command: ["sleep", "infinity"]
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}

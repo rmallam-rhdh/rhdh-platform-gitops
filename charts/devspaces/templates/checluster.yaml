@@ -1,0 +1,121 @@
+apiVersion: org.eclipse.che/v2
+kind: CheCluster
+metadata:
+  name: {{ .Values.cheCluster.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: devspaces
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: devspaces
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  components:
+    cheServer:
+      debug: {{ .Values.components.cheServer.debug }}
+      logLevel: {{ .Values.components.cheServer.logLevel | quote }}
+    dashboard:
+      logLevel: {{ .Values.components.dashboard.logLevel | quote }}
+      {{- with .Values.components.dashboard.headerMessage }}
+      headerMessage:
+        show: {{ .show }}
+        text: {{ .text | quote }}
+      {{- end }}
+      {{- if .Values.components.dashboard.hideEditorsById }}
+      deployment:
+        containers:
+          - name: devspaces-dashboard
+            env:
+              - name: CHE_HIDE_EDITORS_BY_ID
+                value: {{ join "," .Values.components.dashboard.hideEditorsById | quote }}
+      {{- end }}
+    metrics:
+      enable: {{ .Values.components.metrics.enable }}
+    pluginRegistry:
+      # Empty string selects the embedded OpenVSX in the plugin-registry image.
+      openVSXURL: {{ .Values.components.pluginRegistry.openVSXURL | quote }}
+    imagePuller:
+      enable: {{ .Values.components.imagePuller.enable }}
+  devEnvironments:
+    defaultEditor: {{ .Values.cheCluster.defaultEditor | quote }}
+    defaultNamespace:
+      autoProvision: {{ .Values.cheCluster.autoProvisionNamespace }}
+      template: {{ .Values.cheCluster.namespaceTemplate | quote }}
+    disableContainerBuildCapabilities: {{ .Values.cheCluster.disableContainerBuildCapabilities }}
+    disableContainerRunCapabilities: {{ .Values.cheCluster.disableContainerRunCapabilities }}
+    {{- if and (not .Values.cheCluster.disableContainerBuildCapabilities) .Values.cheCluster.containerBuildScc }}
+    containerBuildConfiguration:
+      openShiftSecurityContextConstraint: {{ .Values.cheCluster.containerBuildScc | quote }}
+    {{- end }}
+    {{- with .Values.cheCluster.security }}
+    security:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    maxNumberOfWorkspacesPerUser: {{ .Values.cheCluster.maxWorkspacesPerUser }}
+    maxNumberOfRunningWorkspacesPerUser: {{ .Values.cheCluster.maxRunningWorkspacesPerUser }}
+    {{- if hasKey .Values.cheCluster "maxRunningWorkspacesPerCluster" }}
+    maxNumberOfRunningWorkspacesPerCluster: {{ .Values.cheCluster.maxRunningWorkspacesPerCluster }}
+    {{- end }}
+    secondsOfInactivityBeforeIdling: {{ .Values.cheCluster.idleTimeoutSeconds }}
+    secondsOfRunBeforeIdling: {{ .Values.cheCluster.runTimeoutSeconds }}
+    startTimeoutSeconds: {{ .Values.cheCluster.startTimeoutSeconds }}
+    {{- if hasKey .Values.cheCluster "ignoredUnrecoverableEvents" }}
+    ignoredUnrecoverableEvents:
+{{ toYaml .Values.cheCluster.ignoredUnrecoverableEvents | nindent 6 }}
+    {{- end }}
+    {{- if .Values.cheCluster.imagePullPolicy }}
+    imagePullPolicy: {{ .Values.cheCluster.imagePullPolicy | quote }}
+    {{- end }}
+    {{- if .Values.cheCluster.deploymentStrategy }}
+    deploymentStrategy: {{ .Values.cheCluster.deploymentStrategy | quote }}
+    {{- end }}
+    {{- with .Values.cheCluster.defaultContainerResources }}
+    defaultContainerResources:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.cheCluster.containerResourceCaps }}
+    containerResourceCaps:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.cheCluster.persistUserHome }}
+    persistUserHome:
+{{ toYaml . | nindent 6 }}
+    {{- end }}
+    storage:
+      pvcStrategy: {{ .Values.cheCluster.storage.pvcStrategy | quote }}
+      perUserStrategyPvcConfig:
+        claimSize: {{ .Values.cheCluster.storage.claimSize | quote }}
+        storageAccessMode:
+          {{- toYaml .Values.cheCluster.storage.accessModes | nindent 10 }}
+        {{- if .Values.cheCluster.storage.storageClass }}
+        storageClass: {{ .Values.cheCluster.storage.storageClass | quote }}
+        {{- end }}
+    {{- with .Values.cheCluster.trustedCerts }}
+    trustedCerts:
+      disableWorkspaceCaBundleMount: {{ .disableWorkspaceCaBundleMount }}
+      {{- if .gitTrustedCertsConfigMapName }}
+      gitTrustedCertsConfigMapName: {{ .gitTrustedCertsConfigMapName | quote }}
+      {{- end }}
+    {{- end }}
+  networking:
+    {{- if .Values.networking.domain }}
+    domain: {{ .Values.networking.domain | quote }}
+    {{- end }}
+    labels:
+      {{- toYaml .Values.networking.labels | nindent 6 }}
+    {{- if .Values.networking.annotations }}
+    annotations:
+{{ toYaml .Values.networking.annotations | nindent 6 }}
+    {{- end }}
+    {{- if .Values.networking.tlsSecretName }}
+    tlsSecretName: {{ .Values.networking.tlsSecretName | quote }}
+    {{- end }}
+    networkPolicy:
+      enabled: {{ .Values.networking.networkPolicy }}
+    {{- if .Values.networking.allowGroups }}
+    auth:
+      advancedAuthorization:
+        allowGroups:
+{{ toYaml .Values.networking.allowGroups | nindent 10 }}
+    {{- end }}

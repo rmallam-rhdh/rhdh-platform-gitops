@@ -1,0 +1,28 @@
+{{- if .Values.instance.extraFiles.branding }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-rhdh-branding
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  app-config-branding.yaml: |
+    app:
+      title: {{ .Values.app.title | quote }}
+      baseUrl: {{ include "rhdh.baseUrl" . | quote }}
+      {{- if .Values.branding.enabled }}
+      branding:
+        theme:
+          light:
+            primaryColor: {{ .Values.branding.primaryColor | quote }}
+            headerColor1: {{ .Values.branding.headerColor1 | quote }}
+            headerColor2: {{ .Values.branding.headerColor2 | quote }}
+            navigationIndicatorColor: {{ .Values.branding.primaryColor | quote }}
+          dark:
+            primaryColor: {{ .Values.branding.primaryColor | quote }}
+            headerColor1: {{ .Values.branding.headerColor2 | quote }}
+            headerColor2: {{ .Values.branding.headerColor2 | quote }}
+            navigationIndicatorColor: {{ .Values.branding.primaryColor | quote }}
+      {{- end }}
+{{- end }}
