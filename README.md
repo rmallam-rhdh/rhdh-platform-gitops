@@ -8,6 +8,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/cnpg` (`values-dr.yaml`) | `cnpg-dr` | CloudNativePG `Cluster` `rhdh-pg-dr` in `rhdh-dr` (3 instances, not used by the Hub) |
 | `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
 | `charts/devspaces` | `devspaces` | `CheCluster` + global `DevWorkspaceOperatorConfig` (inactive workspace cleanup) in `openshift-devspaces` |
+| `charts/devspaces-multicluster-redirector` | `devspaces-multicluster-redirector` | RH Multicluster Redirector (Quarkus) + OAuth Proxy; group → Dev Spaces URL map (cluster RBAC: `manifests/devspaces-multicluster-redirector/rbac.yaml`) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |
 | `charts/squid` | `squid` | Authenticated Squid (Basic). Main Hub uses it when `httpProxy.enabled` is true |
 | `charts/kerberos-lab` | `kerberos-lab` | Lab-only KDC + Negotiate corporate proxy + bridge |

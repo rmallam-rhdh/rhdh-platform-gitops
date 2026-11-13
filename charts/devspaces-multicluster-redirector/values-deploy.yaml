@@ -1,0 +1,10 @@
+# Per-cluster overrides. Edit in place — do not add values-<cluster>.yaml.
+#
+# After first sync, set route.host (or oauthCallbackUrl) to the Route URL so
+# OAuth works if oauthRedirectReference is disabled.
+route:
+  host: ""
+  oauthCallbackUrl: ""
+
+groupMapping:
+  developers: https://devspaces.apps.example.com

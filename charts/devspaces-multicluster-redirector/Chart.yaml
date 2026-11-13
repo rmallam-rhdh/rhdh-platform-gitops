@@ -1,0 +1,14 @@
+apiVersion: v2
+name: devspaces-multicluster-redirector
+description: >
+  Helm wrapper for Red Hat OpenShift Dev Spaces Multicluster Redirector
+  (Quarkus + OAuth Proxy). Routes users to a CheCluster URL by OpenShift group.
+type: application
+version: 0.1.0
+appVersion: "3.31"
+keywords:
+  - devspaces
+  - redirector
+  - multicluster
+maintainers:
+  - name: idp-platform
