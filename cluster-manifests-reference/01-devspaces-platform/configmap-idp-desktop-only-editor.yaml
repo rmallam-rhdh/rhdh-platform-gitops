@@ -32,7 +32,7 @@ data:
         iconMediatype: image/svg+xml
         iconData: |
           <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M96.4614 10.7962L75.8569 0.875542C73.4719 -0.272773 70.6217 0.211611 68.75 2.08333L1.29858 63.5832C-0.515693 65.2373 -0.513607 68.0937 1.30308 69.7452L6.81272 74.754C8.29793 76.1042 10.5347 76.2036 12.1338 74.9905L93.3609 13.3699C96.086 11.3026 100 13.2462 100 16.6667V16.4275C100 14.0265 98.6246 11.8378 96.4614 10.7962Z" fill="#0065A9"/>
+          <path d="M96.4614 10.7962L75.8569 0.875542C73.4719 -0.272773 70.6217 0.211611 68.75 97.9167L1.29858 63.5832C-0.515693 65.2373 -0.513607 68.0937 1.30308 69.7452L6.81272 74.754C8.29793 76.1042 10.5347 76.2036 12.1338 74.9905L93.3609 13.3699C96.086 11.3026 100 13.2462 100 16.6667V16.4275C100 14.0265 98.6246 11.8378 96.4614 10.7962Z" fill="#0065A9"/>
           <path d="M96.4614 89.2038L75.8569 99.1245C73.4719 100.273 70.6217 99.7884 68.75 97.9167L1.29858 36.4169C-0.515693 34.7627 -0.513607 31.9063 1.30308 30.2548L6.81272 25.246C8.29793 23.8958 10.5347 23.7964 12.1338 25.0095L93.3609 86.6301C96.086 88.6974 100 86.7538 100 83.3334V83.5726C100 85.9735 98.6246 88.1622 96.4614 89.2038Z" fill="#007ACC"/>
           <path d="M75.8578 99.1263C73.4721 100.274 70.6219 99.7885 68.75 97.9166C71.0564 100.223 75 98.5895 75 95.3278V4.67213C75 1.41039 71.0564 -0.223106 68.75 2.08329C70.6219 0.211402 73.4721 -0.273666 75.8578 0.873633L96.4587 10.7807C98.6234 11.8217 100 14.0112 100 16.4132V83.5871C100 85.9891 98.6234 88.1786 96.4586 89.2196L75.8578 99.1263Z" fill="#1F9CF0"/>
           </svg>
@@ -63,7 +63,7 @@ data:
               set -euo pipefail
               python3 - <<'PY'
               import html, json, os, re
-              from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+              from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
               from pathlib import Path
               from urllib.parse import urlencode, urlparse
 
@@ -110,39 +110,29 @@ data:
                       pass
                   return "/projects"
 
-              ws = os.environ.get("DEVWORKSPACE_NAME", "").strip()
-              ns = os.environ.get("DEVWORKSPACE_NAMESPACE", "").strip()
-              dw_id = os.environ.get("DEVWORKSPACE_ID", "").strip()
-              dash = os.environ.get("CHE_DASHBOARD_URL", "").strip().rstrip("/")
-              api_url = os.environ.get("IDP_OPENSHIFT_API_URL", "").strip().rstrip("/")
-              override_id = os.environ.get("IDP_REMOTE_CONNECTOR_CLUSTER_ID", "").strip()
+              WS = os.environ.get("DEVWORKSPACE_NAME", "").strip()
+              NS = os.environ.get("DEVWORKSPACE_NAMESPACE", "").strip()
+              DW_ID = os.environ.get("DEVWORKSPACE_ID", "").strip()
+              ENV_DASH = os.environ.get("CHE_DASHBOARD_URL", "").strip().rstrip("/")
+              API_URL = os.environ.get("IDP_OPENSHIFT_API_URL", "").strip().rstrip("/")
+              OVERRIDE_ID = os.environ.get("IDP_REMOTE_CONNECTOR_CLUSTER_ID", "").strip()
+              PROJECT_PATH = detect_primary_project_path()
 
-              cluster_id = override_id or cluster_id_from_url(dash or api_url)
-              project_path = detect_primary_project_path()
+              SAFE_HOST_RE = re.compile(r"^[a-zA-Z0-9.-]+(?::\d+)?$")
 
-              params = {}
-              if dash:
-                  params["dashboardUrl"] = dash
-              if api_url:
-                  params["apiUrl"] = api_url
-              if ns:
-                  params["namespace"] = ns
-              if ws:
-                  params["workspace"] = ws
-              if dw_id:
-                  params["devworkspaceId"] = dw_id
-              if project_path:
-                  params["project"] = project_path
+              def resolve_dashboard_origin(headers) -> str:
+                  if ENV_DASH:
+                      return ENV_DASH
+                  # When workspaces are created via GitOps/RHDH/oc apply without CHE_DASHBOARD_URL,
+                  # che-gateway forwards the external Dev Spaces hostname in X-Forwarded-Host / Host.
+                  raw_host = (headers.get("X-Forwarded-Host") or headers.get("Host") or "").split(",")[0].strip()
+                  if raw_host and SAFE_HOST_RE.match(raw_host):
+                      host_only = raw_host.split(":")[0].lower()
+                      if host_only not in ("localhost", "127.0.0.1", "0.0.0.0"):
+                          return f"https://{raw_host}"
+                  return ""
 
-              query = urlencode(params)
-              vscode_handoff = f"vscode://redhat.devspaces-remote-connector/open?{query}" if ws and (dash or api_url) else ""
-              kiro_handoff = f"kiro://redhat.devspaces-remote-connector/open?{query}" if ws and (dash or api_url) else ""
-              host_alias = f"{ws}@{cluster_id}" if ws and cluster_id else ""
-              vscode_direct = f"vscode://vscode-remote/devspaces+{host_alias}{project_path}" if host_alias else ""
-
-              primary_uri = vscode_handoff or vscode_direct
-
-              page = """<!DOCTYPE html>
+              PAGE_TEMPLATE = """<!DOCTYPE html>
               <html lang="en">
               <head>
                 <meta charset="utf-8"/>
@@ -180,32 +170,86 @@ data:
                 </main>
                 <script>
                   (function () {
-                    var uri = __PRIMARY_JSON__;
-                    if (!uri) return;
-                    setTimeout(function () { window.location.href = uri; }, 300);
+                    var cfg = __CFG_JSON__;
+                    var dash = cfg.dashboardUrl || (window.location.protocol === 'https:' ? window.location.origin : '');
+                    if (!cfg.workspace || (!dash && !cfg.apiUrl)) return;
+                    var params = new URLSearchParams();
+                    if (dash) params.set('dashboardUrl', dash);
+                    if (cfg.apiUrl) params.set('apiUrl', cfg.apiUrl);
+                    if (cfg.namespace) params.set('namespace', cfg.namespace);
+                    params.set('workspace', cfg.workspace);
+                    if (cfg.devworkspaceId) params.set('devworkspaceId', cfg.devworkspaceId);
+                    if (cfg.project) params.set('project', cfg.project);
+                    var vsUri = 'vscode://redhat.devspaces-remote-connector/open?' + params.toString();
+                    var kiroUri = 'kiro://redhat.devspaces-remote-connector/open?' + params.toString();
+                    var vsBtn = document.getElementById('open-vscode');
+                    var kiroBtn = document.getElementById('open-kiro');
+                    var uriPre = document.getElementById('uri');
+                    if (vsBtn) vsBtn.href = vsUri;
+                    if (kiroBtn) kiroBtn.href = kiroUri;
+                    if (uriPre) uriPre.textContent = vsUri;
+                    setTimeout(function () { window.location.href = vsUri; }, 300);
                   })();
                 </script>
               </body>
               </html>
               """
-              page = (
-                  page.replace("__WS__", html.escape(ws or "workspace"))
-                  .replace("__NS__", html.escape(ns or "default"))
-                  .replace("__VSCODE_HREF__", html.escape(primary_uri, quote=True))
-                  .replace("__KIRO_HREF__", html.escape(kiro_handoff, quote=True))
-                  .replace("__DIRECT_HREF__", html.escape(vscode_direct, quote=True))
-                  .replace("__URI_TEXT__", html.escape(primary_uri or "(workspace metadata unavailable)"))
-                  .replace("__PRIMARY_JSON__", json.dumps(primary_uri))
-              )
-              Path("/tmp/index.html").write_text(page, encoding="utf-8")
-              print(
-                  f"landing ready ws={ws!r} ns={ns!r} clusterId={cluster_id!r} project={project_path!r} uri={primary_uri!r}",
-                  flush=True,
-              )
 
-              class Handler(SimpleHTTPRequestHandler):
-                  def __init__(self, *args, **kwargs):
-                      super().__init__(*args, directory="/tmp", **kwargs)
+              def render_page(headers) -> bytes:
+                  dash = resolve_dashboard_origin(headers)
+                  cluster_id = OVERRIDE_ID or cluster_id_from_url(dash or API_URL)
+                  params = {}
+                  if dash:
+                      params["dashboardUrl"] = dash
+                  if API_URL:
+                      params["apiUrl"] = API_URL
+                  if NS:
+                      params["namespace"] = NS
+                  if WS:
+                      params["workspace"] = WS
+                  if DW_ID:
+                      params["devworkspaceId"] = DW_ID
+                  if PROJECT_PATH:
+                      params["project"] = PROJECT_PATH
+                  query = urlencode(params)
+                  vscode_handoff = f"vscode://redhat.devspaces-remote-connector/open?{query}" if WS and (dash or API_URL) else "#"
+                  kiro_handoff = f"kiro://redhat.devspaces-remote-connector/open?{query}" if WS and (dash or API_URL) else "#"
+                  host_alias = f"{WS}@{cluster_id}" if WS and cluster_id else ""
+                  vscode_direct = f"vscode://vscode-remote/devspaces+{host_alias}{PROJECT_PATH}" if host_alias else "#"
+                  cfg = {
+                      "dashboardUrl": dash,
+                      "apiUrl": API_URL,
+                      "namespace": NS,
+                      "workspace": WS,
+                      "devworkspaceId": DW_ID,
+                      "project": PROJECT_PATH,
+                  }
+                  out = (
+                      PAGE_TEMPLATE.replace("__WS__", html.escape(WS or "workspace"))
+                      .replace("__NS__", html.escape(NS or "default"))
+                      .replace("__VSCODE_HREF__", html.escape(vscode_handoff, quote=True))
+                      .replace("__KIRO_HREF__", html.escape(kiro_handoff, quote=True))
+                      .replace("__DIRECT_HREF__", html.escape(vscode_direct, quote=True))
+                      .replace("__URI_TEXT__", html.escape(vscode_handoff))
+                      .replace("__CFG_JSON__", json.dumps(cfg))
+                  )
+                  return out.encode("utf-8")
+
+              print(f"landing server ready ws={WS!r} ns={NS!r} project={PROJECT_PATH!r}", flush=True)
+
+              class Handler(BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      body = render_page(self.headers)
+                      self.send_response(200)
+                      self.send_header("Content-Type", "text/html; charset=utf-8")
+                      self.send_header("Content-Length", str(len(body)))
+                      self.send_header("Cache-Control", "no-store")
+                      self.end_headers()
+                      self.wfile.write(body)
+                  def do_HEAD(self):
+                      self.send_response(200)
+                      self.send_header("Content-Type", "text/html; charset=utf-8")
+                      self.end_headers()
                   def log_message(self, fmt, *args):
                       pass
 
