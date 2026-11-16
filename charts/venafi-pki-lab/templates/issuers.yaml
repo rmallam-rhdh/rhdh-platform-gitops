@@ -1,0 +1,78 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.issuer.bootstrapName }}
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.issuer.rootCertName }}
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  isCA: true
+  commonName: Simulated Venafi Enterprise Root CA
+  subject:
+    organizations:
+      - Enterprise PKI
+  duration: 87600h
+  renewBefore: 720h
+  secretName: {{ .Values.issuer.rootSecretName }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: {{ .Values.issuer.bootstrapName }}
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Values.issuer.rootIssuerName }}
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  ca:
+    secretName: {{ .Values.issuer.rootSecretName }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.issuer.issuingCertName }}
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  isCA: true
+  commonName: Simulated Venafi Enterprise Issuing CA G1
+  subject:
+    organizations:
+      - Enterprise PKI
+  duration: 43800h
+  renewBefore: 720h
+  secretName: {{ .Values.issuer.issuingRawSecretName }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: {{ .Values.issuer.rootIssuerName }}
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.issuer.clusterIssuerName }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  ca:
+    secretName: {{ .Values.issuer.issuingChainSecretName }}

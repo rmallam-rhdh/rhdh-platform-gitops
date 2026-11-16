@@ -9,6 +9,7 @@ cluster:
   storageClass: ""
   imageName: ""
   maxConnections: "200"
+  appRoleCreateDb: false
   backup:
     enabled: true
     target: prefer-standby
@@ -19,3 +20,31 @@ cluster:
         immediateCheckpoint: false
         waitForArchive: true
         snapshotOwnerReference: none
+
+# Optional enterprise leaf-certificate TLS (cert-manager / Venafi ClusterIssuer).
+# Disabled by default so existing CNPG clusters keep operator-managed certificates.
+# No private keys or Secret objects are stored in Git.
+tls:
+  enabled: false
+  serverTLSSecret: cnpg-server-tls
+  replicationTLSSecret: cnpg-replication-tls
+  # Secret containing ONLY public `ca.crt` (Root + Intermediate chain, no `ca.key`).
+  serverCASecret: enterprise-ca-chain
+  clientCASecret: enterprise-ca-chain
+  # Optional PostgreSQL user-map entries appended to pg_ident.conf (e.g. mapping a
+  # domain-qualified Venafi client CN onto CNPG's `cnpg_streaming_replica` map).
+  pgIdent: []
+  certManager:
+    enabled: false
+    serverCertName: cnpg-server-cert
+    replicationCertName: cnpg-replication-cert
+    replicationCommonName: streaming_replica
+    duration: 2160h
+    renewBefore: 360h
+    privateKey:
+      algorithm: ECDSA
+      size: 256
+    issuerRef:
+      name: simulated-venafi-issuer
+      kind: ClusterIssuer
+      group: cert-manager.io

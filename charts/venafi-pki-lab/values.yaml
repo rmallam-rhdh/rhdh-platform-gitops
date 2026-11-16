@@ -1,0 +1,16 @@
+certManagerNamespace: cert-manager
+targetNamespace: rhdh-cnpg-tls-test
+
+issuer:
+  bootstrapName: selfsigned-bootstrap
+  rootCertName: simulated-venafi-root-ca
+  rootSecretName: simulated-venafi-root-ca-secret
+  rootIssuerName: simulated-venafi-root-issuer
+  issuingCertName: simulated-venafi-issuing-ca
+  issuingRawSecretName: simulated-venafi-issuing-ca-raw
+  issuingChainSecretName: simulated-venafi-issuing-ca-chain
+  clusterIssuerName: simulated-venafi-issuer
+
+publicBundle:
+  name: enterprise-ca-chain
+  syncJobImage: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest

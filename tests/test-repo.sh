@@ -149,6 +149,25 @@ forbid "$GWC" "\\*\\."
 forbid "$GWC" "kind: Subscription"
 rm -f "$GWC"
 
+echo "== system: venafi-pki-lab & cnpg-tls & developer-hub-cnpg-tls =="
+helm lint "$ROOT/charts/venafi-pki-lab" >/dev/null
+VPKI="$(mktemp)"; CNPG_TLS="$(mktemp)"; HUB_TLS="$(mktemp)"
+helm template vpki "$ROOT/charts/venafi-pki-lab" >"$VPKI"
+helm template cnpg-tls "$ROOT/charts/cnpg" -f "$ROOT/charts/cnpg/values.yaml" -f "$ROOT/charts/cnpg/values-venafi-tls-lab.yaml" --namespace rhdh-cnpg-tls-test >"$CNPG_TLS"
+helm template rhdh-tls "$ROOT/charts/developer-hub" -f "$ROOT/charts/developer-hub/values.yaml" -f "$ROOT/charts/developer-hub/values-cnpg-tls-lab.yaml" --namespace rhdh-cnpg-tls-test >"$HUB_TLS"
+need "$VPKI" "kind: ClusterIssuer"
+need "$VPKI" "name: simulated-venafi-issuer"
+forbid "$VPKI" "kind: Secret$"
+need "$CNPG_TLS" "serverTLSSecret: \"cnpg-server-tls\""
+need "$CNPG_TLS" "serverCASecret: \"enterprise-ca-chain\""
+forbid "$CNPG_TLS" "kind: Secret$"
+need "$HUB_TLS" "name: NODE_EXTRA_CA_CERTS"
+need "$HUB_TLS" "value: \"/etc/pki/ca-trust/ca.crt\""
+need "$HUB_TLS" "rejectUnauthorized: true"
+forbid "$HUB_TLS" "NODE_TLS_REJECT_UNAUTHORIZED"
+forbid "$HUB_TLS" "kind: Secret$"
+rm -f "$VPKI" "$CNPG_TLS" "$HUB_TLS"
+
 if [ ! -d "$ROOT/components" ]; then
   echo "OK  components/ removed"
 else

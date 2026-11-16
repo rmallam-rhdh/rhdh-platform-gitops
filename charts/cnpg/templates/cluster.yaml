@@ -29,6 +29,25 @@ spec:
         immediateCheckpoint: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.immediateCheckpoint }}
         waitForArchive: {{ .Values.cluster.backup.volumeSnapshot.onlineConfiguration.waitForArchive }}
   {{- end }}
+  {{- if .Values.tls.enabled }}
+  certificates:
+    serverTLSSecret: {{ .Values.tls.serverTLSSecret | quote }}
+    replicationTLSSecret: {{ .Values.tls.replicationTLSSecret | quote }}
+    serverCASecret: {{ .Values.tls.serverCASecret | quote }}
+    clientCASecret: {{ .Values.tls.clientCASecret | quote }}
+  {{- end }}
+  {{- if .Values.cluster.appRoleCreateDb }}
+  managed:
+    roles:
+      - name: app
+        ensure: present
+        login: true
+        createdb: true
+  {{- end }}
   postgresql:
     parameters:
       max_connections: {{ .Values.cluster.maxConnections | quote }}
+    {{- if .Values.tls.pgIdent }}
+    pg_ident:
+      {{- toYaml .Values.tls.pgIdent | nindent 6 }}
+    {{- end }}
