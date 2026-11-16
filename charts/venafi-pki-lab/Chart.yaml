@@ -1,0 +1,6 @@
+apiVersion: v2
+name: venafi-pki-lab
+description: Simulated 2-tier enterprise Venafi ClusterIssuer (Root + Intermediate CA in cert-manager) and public CA bundle sync Job (no secrets in Git).
+type: application
+version: 0.1.0
+appVersion: "1.0"

@@ -1,0 +1,34 @@
+# Enterprise Venafi / cert-manager leaf-certificate TLS overlay for CloudNativePG.
+# No Subordinate CA key is placed in the workload namespace; CNPG uses leaf certs
+# issued by ClusterIssuer `simulated-venafi-issuer` (or real `venafi-issuer`) and
+# validates peers against public-only `enterprise-ca-chain` (`ca.crt`).
+
+namespace: rhdh-cnpg-tls-test
+createNamespace: true
+
+cluster:
+  name: backstage-psql
+  instances: 2
+  storage: 5Gi
+  appRoleCreateDb: true
+  backup:
+    enabled: false
+
+tls:
+  enabled: true
+  serverTLSSecret: cnpg-server-tls
+  replicationTLSSecret: cnpg-replication-tls
+  serverCASecret: enterprise-ca-chain
+  clientCASecret: enterprise-ca-chain
+  # Maps domain-qualified enterprise CNs onto CNPG's built-in `cnpg_streaming_replica` map.
+  pgIdent:
+    - cnpg_streaming_replica streaming-replica.corp.example.com streaming_replica
+  certManager:
+    enabled: true
+    serverCertName: cnpg-server-cert
+    replicationCertName: cnpg-replication-cert
+    replicationCommonName: streaming_replica
+    issuerRef:
+      name: simulated-venafi-issuer
+      kind: ClusterIssuer
+      group: cert-manager.io

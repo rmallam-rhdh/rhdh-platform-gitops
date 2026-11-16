@@ -1,0 +1,177 @@
+# Dedicated RHDH instance in `rhdh-cnpg-tls-test` proving strict TLS (`rejectUnauthorized: true`)
+# against CloudNativePG (`backstage-psql`) using leaf-only server certificates and public CA
+# trust via `NODE_EXTRA_CA_CERTS` (`enterprise-ca-chain` — zero CA or TLS keys mounted).
+#
+# Pre-create runtime Backstage session secret (never commit real secrets to Git):
+#   see examples/rhdh-cnpg-tls-secrets.example.yaml
+# Argo CD Application: argocd/apps-lab/developer-hub-cnpg-tls.yaml
+
+namespace: rhdh-cnpg-tls-test
+createNamespace: false
+nameOverride: developer-hub-tls
+
+operator:
+  enabled: false
+
+mesh:
+  ambient: false
+
+# Avoid colliding with cluster-scoped RBAC owned by the primary `rhdh` release.
+rbac:
+  kubernetesReader: false
+  clusterAdmin: false
+  serviceAccount: default
+
+flavours:
+  - name: lightspeed
+    enabled: false
+
+instance:
+  name: developer-hub-tls
+  replicas: 1
+  route:
+    enabled: true
+  database:
+    enableLocalDb: false
+  secretsName: rhdh-cnpg-tls-secrets
+  extraEnvs:
+    # Empty omits NODE_TLS_REJECT_UNAUTHORIZED so Node.js enforces strict TLS verification!
+    nodeTlsRejectUnauthorized: ""
+  extraFiles:
+    rbacPolicies: true
+    branding: true
+    catalogInfo: false
+
+database:
+  cnpg:
+    enabled: false
+  external:
+    enabled: true
+    pluginDivisionMode: database
+    secretName: backstage-psql-app
+    keys:
+      host: host
+      port: port
+      user: username
+      password: password
+      database: dbname
+    ssl:
+      rejectUnauthorized: true
+
+tls:
+  extraCaCerts:
+    enabled: true
+    kind: Secret
+    name: enterprise-ca-chain
+    key: ca.crt
+    mountPath: /etc/pki/ca-trust/ca.crt
+
+app:
+  title: RHDH Enterprise CNPG TLS Lab
+  organization: Enterprise Lab
+  clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+  baseUrl: ""
+  readingAllow:
+    - host: github.com
+    - host: raw.githubusercontent.com
+    - host: api.github.com
+
+auth:
+  environment: development
+  signInPage:
+    - guest
+  guest:
+    enabled: true
+  microsoft:
+    enabled: false
+  oidc:
+    enabled: false
+  github:
+    enabled: false
+
+catalog:
+  demoKitchenSink:
+    enabled: false
+  goldenPath:
+    enabled: false
+  locations: []
+  ldap:
+    enabled: false
+  keycloak:
+    enabled: false
+  msgraph:
+    enabled: false
+
+permission:
+  enabled: true
+  adminUsers:
+    - name: user:default/guest
+  adminGroups: []
+  pluginsWithPermission:
+    - catalog
+    - scaffolder
+    - permission
+  policiesCsv: |
+    p, role:default/developer, catalog-entity, read, allow
+    g, user:default/guest, role:default/developer
+
+integrations:
+  github:
+    enabled: false
+  bitbucketCloud:
+    enabled: false
+  bitbucketServer:
+    enabled: false
+
+plugins:
+  kubernetes:
+    enabled: false
+  ldap:
+    enabled: false
+  tekton:
+    enabled: false
+  jenkins:
+    enabled: false
+  argocd:
+    enabled: false
+  githubScaffolder:
+    enabled: false
+  bitbucket:
+    enabled: false
+  techdocs:
+    enabled: false
+  sonarqube:
+    enabled: false
+  snyk:
+    enabled: false
+  jira:
+    enabled: false
+  artifactory:
+    enabled: false
+  notifications:
+    enabled: false
+  vault:
+    enabled: false
+  servicenow:
+    enabled: false
+  kiali:
+    enabled: false
+  dynatrace:
+    enabled: false
+  apic:
+    enabled: false
+  apiDocs:
+    enabled: false
+  msgraph:
+    enabled: false
+  keycloak:
+    enabled: false
+
+secrets:
+  mode: external
+
+httpProxy:
+  enabled: false
+
+kerberosBridgeSidecar:
+  enabled: false

@@ -1,0 +1,127 @@
+# Syncs the 2-cert public CA chain (Intermediate + Root) into:
+# 1) `cert-manager` Secret `simulated-venafi-issuing-ca-chain` (backing ClusterIssuer)
+# 2) Target namespace `enterprise-ca-chain` Secret & ConfigMap (`ca.crt` ONLY — zero private keys!)
+# No Secret objects or private keys are ever committed to Git.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: venafi-ca-bundle-sync
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: venafi-ca-bundle-sync
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: venafi-ca-bundle-sync
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+subjects:
+  - kind: ServiceAccount
+    name: venafi-ca-bundle-sync
+    namespace: {{ .Values.certManagerNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: venafi-ca-bundle-sync
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: venafi-public-ca-writer
+  namespace: {{ .Values.targetNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: venafi-public-ca-writer
+  namespace: {{ .Values.targetNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+subjects:
+  - kind: ServiceAccount
+    name: venafi-ca-bundle-sync
+    namespace: {{ .Values.certManagerNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: venafi-public-ca-writer
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sync-enterprise-ca-chain
+  namespace: {{ .Values.certManagerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      serviceAccountName: venafi-ca-bundle-sync
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sync
+          image: {{ .Values.publicBundle.syncJobImage | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              CM_NS={{ .Values.certManagerNamespace | quote }}
+              TARGET_NS={{ .Values.targetNamespace | quote }}
+              oc wait --for=condition=Ready certificate/{{ .Values.issuer.rootCertName }} -n "$CM_NS" --timeout=120s
+              oc wait --for=condition=Ready certificate/{{ .Values.issuer.issuingCertName }} -n "$CM_NS" --timeout=120s
+
+              INT_CRT=$(oc get secret {{ .Values.issuer.issuingRawSecretName }} -n "$CM_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+              INT_KEY=$(oc get secret {{ .Values.issuer.issuingRawSecretName }} -n "$CM_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+              ROOT_CRT=$(oc get secret {{ .Values.issuer.rootCertName }} -n "$CM_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+              CHAIN_PEM=$(printf '%s\n%s\n' "$INT_CRT" "$ROOT_CRT")
+
+              oc create secret generic {{ .Values.issuer.issuingChainSecretName }} \
+                -n "$CM_NS" \
+                --from-literal=tls.crt="$CHAIN_PEM" \
+                --from-literal=tls.key="$INT_KEY" \
+                --from-literal=ca.crt="$CHAIN_PEM" \
+                --dry-run=client -o yaml | oc apply -f -
+
+              oc create secret generic {{ .Values.publicBundle.name }} \
+                -n "$TARGET_NS" \
+                --from-literal=ca.crt="$CHAIN_PEM" \
+                --dry-run=client -o yaml | oc label --local -f - cnpg.io/reload=true -o yaml | oc apply -f -
+
+              oc create configmap {{ .Values.publicBundle.name }} \
+                -n "$TARGET_NS" \
+                --from-literal=ca.crt="$CHAIN_PEM" \
+                --dry-run=client -o yaml | oc apply -f -

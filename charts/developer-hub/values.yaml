@@ -191,6 +191,16 @@ database:
     ssl:
       rejectUnauthorized: false
 
+# Public enterprise CA trust bundle mounted via NODE_EXTRA_CA_CERTS (key `ca.crt` ONLY;
+# no client/server TLS keys or Subordinate CA keys in the workload namespace).
+tls:
+  extraCaCerts:
+    enabled: false
+    kind: Secret # Secret | ConfigMap
+    name: enterprise-ca-chain
+    key: ca.crt
+    mountPath: /etc/pki/ca-trust/ca.crt
+
 # ── Dynamic plugins (RHDH 1.10 / Backstage 1.49.4 pins) ─────────────────────
 # enabled=false still ships the package as disabled:true so flipping the flag
 # is a values change, not a YAML rewrite.

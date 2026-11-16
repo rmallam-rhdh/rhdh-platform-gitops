@@ -25,3 +25,15 @@ oc apply -f argocd/apps-lab/gateway-cert-lab.yaml
 ```
 
 See `charts/gateway-cert-lab/README.md`.
+
+## Enterprise Leaf-Cert TLS for CloudNativePG + RHDH (Venafi ClusterIssuer Pattern)
+
+Proves CNPG (`backstage-psql`) with leaf-only `cert-manager` certificates (`CA:FALSE`) + public CA bundle (`enterprise-ca-chain`) and RHDH (`developer-hub-tls`) connecting over strict TLS (`rejectUnauthorized: true`) via `NODE_EXTRA_CA_CERTS` with zero CA private keys in the workload namespace and zero secrets in Git:
+
+```bash
+oc apply -f argocd/apps-lab/venafi-pki-lab.yaml
+oc apply -f argocd/apps-lab/cnpg-venafi-tls.yaml
+oc apply -f argocd/apps-lab/developer-hub-cnpg-tls.yaml
+```
+
+See `charts/venafi-pki-lab/README.md`.

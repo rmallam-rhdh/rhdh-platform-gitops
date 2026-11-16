@@ -40,7 +40,7 @@ data:
       {{- if .Values.database.external.enabled }}
       database:
         client: pg
-        pluginDivisionMode: schema
+        pluginDivisionMode: {{ .Values.database.external.pluginDivisionMode | default "schema" }}
         connection:
           host: ${POSTGRES_HOST}
           port: ${POSTGRES_PORT}
