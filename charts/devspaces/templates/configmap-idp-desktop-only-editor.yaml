@@ -91,8 +91,14 @@ data:
                   flattened = os.environ.get("DEVWORKSPACE_FLATTENED_DEVFILE", "/devworkspace-metadata/flattened.devworkspace.yaml")
                   try:
                       text = Path(flattened).read_text(encoding="utf-8")
+                      lines = text.splitlines()
+                      for idx, line in enumerate(lines):
+                          if re.match(r"^\s*-?\s*name:\s*VSCODE_DEFAULT_WORKSPACE\s*$", line) and idx + 1 < len(lines):
+                              vm = re.match(r"^\s*value:\s*['\"]?(/projects/[a-zA-Z0-9._/-]+\.code-workspace)['\"]?\s*$", lines[idx + 1])
+                              if vm and ".." not in vm.group(1):
+                                  return vm.group(1)
                       in_projects = False
-                      for line in text.splitlines():
+                      for line in lines:
                           if re.match(r"^projects:\s*$", line):
                               in_projects = True
                               continue
