@@ -30,7 +30,10 @@ for pat in \
   "enable: true" \
   "dryRun: false" \
   "retainTime: 2592000" \
-  'schedule: "0 0 1 * *"'
+  'schedule: "0 0 1 * *"' \
+  "name: idp-desktop-only-editor" \
+  "name: che-editor-desktop-landing" \
+  "vscode://redhat.devspaces-remote-connector/open?"
 do
   grep -Fq "$pat" "$OUT" || { echo "FAIL missing $pat"; fail=1; }
 done
