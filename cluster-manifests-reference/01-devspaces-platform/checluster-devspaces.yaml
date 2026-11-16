@@ -21,7 +21,7 @@ spec:
       logLevel: "ERROR"
       headerMessage:
         show: true
-        text: "API for this Dev Spaces: https://api.rosa-rwx5g.f8y9.p3.openshiftapps.com:443"
+        text: "Browser IDE is disabled by platform policy. Connect using local VS Code or Kiro with the Dev Spaces Remote Connector extension."
       deployment:
         containers:
           - name: devspaces-dashboard

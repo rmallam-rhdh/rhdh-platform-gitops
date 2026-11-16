@@ -16,12 +16,12 @@ data:
     schemaVersion: 2.2.2
     metadata:
       name: vscode-desktop-only
-      displayName: VS Code Desktop Only (IDP Managed)
-      description: Browser IDE is disabled by platform policy. Connect using VS Code Desktop.
+      displayName: VS Code Desktop (Remote Connector)
+      description: Browser IDE is disabled by platform policy. Opens local VS Code or Kiro via Dev Spaces Remote Connector.
       attributes:
         publisher: idp
         version: latest
-        title: VS Code Desktop Only (Browser IDE Disabled by IDP Policy)
+        title: VS Code Desktop — Remote Connector (Browser IDE Disabled)
         skipMetaYaml: true
         firstPublicationDate: "2026-01-01"
         arch:
@@ -36,4 +36,188 @@ data:
           <path d="M96.4614 89.2038L75.8569 99.1245C73.4719 100.273 70.6217 99.7884 68.75 97.9167L1.29858 36.4169C-0.515693 34.7627 -0.513607 31.9063 1.30308 30.2548L6.81272 25.246C8.29793 23.8958 10.5347 23.7964 12.1338 25.0095L93.3609 86.6301C96.086 88.6974 100 86.7538 100 83.3334V83.5726C100 85.9735 98.6246 88.1622 96.4614 89.2038Z" fill="#007ACC"/>
           <path d="M75.8578 99.1263C73.4721 100.274 70.6219 99.7885 68.75 97.9166C71.0564 100.223 75 98.5895 75 95.3278V4.67213C75 1.41039 71.0564 -0.223106 68.75 2.08329C70.6219 0.211402 73.4721 -0.273666 75.8578 0.873633L96.4587 10.7807C98.6234 11.8217 100 14.0112 100 16.4132V83.5871C100 85.9891 98.6234 88.1786 96.4586 89.2196L75.8578 99.1263Z" fill="#1F9CF0"/>
           </svg>
-    components: []
+    components:
+      # Prefixed with che-editor so Remote Connector SIDECAR_PREFIXES always excludes
+      # this lightweight handoff server from main dev container selection.
+      - name: che-editor-desktop-landing
+        attributes:
+          app.kubernetes.io/component: che-editor-desktop-landing
+          app.kubernetes.io/part-of: che-code.eclipse.org
+        container:
+          image: "registry.redhat.io/devspaces/udi-rhel9:3.30"
+          mountSources: false
+          memoryRequest: 32Mi
+          memoryLimit: 192Mi
+          cpuRequest: 20m
+          cpuLimit: 200m
+          env:
+            - name: IDP_OPENSHIFT_API_URL
+              value: ""
+            - name: IDP_REMOTE_CONNECTOR_CLUSTER_ID
+              value: ""
+          command:
+            - /bin/bash
+            - -lc
+          args:
+            - |
+              set -euo pipefail
+              python3 - <<'PY'
+              import html, json, os, re
+              from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+              from pathlib import Path
+              from urllib.parse import urlencode, urlparse
+
+              def cluster_id_from_url(url: str) -> str:
+                  """Exact match for devspaces-remote-connector src/cluster/clusterId.ts across ALL OpenShift clusters."""
+                  raw = (url or "").strip()
+                  if not raw:
+                      return "cluster"
+                  if not re.match(r"^https?://", raw, re.IGNORECASE):
+                      raw = "https://" + raw
+                  try:
+                      hostname = (urlparse(raw).hostname or "").lower()
+                  except Exception:
+                      return raw
+                  if not hostname:
+                      return "cluster"
+                  m = re.search(r"(?:^|\.)apps\.(?:[^.]+\.)?([^.]+)\.[^.]+\.p\d+\.openshiftapps\.com$", hostname)
+                  if m:
+                      return m.group(1)
+                  m = re.match(r"^api\.([^.]+)\.[^.]+\.p\d+\.openshiftapps\.com$", hostname)
+                  if m:
+                      return m.group(1)
+                  return hostname
+
+              def detect_primary_project_path() -> str:
+                  flattened = os.environ.get("DEVWORKSPACE_FLATTENED_DEVFILE", "/devworkspace-metadata/flattened.devworkspace.yaml")
+                  try:
+                      text = Path(flattened).read_text(encoding="utf-8")
+                      in_projects = False
+                      for line in text.splitlines():
+                          if re.match(r"^projects:\s*$", line):
+                              in_projects = True
+                              continue
+                          if in_projects:
+                              if re.match(r"^[a-zA-Z]", line):
+                                  break
+                              m = re.match(r"^\s*-\s*name:\s*([a-zA-Z0-9._-]+)\s*$", line)
+                              if m:
+                                  return "/projects/" + m.group(1)
+                              m2 = re.match(r"^\s+name:\s*([a-zA-Z0-9._-]+)\s*$", line)
+                              if m2:
+                                  return "/projects/" + m2.group(1)
+                  except Exception:
+                      pass
+                  return "/projects"
+
+              ws = os.environ.get("DEVWORKSPACE_NAME", "").strip()
+              ns = os.environ.get("DEVWORKSPACE_NAMESPACE", "").strip()
+              dw_id = os.environ.get("DEVWORKSPACE_ID", "").strip()
+              dash = os.environ.get("CHE_DASHBOARD_URL", "").strip().rstrip("/")
+              api_url = os.environ.get("IDP_OPENSHIFT_API_URL", "").strip().rstrip("/")
+              override_id = os.environ.get("IDP_REMOTE_CONNECTOR_CLUSTER_ID", "").strip()
+
+              cluster_id = override_id or cluster_id_from_url(dash or api_url)
+              project_path = detect_primary_project_path()
+
+              params = {}
+              if dash:
+                  params["dashboardUrl"] = dash
+              if api_url:
+                  params["apiUrl"] = api_url
+              if ns:
+                  params["namespace"] = ns
+              if ws:
+                  params["workspace"] = ws
+              if dw_id:
+                  params["devworkspaceId"] = dw_id
+              if project_path:
+                  params["project"] = project_path
+
+              query = urlencode(params)
+              vscode_handoff = f"vscode://redhat.devspaces-remote-connector/open?{query}" if ws and (dash or api_url) else ""
+              kiro_handoff = f"kiro://redhat.devspaces-remote-connector/open?{query}" if ws and (dash or api_url) else ""
+              host_alias = f"{ws}@{cluster_id}" if ws and cluster_id else ""
+              vscode_direct = f"vscode://vscode-remote/devspaces+{host_alias}{project_path}" if host_alias else ""
+
+              primary_uri = vscode_handoff or vscode_direct
+
+              page = """<!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Open in VS Code Desktop</title>
+                <style>
+                  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #0f1419; color: #e7ecf3; }
+                  main { max-width: 44rem; margin: 3.5rem auto; padding: 0 1.25rem; }
+                  h1 { font-size: 1.45rem; margin: 0 0 0.75rem; }
+                  p, li { line-height: 1.55; color: #b7c0cc; }
+                  code, pre { background: #1b2430; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+                  code { padding: 0.1rem 0.35rem; }
+                  pre { padding: 0.75rem 1rem; overflow-x: auto; color: #d5dde8; font-size: 0.85rem; }
+                  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0; }
+                  a.btn { display: inline-block; padding: 0.7rem 1.1rem; border-radius: 8px; text-decoration: none; font-weight: 600; }
+                  a.primary { background: #2b7fff; color: #fff; }
+                  a.secondary { background: #1b2430; color: #e7ecf3; border: 1px solid #2b3645; }
+                  .note { margin-top: 1.25rem; padding: 0.9rem 1rem; border: 1px solid #2b3645; border-radius: 8px; background: #151b24; }
+                </style>
+              </head>
+              <body>
+                <main>
+                  <h1>Browser IDE is disabled — opening local IDE</h1>
+                  <p>Workspace <code>__WS__</code> in namespace <code>__NS__</code> is running and ready. Your browser is handing off to the <strong>Dev Spaces Remote Connector</strong> extension in local VS Code / Kiro (including automatic cluster registration and OpenShift OAuth sign-in if needed).</p>
+                  <div class="actions">
+                    <a class="btn primary" id="open-vscode" href="__VSCODE_HREF__">Open in VS Code</a>
+                    <a class="btn secondary" id="open-kiro" href="__KIRO_HREF__">Open in Kiro</a>
+                    <a class="btn secondary" id="open-direct" href="__DIRECT_HREF__">Direct Authority Link</a>
+                  </div>
+                  <p>Handoff URI:</p>
+                  <pre id="uri">__URI_TEXT__</pre>
+                  <div class="note">
+                    <strong>Prerequisite:</strong> Install <code>redhat.devspaces-remote-connector</code> (v0.10.3+) in local VS Code or Kiro with <code>"enable-proposed-api": ["redhat.devspaces-remote-connector"]</code> in <code>~/.vscode/argv.json</code>. Once opened, you can close this browser tab.
+                  </div>
+                </main>
+                <script>
+                  (function () {
+                    var uri = __PRIMARY_JSON__;
+                    if (!uri) return;
+                    setTimeout(function () { window.location.href = uri; }, 300);
+                  })();
+                </script>
+              </body>
+              </html>
+              """
+              page = (
+                  page.replace("__WS__", html.escape(ws or "workspace"))
+                  .replace("__NS__", html.escape(ns or "default"))
+                  .replace("__VSCODE_HREF__", html.escape(primary_uri, quote=True))
+                  .replace("__KIRO_HREF__", html.escape(kiro_handoff, quote=True))
+                  .replace("__DIRECT_HREF__", html.escape(vscode_direct, quote=True))
+                  .replace("__URI_TEXT__", html.escape(primary_uri or "(workspace metadata unavailable)"))
+                  .replace("__PRIMARY_JSON__", json.dumps(primary_uri))
+              )
+              Path("/tmp/index.html").write_text(page, encoding="utf-8")
+              print(
+                  f"landing ready ws={ws!r} ns={ns!r} clusterId={cluster_id!r} project={project_path!r} uri={primary_uri!r}",
+                  flush=True,
+              )
+
+              class Handler(SimpleHTTPRequestHandler):
+                  def __init__(self, *args, **kwargs):
+                      super().__init__(*args, directory="/tmp", **kwargs)
+                  def log_message(self, fmt, *args):
+                      pass
+
+              ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+              PY
+          endpoints:
+            - name: desktop-landing
+              targetPort: 8080
+              exposure: public
+              protocol: https
+              secure: true
+              attributes:
+                type: main
+                discoverable: false
+                urlRewriteSupported: true
