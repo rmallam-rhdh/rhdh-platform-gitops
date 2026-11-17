@@ -14,6 +14,9 @@ Helm charts that create **custom resources only**. Operators are assumed already
 | `charts/kerberos-lab` | `kerberos-lab` | Lab-only KDC + Negotiate corporate proxy + bridge |
 | `charts/developer-hub` (`values-kerberos-lab.yaml`) | `developer-hub-kerberos` | Dedicated Hub in `rhdh-kerberos` for Kerberos proxy spike |
 | `charts/gateway-cert-lab` | `gateway-cert-lab` | Lab-only: one listener + one cert-manager `Certificate` + one passthrough Route per hostname on a shared gateway (no wildcards) |
+| `charts/venafi-pki-lab` | `venafi-pki-lab` | Lab-only: simulated 2-tier enterprise Venafi `ClusterIssuer` (`cert-manager` namespace) + public-only `enterprise-ca-chain` bundle |
+| `charts/cnpg` (`values-venafi-tls-lab.yaml`) | `cnpg-venafi-tls` | Leaf-cert-only CloudNativePG `Cluster` `backstage-psql` in `rhdh-cnpg-tls-test` ([`charts/cnpg/README.md`](charts/cnpg/README.md)) |
+| `charts/developer-hub` (`values-cnpg-tls-lab.yaml`) | `developer-hub-cnpg-tls` | Dedicated Hub in `rhdh-cnpg-tls-test` connecting to CNPG via `NODE_EXTRA_CA_CERTS` + `ssl.rejectUnauthorized: true` ([`charts/cnpg/README.md`](charts/cnpg/README.md)) |
 
 No `Subscription`, `OperatorGroup`, or catalog source is rendered.
 
