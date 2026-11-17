@@ -114,6 +114,7 @@ examples/rhdh-secrets.example.yaml
 
 
 ```
+ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.45.3__2.14.0
 pluginConfig:
   dynamicPlugins:
     frontend:
