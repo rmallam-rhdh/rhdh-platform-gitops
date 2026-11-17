@@ -286,7 +286,9 @@ plugins:
 
   jira:
     enabled: true
-    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.49.4__2.14.0
+    # Pin bs_1.45.3__2.14.0: upstream bs_1.49.4__2.14.0 shipped an empty dist-scalprum/
+    # (missing plugin-manifest.json), causing RHDH 1.10 Scalprum to silently skip it.
+    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.45.3__2.14.0
     baseUrl: "${JIRA_BASE_URL}"
     token: "${JIRA_TOKEN}"
     # Empty = Bearer <token> (Jira DC). Cloud needs Basic email:apiToken in this header.
