@@ -106,7 +106,7 @@ spec:
 
               INT_CRT=$(oc get secret {{ .Values.issuer.issuingRawSecretName }} -n "$CM_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
               INT_KEY=$(oc get secret {{ .Values.issuer.issuingRawSecretName }} -n "$CM_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
-              ROOT_CRT=$(oc get secret {{ .Values.issuer.rootCertName }} -n "$CM_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+              ROOT_CRT=$(oc get secret {{ .Values.issuer.rootSecretName }} -n "$CM_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
               CHAIN_PEM=$(printf '%s\n%s\n' "$INT_CRT" "$ROOT_CRT")
 
               oc create secret generic {{ .Values.issuer.issuingChainSecretName }} \

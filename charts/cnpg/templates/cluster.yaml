@@ -42,7 +42,9 @@ spec:
       - name: app
         ensure: present
         login: true
+        inherit: true
         createdb: true
+        connectionLimit: -1
   {{- end }}
   postgresql:
     parameters:
