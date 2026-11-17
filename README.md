@@ -111,3 +111,36 @@ examples/rhdh-secrets.example.yaml
 
             - resolver: emailMatchingUserEntityProfileEmail
               dangerouslyAllowSignInWithoutUserInCatalog: true
+
+
+```
+pluginConfig:
+  dynamicPlugins:
+    frontend:
+      roadiehq.backstage-plugin-jira:
+        entityTabs:
+          - path: /jira
+            title: Jira
+            mountPoint: entity.page.jira
+        mountPoints:                    # ← same indent as entityTabs
+          - mountPoint: entity.page.jira/cards
+            importName: EntityJiraOverviewCard
+            config:
+              layout:
+                gridColumn: 1 / -1
+              if:
+                allOf:
+                  - isJiraAvailable
+  jira:
+    product: datacenter
+    proxyPath: /jira/api
+  proxy:                                # ← NOT under jira
+    endpoints:
+      /jira/api:
+        target: https://jira.example.com
+        changeOrigin: true
+        allowedMethods: [GET, POST]
+        headers:
+          Accept: application/json
+          Authorization: ${JIRA_BASIC_AUTH}
+```
