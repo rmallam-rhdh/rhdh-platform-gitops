@@ -6,7 +6,7 @@ Helm charts that create **custom resources only**. Operators are assumed already
 |---|---|---|
 | `charts/cnpg` | `cnpg` | CloudNativePG `Cluster` `rhdh-pg` in `rhdh` (3 instances) |
 | `charts/cnpg` (`values-dr.yaml`) | `cnpg-dr` | CloudNativePG `Cluster` `rhdh-pg-dr` in `rhdh-dr` (3 instances, not used by the Hub) |
-| `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali` |
+| `charts/service-mesh` | `service-mesh` | `Istio`, `IstioCNI`, `ZTunnel`, `Kiali`, optional mesh-wide `PeerAuthentication` ([`charts/service-mesh/README.md`](charts/service-mesh/README.md), [`INGRESS-PATTERNS.md`](charts/service-mesh/INGRESS-PATTERNS.md)) |
 | `charts/devspaces` | `devspaces` | `CheCluster` + global `DevWorkspaceOperatorConfig` (inactive workspace cleanup) in `openshift-devspaces` |
 | `charts/devspaces-multicluster-redirector` | `devspaces-multicluster-redirector` | RH Multicluster Redirector (Quarkus) + OAuth Proxy; group → Dev Spaces URL map (cluster RBAC: `manifests/devspaces-multicluster-redirector/rbac.yaml`) |
 | `charts/developer-hub` | `developer-hub` | RHDH `Backstage` CR, app-config, plugins, RBAC |

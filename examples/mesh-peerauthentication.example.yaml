@@ -1,0 +1,21 @@
+# Mesh-wide inbound mTLS policy for OpenShift Service Mesh 3 (Ambient / Sidecar).
+# Placing a selector-less PeerAuthentication named `default` in the Istio root
+# namespace (`istio-system`) enforces STRICT mTLS across ALL mesh-enrolled
+# namespaces (`istio.io/dataplane-mode: ambient`) cluster-wide.
+#
+# In GitOps, prefer setting `mtls.enabled: true` in `charts/service-mesh/values.yaml`
+# so Argo CD renders and manages this resource automatically.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: service-mesh
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: service-mesh
+spec:
+  mtls:
+    # STRICT     — reject plaintext; require mTLS / HBONE on all mesh pods
+    # PERMISSIVE — accept both mTLS / HBONE and plaintext (migration mode)
+    mode: STRICT
