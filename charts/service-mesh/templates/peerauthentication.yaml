@@ -1,0 +1,19 @@
+{{- if .Values.mtls.enabled }}
+{{- $mode := .Values.mtls.mode | default "STRICT" | upper -}}
+{{- if not (has $mode (list "STRICT" "PERMISSIVE" "DISABLE")) }}
+{{- fail (printf "mtls.mode %q must be one of: STRICT, PERMISSIVE, DISABLE" $mode) }}
+{{- end }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ .Values.mtls.name | default "default" }}
+  namespace: {{ .Values.istio.namespace }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  mtls:
+    mode: {{ $mode }}
+{{- end }}
