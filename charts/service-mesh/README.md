@@ -4,6 +4,9 @@ Helm chart deploying Red Hat OpenShift Service Mesh 3 (Sail Operator + Kiali) cu
 
 > The **Red Hat OpenShift Service Mesh 3** (`sailoperator`) and **Kiali** operators must already be installed in `openshift-operators`. Consistent with platform GitOps policy, this chart renders custom resources only (never `Subscription` or `OperatorGroup`).
 
+* **Multi-Tenant Ingress Patterns (`ListenerSet` vs. F5 CIS Operator):** see [INGRESS-PATTERNS.md](INGRESS-PATTERNS.md).
+* **Standalone mesh-wide `PeerAuthentication` manifest:** see [../../examples/mesh-peerauthentication.example.yaml](../../examples/mesh-peerauthentication.example.yaml).
+
 ## Resources Created
 
 | Resource | Namespace | Condition / Sync Wave | Purpose |
@@ -18,9 +21,26 @@ Helm chart deploying Red Hat OpenShift Service Mesh 3 (Sail Operator + Kiali) cu
 
 ---
 
-## Enabling Mesh-Level mTLS
+## Enabling Mesh-Level mTLS (`istio-system`)
 
-In Istio / OpenShift Service Mesh 3, a **selector-less `PeerAuthentication` in the mesh root namespace** (`istio.namespace`, default `istio-system`) sets the **mesh-wide default inbound mTLS mode** for every namespace enrolled in the mesh (`istio.io/dataplane-mode: ambient` or sidecar-injected).
+In Istio / OpenShift Service Mesh 3, placing a **`PeerAuthentication` with no `selector` in the mesh root namespace (`istio-system`)** sets the **mesh-wide default inbound mTLS policy** for every namespace enrolled in the mesh (`istio.io/dataplane-mode: ambient` or sidecar-injected). Application teams do not need to create `PeerAuthentication` objects in their own namespaces.
+
+### Rendered Mesh-Wide Resource (`istio-system`)
+
+When `mtls.enabled: true` is set (or if applied directly from [examples/mesh-peerauthentication.example.yaml](../../examples/mesh-peerauthentication.example.yaml)), this is the exact mesh-wide manifest created in `istio-system`:
+
+```yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+```
+
+> **Why there is no `selector`:** In Istio, omitting `spec.selector` inside the root namespace (`istio-system`) makes the policy **mesh-wide**. Adding a `selector` inside `istio-system` would restrict the rule to pods inside `istio-system` only instead of the entire mesh.
 
 ### 1. Enable via `values.yaml` (GitOps Recommended)
 
@@ -48,15 +68,25 @@ helm upgrade --install service-mesh charts/service-mesh \
 |---|---|
 | `STRICT` | *(Recommended for zero-trust)* Rejects plaintext inbound TCP connections to mesh-enrolled pods; all pod-to-pod traffic must traverse mTLS / HBONE (`ztunnel` or sidecar). |
 | `PERMISSIVE` | Accepts both mTLS/HBONE and plaintext traffic (useful during phased migration while onboarding legacy clients). |
-| `DISABLE` | Disables inbound mTLS requirement at the mesh root (not recommended outside troubleshooting). |
+| `DISABLE` | Disables inbound mTLS requirement at the mesh root (not supported for Ambient HBONE traffic; troubleshooting only). |
 
-### 3. Ambient Mesh Ingress & Exception Notes
+### 3. How Istio Scope Precedence Works (`Mesh → Namespace → Workload`)
+
+Istio evaluates `PeerAuthentication` from narrowest scope to widest scope:
+
+| Scope | `metadata.namespace` | `spec.selector` | Effect |
+|---|---|---|---|
+| **1. Mesh-Wide *(this chart)*** | `istio-system` | **Omitted** | Default for every mesh-enrolled pod across the entire cluster |
+| **2. Namespace-Wide** | `<app-namespace>` | **Omitted** | Overrides the mesh-wide rule for all pods in `<app-namespace>` |
+| **3. Workload / Port Exception** | `<app-namespace>` | `matchLabels: ...` | Overrides the rule for one specific app (and optionally one port via `portLevelMtls`) |
+
+### 4. Ambient Mesh Behavior & North-South Ingress
 
 * **Non-mesh namespaces are unaffected:** Namespaces without `istio.io/dataplane-mode: ambient` (such as `rhdh`, `cnpg`, or `squid`) are outside `ztunnel` capture and continue operating normally.
 * **Kubelet health probes keep working:** `IstioCNI` automatically SNATs node-local `kubelet` readiness/liveness probes so `STRICT` mTLS does not break pod health checks.
 * **North-south ingress into `STRICT` namespaces:**
-  * **Istio `Gateway` + `HTTPRoute`:** Works automatically with `STRICT` because the Istio gateway pod communicates with ambient backends over HBONE mTLS.
-  * **Direct OpenShift `Route` (`edge` / `reencrypt`):** The OpenShift HAProxy router is outside the mesh and forwards plaintext to target pods. Either front the service with an Istio `Gateway`, or add a **namespace-scoped or port-scoped `PeerAuthentication` override** in that specific application namespace:
+  * **Recommended:** Route external traffic through an **Istio `Gateway` + `HTTPRoute`** so Gateway-to-Pod traffic uses HBONE `STRICT` mTLS end-to-end with zero `PERMISSIVE` exceptions. For self-service per-app hostnames without wildcard certificates (using either **F5 CIS Operator** on OCP 4.20 or **Gateway API `ListenerSet`**), see [INGRESS-PATTERNS.md](INGRESS-PATTERNS.md).
+  * **Optional Legacy Escape Hatch (Direct OpenShift `Route`):** Because OpenShift's HAProxy router sits outside the mesh and forwards plaintext to target pods, a legacy app exposed directly via an `edge`/`reencrypt` OpenShift `Route` would be blocked by mesh-wide `STRICT`. If needed temporarily during migration, that app team can add a port-level `PERMISSIVE` override in **their own application namespace** (paired with a Kubernetes `NetworkPolicy` allowing `openshift-ingress` only):
     ```yaml
     apiVersion: security.istio.io/v1
     kind: PeerAuthentication
@@ -73,7 +103,6 @@ helm upgrade --install service-mesh charts/service-mesh \
         8080:
           mode: PERMISSIVE
     ```
-  *(Istio evaluates `PeerAuthentication` from most specific to least specific: **workload `portLevelMtls` → workload → namespace → mesh root in `istio-system`**.)*
 
 ---
 
