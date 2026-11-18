@@ -46,3 +46,12 @@ kiali:
 
 telemetry:
   enabled: true
+
+# Mesh-wide inbound mTLS policy (selector-less PeerAuthentication in istio.namespace).
+# Set enabled: true to enforce mesh-level mTLS across all mesh-enrolled namespaces;
+# individual namespaces or workloads can still override with their own PeerAuthentication.
+mtls:
+  enabled: false
+  # STRICT | PERMISSIVE | DISABLE
+  mode: STRICT
+  name: default
