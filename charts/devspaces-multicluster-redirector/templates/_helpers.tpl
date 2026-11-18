@@ -40,12 +40,36 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "mcr.sessionSecretName" -}}
+{{- define "mcr.sessionSecretMode" -}}
+{{- $mode := .Values.sessionSecret.mode | default "vaultStaticSecret" -}}
 {{- if not .Values.sessionSecret.create -}}
+{{- $mode = "external" -}}
+{{- end -}}
+{{- if not (has $mode (list "vaultStaticSecret" "eso" "external" "secret")) -}}
+{{- fail (printf "sessionSecret.mode %q must be one of: vaultStaticSecret, eso, external, secret" $mode) -}}
+{{- end -}}
+{{- $mode -}}
+{{- end -}}
+
+{{- define "mcr.sessionSecretKey" -}}
+{{- $key := .Values.sessionSecret.secretKey | default "session_secret" | trim -}}
+{{- if not $key -}}
+{{- fail "sessionSecret.secretKey must not be empty" -}}
+{{- end -}}
+{{- $key -}}
+{{- end -}}
+
+{{- define "mcr.sessionSecretName" -}}
+{{- $mode := include "mcr.sessionSecretMode" . -}}
+{{- if eq $mode "external" -}}
 {{- if not .Values.sessionSecret.existingSecret -}}
-{{- fail "sessionSecret.create=false requires sessionSecret.existingSecret" -}}
+{{- fail "sessionSecret mode=external (or create=false) requires sessionSecret.existingSecret" -}}
 {{- end -}}
 {{- .Values.sessionSecret.existingSecret -}}
+{{- else if eq $mode "vaultStaticSecret" -}}
+{{- .Values.sessionSecret.vaultStaticSecret.destinationSecretName | default .Values.sessionSecret.existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
+{{- else if eq $mode "eso" -}}
+{{- .Values.sessionSecret.eso.targetSecretName | default .Values.sessionSecret.existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
 {{- else -}}
 {{ include "mcr.fullname" . }}-session-secret
 {{- end -}}

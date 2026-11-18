@@ -105,7 +105,7 @@ spec:
                 -openshift-service-account={{ include "mcr.serviceAccountName" . }} \
                 -client-id=system:serviceaccount:${NAMESPACE}:{{ include "mcr.serviceAccountName" . }} \
                 -client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token \
-                -cookie-secret-file=/etc/proxy/secrets/session_secret
+                -cookie-secret-file=/etc/proxy/secrets/{{ include "mcr.sessionSecretKey" . }}
           readinessProbe:
             httpGet:
               path: /oauth/healthz

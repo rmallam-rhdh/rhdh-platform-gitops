@@ -6,5 +6,31 @@ route:
   host: ""
   oauthCallbackUrl: ""
 
+# Pull oauth-proxy session cookie secret from HashiCorp Vault via VaultStaticSecret.
+# Seed in Vault once (use the SAME secret across Primary and DR clusters):
+#   vault kv put secrets/devspaces-redirector/session session_secret="$(openssl rand -hex 16)"
+#
+# Other supported modes: `eso` (ExternalSecret), `external` (existing Secret), `secret` (lab only).
+sessionSecret:
+  mode: vaultStaticSecret
+  vaultStaticSecret:
+    type: kv-v2
+    mount: secrets
+    path: devspaces-redirector/session
+    vaultAuthRef: default
+    # vaultNamespace: ""   # Set if using HashiCorp Vault Enterprise namespaces
+
+# OpenShift Group → target Dev Spaces (CheCluster) dashboard URL.
+# How to add groups to redirect:
+#   1) Single group → cluster URL:
+#        developers: https://devspaces.apps.primary.example.com
+#        dr-developers: https://devspaces.apps.dr.example.com
+#   2) Multiple groups → same cluster URL (OR logic — add one line per group):
+#        frontend-devs: https://devspaces.apps.primary.example.com
+#        backend-devs: https://devspaces.apps.primary.example.com
+#   3) Require membership in ALL listed groups (AND logic — comma-separated key, quoted, no spaces):
+#        "payments-devs,pci-cleared": https://devspaces.apps.pci.example.com
 groupMapping:
   developers: https://devspaces.apps.example.com
+  # dr-developers: https://devspaces.apps.dr.example.com
+  # "payments-devs,pci-cleared": https://devspaces.apps.pci.example.com
