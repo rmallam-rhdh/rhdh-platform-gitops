@@ -46,10 +46,23 @@ resources:
       cpu: 200m
       memory: 128Mi
 
-# OpenShift Group name → Dev Spaces dashboard URL.
-# Comma-separated keys require membership in ALL listed groups (upstream AND logic).
-# Keep empty here; set real entries only in values-deploy.yaml (Helm map-merge).
-# Example: developers: https://devspaces.apps.example.com
+# OpenShift Group name → target Dev Spaces (CheCluster) dashboard URL.
+# Keep `{}` here because Helm deep-merges maps across value files; define real
+# entries in values-deploy.yaml so default keys never leak into cluster overlays.
+#
+# Examples (configure in values-deploy.yaml):
+#   groupMapping:
+#     # 1) Route different OpenShift groups to different Dev Spaces clusters:
+#     cluster-a-devs: https://devspaces.apps.cluster-a.example.com
+#     cluster-b-devs: https://devspaces.apps.cluster-b.example.com
+#
+#     # 2) Route multiple OpenShift groups to the same Dev Spaces cluster (OR logic):
+#     frontend-devs: https://devspaces.apps.cluster-a.example.com
+#     backend-devs: https://devspaces.apps.cluster-a.example.com
+#
+#     # 3) Require membership in ALL listed groups (comma-separated key = AND logic;
+#     #    quote the key in YAML and omit spaces around commas):
+#     "payments-devs,pci-cleared": https://devspaces.apps.pci-cluster.example.com
 groupMapping: {}
 
 route:
@@ -64,12 +77,57 @@ route:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
 
-# Cookie secret for oauth-proxy. Prefer create=true once (Helm lookup keeps it stable).
-# Set create=false and provide sessionSecret.existingSecret for Vault/ESO-managed secrets.
+# OAuth-proxy cookie encryption secret (must be >= 16 bytes; share the same Vault
+# secret across Primary and DR redirector instances behind a GTM / load balancer).
+# Supported modes:
+#   vaultStaticSecret — HashiCorp Vault Secrets Operator (VaultStaticSecret -> Secret)
+#   eso               — External Secrets Operator (ExternalSecret -> Secret)
+#   external          — Pre-existing Kubernetes Secret (requires sessionSecret.existingSecret)
+#   secret            — Chart-generated Kubernetes Secret via Helm lookup (lab/standalone only)
 sessionSecret:
-  create: true
+  mode: vaultStaticSecret
+  # Key inside the Kubernetes Secret mounted at /etc/proxy/secrets/<secretKey>.
+  secretKey: session_secret
+
+  # Used when mode=vaultStaticSecret (secrets.hashicorp.com/v1beta1 VaultStaticSecret).
+  # Expects Vault KV secret at <mount>/<path> with key matching `secretKey` (default `session_secret`),
+  # e.g.: vault kv put secrets/devspaces-redirector/session session_secret="$(openssl rand -hex 16)"
+  vaultStaticSecret:
+    # Optional custom VaultStaticSecret CR name (defaults to destination Secret name).
+    name: ""
+    # Optional destination Kubernetes Secret name (defaults to <fullname>-session-secret).
+    destinationSecretName: ""
+    type: kv-v2
+    mount: secrets
+    path: devspaces-redirector/session
+    # Name of the VaultAuth CR in the namespace (or operator default namespace). Leave "" to use VSO default.
+    vaultAuthRef: default
+    # Optional HashiCorp Vault Enterprise namespace (e.g. "admin/platform").
+    vaultNamespace: ""
+    # Optional pinned KV version (0 = latest version).
+    version: 0
+    refreshAfter: 1h
+    hmacSecretData: true
+    # Rolling-restarts the redirector Deployment when Vault rotates the session secret.
+    rolloutRestart: true
+    overwrite: true
+    # Optional VSO destination transformation (e.g. to rename/template keys from Vault).
+    transformation: {}
+
+  # Used when mode=eso (external-secrets.io/v1 ExternalSecret).
+  eso:
+    storeName: vault-secret-store
+    storeKind: ClusterSecretStore
+    refreshInterval: 1h
+    remoteKey: devspaces-redirector/session
+    remoteProperty: session_secret
+    targetSecretName: ""
+
+  # Used when mode=external (or legacy create=false): name of pre-existing Kubernetes Secret.
   existingSecret: ""
-  # Only used when create=true and no Secret exists yet (ignored on upgrade if Secret present).
+  # Legacy toggle kept for backwards compatibility: setting create=false forces mode=external.
+  create: true
+  # Only used when mode=secret and no Secret exists yet (ignored on upgrade if Secret present).
   value: ""
 
 networkPolicy:
