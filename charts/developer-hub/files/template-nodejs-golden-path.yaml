@@ -60,6 +60,13 @@ spec:
           title: Dev Spaces URL
           type: string
           default: __DEVSPACES_BASE_URL__
+        supportGroup:
+          title: Support Group of App
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              - kind: Group
   steps:
     - id: fetch-skeleton
       name: Fetch Node.js golden-path skeleton
@@ -70,6 +77,7 @@ spec:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}
           githubOwner: ${{ parameters.githubOwner }}
+          supportGroup: ${{ parameters.supportGroup }}  
           port: ${{ parameters.port }}
           targetNamespace: ${{ parameters.targetNamespace }}
           clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
