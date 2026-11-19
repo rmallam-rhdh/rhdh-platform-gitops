@@ -1,14 +1,15 @@
-# Demo-only catalog entities so every Hub plugin tab has an annotation to match.
-# Not a golden-path template. Cards may be empty or stubbed.
+# Demo-only catalog entities so every Hub plugin card + Command Centre row + Day-2
+# Promotion Template has working annotations and About-card links out of the box.
 ---
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
   name: plugin-kitchen-sink
-  description: Lab system for exercising RHDH plugin tabs
+  description: Lab system for exercising RHDH Command Centre Overview & Day-2 Promotion
   tags:
     - demo
     - plugins
+    - command-centre
 spec:
   owner: group:default/developers
 ---
@@ -16,16 +17,23 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: plugin-kitchen-sink
-  description: Open this entity to see Jenkins, Sonar, Argo, Vault, Jira, Snyk, and other plugin tabs
+  description: Command Centre demo service wired to all 9 tools (Dynatrace, PagerDuty, Jenkins, SonarQube, Snyk, Multi-Argo CD, ServiceNow, Artifactory & Vault)
   tags:
     - demo
     - plugins
+    - golden-path
+    - gitops
   annotations:
     backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: rmallam/RHDH
     jenkins.io/job-full-name: demo/plugin-kitchen-sink
     sonarqube.org/project-key: demo-plugin-kitchen-sink
-    argocd/app-name: developer-hub
-    argocd/app-namespace: openshift-gitops
+    # Shared Argo CD selector matching BOTH nonprod-argo & prod-argo Application CRs
+    argocd/app-selector: app=plugin-kitchen-sink
+    # Day-2 Self-Service Promotion Metadata (consumed by promote-service-to-production)
+    platform.idp/gitops-repo: rmallam-rhdh/rhdh-platform-gitops
+    platform.idp/gitops-prod-branch: main
+    platform.idp/gitops-prod-values-path: environments/prod/plugin-kitchen-sink/values.yaml
     backstage.io/kubernetes-id: developer-hub
     backstage.io/kubernetes-namespace: rhdh
     kiali.io/namespace: demo-dev
@@ -35,11 +43,28 @@ metadata:
     snyk.io/org-name: stub-org
     snyk.io/project-ids: stub
     servicenow.com/entity-id: demo
+    pagerduty.com/service-id: P123456
     jfrog-artifactory/image-name: plugin-kitchen-sink
     dynatrace.com/dynatrace-entity-id: SERVICE-39720C1E0047A5C0
-    github.com/project-slug: rmallam/RHDH
+  links:
+    - title: JFrog Artifactory — Container Repository
+      url: http://saas-stubs.saas-stubs.svc:8080/ui/repos/tree/General/docker-local/plugin-kitchen-sink
+      icon: box
+      type: artifact-repository
+    - title: HashiCorp Vault — Non-Prod Secrets (KV v2)
+      url: http://vault.vault.svc:8200/ui/vault/secrets/secrets/kv/rhdh
+      icon: lock
+      type: secrets
+    - title: HashiCorp Vault — Prod Secrets (KV v2)
+      url: http://vault.vault.svc:8200/ui/vault/secrets/secrets/kv/rhdh
+      icon: lock
+      type: secrets
+    - title: GitOps Environments (Non-Prod & Prod)
+      url: https://github.com/rmallam-rhdh/rhdh-platform-gitops/tree/main/environments
+      icon: github
+      type: gitops
 spec:
   type: service
-  lifecycle: experimental
+  lifecycle: production
   owner: group:default/developers
   system: plugin-kitchen-sink

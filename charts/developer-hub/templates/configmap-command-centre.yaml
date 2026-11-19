@@ -1,0 +1,12 @@
+{{- if .Values.commandCentreLayout.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-command-centre
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+data:
+  app-config.command-centre.yaml: |
+{{ .Files.Get "files/app-config.command-centre.yaml" | nindent 4 }}
+{{- end }}

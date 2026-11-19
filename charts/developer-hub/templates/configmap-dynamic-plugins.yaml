@@ -69,6 +69,9 @@ data:
       - package: {{ .Values.plugins.githubScaffolder.package | quote }}
         disabled: {{ not .Values.plugins.githubScaffolder.enabled }}
 
+      - package: {{ .Values.plugins.scaffolderUtils.package | quote }}
+        disabled: {{ not .Values.plugins.scaffolderUtils.enabled }}
+
       - package: {{ .Values.plugins.bitbucket.cloudScaffolder | quote }}
         disabled: {{ not .Values.plugins.bitbucket.enabled }}
       - package: {{ .Values.plugins.bitbucket.serverScaffolder | quote }}
@@ -260,6 +263,11 @@ data:
                       if:
                         allOf:
                           - isDynatraceAvailable
+
+      - package: {{ .Values.plugins.pagerduty.frontendPackage | quote }}
+        disabled: {{ not .Values.plugins.pagerduty.enabled }}
+      - package: {{ .Values.plugins.pagerduty.backendPackage | quote }}
+        disabled: {{ not .Values.plugins.pagerduty.enabled }}
 
       - package: {{ .Values.plugins.kiali.backendPackage | quote }}
         disabled: {{ not .Values.plugins.kiali.enabled }}

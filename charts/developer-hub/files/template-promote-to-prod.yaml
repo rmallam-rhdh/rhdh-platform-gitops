@@ -1,0 +1,200 @@
+# ==============================================================================
+# Day-2 Self-Service Non-Prod -> Prod GitOps Promotion Software Template
+# Synced to RHDH exclusively via OpenShift GitOps (Argo CD)
+# ==============================================================================
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: promote-service-to-production
+  title: Promote Service to Production (GitOps PR Gate)
+  description: >
+    Day-2 self-service promotion workflow. Selects an existing Catalog Component,
+    updates its production image tag under environments/prod/ on the GitOps prod
+    branch, attaches the ServiceNow Change Request (CHG) and Release Notes, and
+    opens a governed GitHub Pull Request for prod-argo reconciliation.
+  tags:
+    - day-2
+    - promotion
+    - gitops
+    - argocd
+    - servicenow
+    - production
+    - recommended
+spec:
+  owner: group:platform-team
+  type: workflow
+
+  parameters:
+    - title: 1. Select Target Service & Version
+      required:
+        - componentRef
+        - imageTag
+        - manifestFormat
+      properties:
+        componentRef:
+          title: Application Component
+          description: Select the existing service from the RHDH Software Catalog to promote.
+          type: string
+          ui:field: EntityPicker
+          ui:autofocus: true
+          ui:options:
+            catalogFilter:
+              - kind: Component
+                spec.type: service
+            defaultKind: Component
+            defaultNamespace: default
+
+        imageTag:
+          title: Target Container Image Tag / Version
+          description: Verified artifact tag already promoted and tested in Non-Prod (e.g., 1.2.0 or v1.2.0-rc1).
+          type: string
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
+          default: "1.2.0"
+
+        manifestFormat:
+          title: GitOps Manifest Format in environments/prod/
+          description: Choose whether this service's environments/prod/ directory uses Helm values.yaml or Kustomize kustomization.yaml.
+          type: string
+          default: helm
+          enum:
+            - helm
+            - kustomize
+          enumNames:
+            - "Helm (environments/prod/<service>/values.yaml)"
+            - "Kustomize (environments/prod/<service>/kustomization.yaml)"
+
+        gitopsRepoOverride:
+          title: GitOps Repository Override (owner/repo — optional)
+          description: >
+            Leave empty if the Component has annotation `platform.idp/gitops-repo`
+            (e.g., rmallam-rhdh/rhdh-platform-gitops).
+          type: string
+          pattern: '^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?$'
+
+        targetBranchOverride:
+          title: Target GitOps Branch Override (optional)
+          description: >
+            Leave empty to use the Component's `platform.idp/gitops-prod-branch`
+            annotation (defaults to `prod`).
+          type: string
+
+        prodManifestPathOverride:
+          title: Production Manifest Subpath Override (optional)
+          description: >
+            Defaults to `environments/prod/<component-name>/values.yaml` (Helm) or
+            `environments/prod/<component-name>/kustomization.yaml` (Kustomize).
+          type: string
+
+    - title: 2. Change Management & Release Governance
+      required:
+        - serviceNowCr
+        - releaseNotes
+      properties:
+        serviceNowCr:
+          title: ServiceNow Change Request (CR) Number
+          description: Approved Normal/Standard Change ticket authorizing this production release.
+          type: string
+          pattern: '^CHG[0-9]{7,10}$'
+          default: "CHG0041892"
+
+        releaseNotes:
+          title: Production Release Notes & Rollback Plan
+          description: Summarize key changes, Non-Prod verification evidence, and rollback image tag.
+          type: string
+          ui:widget: textarea
+          ui:options:
+            rows: 6
+          default: |
+            - Validated in Non-Prod (`nonprod-argo`: Synced/Healthy)
+            - Jenkins CI, SonarQube Quality Gate, and Snyk security scans passed
+            - Rollback: revert this PR so `prod-argo` restores the prior image tag
+
+  steps:
+    - id: fetch-entity
+      name: Resolve Component Metadata from Catalog
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.componentRef }}
+
+    - id: fetch-gitops
+      name: Fetch Production GitOps Manifests
+      action: fetch:plain
+      input:
+        targetPath: ./gitops-workspace
+        url: https://github.com/${{ parameters.gitopsRepoOverride or steps['fetch-entity'].output.entity.metadata.annotations['platform.idp/gitops-repo'] }}/tree/${{ parameters.targetBranchOverride or steps['fetch-entity'].output.entity.metadata.annotations['platform.idp/gitops-prod-branch'] or 'prod' }}/${{ 'environments/prod/' + steps['fetch-entity'].output.entity.metadata.name }}
+
+    - id: update-helm-values
+      name: Update Image Tag in Helm Production values.yaml
+      if: ${{ parameters.manifestFormat === 'helm' }}
+      action: roadiehq:utils:fs:replace
+      input:
+        files:
+          - file: ./gitops-workspace/values.yaml
+            find: '(\btag:\s*)["'']?[^"''\s#]+["'']?'
+            matchRegex: true
+            replaceWith: '$1"${{ parameters.imageTag }}"'
+
+    - id: update-kustomize-patch
+      name: Update Image newTag in Kustomize Production Overlay
+      if: ${{ parameters.manifestFormat === 'kustomize' }}
+      action: roadiehq:utils:fs:replace
+      input:
+        files:
+          - file: ./gitops-workspace/kustomization.yaml
+            find: '(\bnewTag:\s*)["'']?[^"''\s#]+["'']?'
+            matchRegex: true
+            replaceWith: '$1"${{ parameters.imageTag }}"'
+
+    - id: open-prod-pr
+      name: Open Production Promotion Pull Request (GitHub Gate -> prod-argo)
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=${{ (parameters.gitopsRepoOverride or steps['fetch-entity'].output.entity.metadata.annotations['platform.idp/gitops-repo']).split('/')[0] }}&repo=${{ (parameters.gitopsRepoOverride or steps['fetch-entity'].output.entity.metadata.annotations['platform.idp/gitops-repo']).split('/')[1] }}
+        sourcePath: ./gitops-workspace
+        targetPath: ${{ parameters.prodManifestPathOverride or ('environments/prod/' + steps['fetch-entity'].output.entity.metadata.name) }}
+        targetBranchName: ${{ parameters.targetBranchOverride or steps['fetch-entity'].output.entity.metadata.annotations['platform.idp/gitops-prod-branch'] or 'prod' }}
+        branchName: promote/${{ steps['fetch-entity'].output.entity.metadata.name }}-${{ parameters.imageTag }}-${{ parameters.serviceNowCr | lower }}
+        update: true
+        title: "release(prod): promote ${{ steps['fetch-entity'].output.entity.metadata.name }} to ${{ parameters.imageTag }} [${{ parameters.serviceNowCr }}]"
+        commitMessage: "release(prod): promote ${{ steps['fetch-entity'].output.entity.metadata.name }} to ${{ parameters.imageTag }} [${{ parameters.serviceNowCr }}]"
+        description: |
+          ## Production Promotion Request — `${{ steps['fetch-entity'].output.entity.metadata.name }}`
+
+          | Field | Value |
+          | :--- | :--- |
+          | **Catalog Component** | `${{ parameters.componentRef }}` |
+          | **Owner** | `${{ steps['fetch-entity'].output.entity.spec.owner }}` |
+          | **Target Image Tag** | `${{ parameters.imageTag }}` |
+          | **ServiceNow Change (CR)** | **`${{ parameters.serviceNowCr }}`** (CI: `${{ steps['fetch-entity'].output.entity.metadata.annotations['servicenow.com/entity-id'] | default('N/A') }}`) |
+          | **Target Argo CD Instance** | `prod-argo` (`argocd/app-selector: app=${{ steps['fetch-entity'].output.entity.metadata.name }}`) |
+
+          ---
+
+          ### Release Notes
+          ${{ parameters.releaseNotes }}
+
+          ---
+
+          ### Governance & GitOps Rollout Flow
+          - [ ] **ServiceNow CR `${{ parameters.serviceNowCr }}`** is approved and within the scheduled Change Window.
+          - [ ] **Non-Prod Health:** `nonprod-argo` is `Synced` & `Healthy` on tag `${{ parameters.imageTag }}`.
+          - [ ] **Quality & Security Gates:** SonarQube Quality Gate passed and Snyk reports 0 unwaived Critical/High CVEs.
+          - Merging this PR triggers **`prod-argo`** to reconcile `environments/prod/${{ steps['fetch-entity'].output.entity.metadata.name }}` to `${{ parameters.imageTag }}`.
+
+  output:
+    text:
+      - title: Production Promotion Pull Request Created
+        content: |
+          Opened GitOps promotion PR for **`${{ steps['fetch-entity'].output.entity.metadata.name }}`** -> **`${{ parameters.imageTag }}`** under ServiceNow Change **`${{ parameters.serviceNowCr }}`**.
+
+          **Pull Request:** ${{ steps['open-prod-pr'].output.remoteUrl }}
+    links:
+      - title: View GitHub Promotion Pull Request
+        icon: github
+        url: ${{ steps['open-prod-pr'].output.remoteUrl }}
+      - title: Open Component Command Centre in RHDH
+        icon: catalog
+        entityRef: ${{ parameters.componentRef }}
+      - title: View ServiceNow Change Request
+        icon: docs
+        url: https://dev374459.service-now.com/nav_to.do?uri=change_request.do?sysparm_query=number=${{ parameters.serviceNowCr }}

@@ -1,0 +1,79 @@
+# ==============================================================================
+# Day-1 Golden Path Skeleton `catalog-info.yaml`
+# Binds all 9 platform tools (Jenkins, SonarQube, Snyk, Argo CD [nonprod-argo +
+# prod-argo], Dynatrace, PagerDuty, ServiceNow, JFrog Artifactory, HashiCorp
+# Vault) + Day-2 self-service promotion metadata onto a single Component entity.
+# ==============================================================================
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.appName | dump }}
+  description: ${{ values.appDescription | dump }}
+  tags:
+    - golden-path
+    - gitops
+    - ${{ values.runtime | default("nodejs") | dump }}
+  labels:
+    servicenow.com/support-group: ${{ values.supportGroup | default("platform-engineering") | dump }}
+  annotations:
+    # 1. Source Control & TechDocs (GitHub)
+    github.com/project-slug: ${{ values.githubOwner + "/" + values.appName | dump }}
+    backstage.io/source-location: url:https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/
+    backstage.io/techdocs-ref: dir:.
+
+    # 2. Multi-Cluster OpenShift GitOps (matches BOTH nonprod-argo & prod-argo)
+    argocd/app-selector: app=${{ values.appName }}
+
+    # 3. Day-2 Self-Service Promotion Metadata (consumed by promote-service-to-production)
+    platform.idp/gitops-repo: ${{ values.githubOwner + "/" + (values.gitopsRepoName | default("rhdh-platform-gitops")) | dump }}
+    platform.idp/gitops-prod-branch: ${{ values.gitopsProdBranch | default("prod") | dump }}
+    platform.idp/gitops-prod-values-path: ${{ "environments/prod/" + values.appName + "/values.yaml" | dump }}
+
+    # 4. CI, Code Quality & Security Gates (Jenkins + SonarQube + Snyk)
+    jenkins.io/job-full-name: ${{ (values.jenkinsFolder | default("demo")) + "/" + values.appName | dump }}
+    sonarqube.org/project-key: ${{ values.sonarProjectKey | default(values.appName) | dump }}
+    snyk.io/org-id: ${{ values.snykOrgId | default("stub-org") | dump }}
+    snyk.io/org-name: ${{ values.snykOrgName | default("stub-org") | dump }}
+    snyk.io/project-ids: ${{ values.snykProjectId | default("stub") | dump }}
+
+    # 5. Operations, Alerting & ITSM (Dynatrace + PagerDuty + ServiceNow)
+    dynatrace.com/dynatrace-entity-id: ${{ values.dynatraceEntityId | default("SERVICE-39720C1E0047A5C0") | dump }}
+    pagerduty.com/service-id: ${{ values.pagerDutyServiceId | default("P123456") | dump }}
+    servicenow.com/entity-id: ${{ values.serviceNowCiName | default(values.appName) | dump }}
+    servicenow.com/support-group: ${{ values.supportGroup | default("platform-engineering") | dump }}
+
+    # Optional detail plugin annotations
+    jfrog-artifactory/image-name: ${{ values.appName | dump }}
+    vault.io/secrets-path: ${{ "apps/" + values.appName | dump }}
+    jira/project-key: ${{ values.jiraProjectKey | default("SCRUM") | dump }}
+    backstage.io/kubernetes-id: ${{ values.appName | dump }}
+    backstage.io/kubernetes-namespace: ${{ values.targetNamespace | default("demo-dev") | dump }}
+    kiali.io/namespace: ${{ values.targetNamespace | default("demo-dev") | dump }}
+
+  # 6. About Card Quick-Links (JFrog Artifactory & HashiCorp Vault — zero Overview clutter)
+  links:
+    - title: JFrog Artifactory — Container Repository
+      url: https://${{ values.artifactoryHost | default("artifactory.corp.example.com") }}/ui/repos/tree/General/docker-local/${{ values.appName }}
+      icon: box
+      type: artifact-repository
+    - title: HashiCorp Vault — Non-Prod Secrets
+      url: https://${{ values.vaultHost | default("vault.corp.example.com") }}/ui/vault/secrets/secrets/kv/apps%2Fnonprod%2F${{ values.appName }}
+      icon: lock
+      type: secrets
+    - title: HashiCorp Vault — Prod Secrets
+      url: https://${{ values.vaultHost | default("vault.corp.example.com") }}/ui/vault/secrets/secrets/kv/apps%2Fprod%2F${{ values.appName }}
+      icon: lock
+      type: secrets
+    - title: GitOps Environments Repository
+      url: https://github.com/${{ values.githubOwner }}/${{ values.gitopsRepoName | default("rhdh-platform-gitops") }}
+      icon: github
+      type: gitops
+    - title: Open in Dev Spaces
+      url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?new&devfilePath=devfile.yaml
+      icon: dashboard
+      type: devspaces
+spec:
+  type: service
+  lifecycle: production
+  owner: ${{ values.supportGroup | default("group:default/developers") | dump }}
+  system: core-platform

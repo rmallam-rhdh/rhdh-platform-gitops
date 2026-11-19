@@ -16,6 +16,9 @@ spec:
         {{- if .Values.instance.extraFiles.branding }}
         - name: app-config-rhdh-branding
         {{- end }}
+        {{- if and .Values.commandCentreLayout .Values.commandCentreLayout.enabled }}
+        - name: app-config-command-centre
+        {{- end }}
       mountPath: /opt/app-root/src
     dynamicPluginsConfigMapName: dynamic-plugins-rhdh
     extraEnvs:
