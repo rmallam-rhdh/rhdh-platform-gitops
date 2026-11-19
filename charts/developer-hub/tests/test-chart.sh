@@ -171,19 +171,21 @@ raise "demo dynatrace proxy must send Api-Token" unless dt_auth.start_with?("Api
 locs = d.dig("catalog", "locations") || []
 file_loc = locs.find { |l| l["target"].to_s.include?("catalog-demo/catalog-info.yaml") }
 raise "demo missing kitchen-sink file location" unless file_loc
-ks_tpl = locs.find { |l| l["target"].to_s.include?("template-plugin-kitchen-sink.yaml") }
+ks_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-plugin-kitchen-sink.yaml") }
 raise "demo missing kitchen-sink template location" unless ks_tpl
-gp_tpl = locs.find { |l| l["target"].to_s.include?("template-nodejs-golden-path.yaml") }
+raise "kitchen-sink template must be a Git url location" unless ks_tpl["type"] == "url"
+gp_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-nodejs-golden-path.yaml") }
 raise "demo missing nodejs golden-path template location" unless gp_tpl
-raise "nodejs golden path must be a file location from this chart" unless gp_tpl["type"] == "file"
-promo_tpl = locs.find { |l| l["target"].to_s.include?("template-promote-to-prod.yaml") }
+raise "nodejs golden path must be a Git url location" unless gp_tpl["type"] == "url"
+promo_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-promote-to-prod.yaml") }
 raise "demo missing promote-to-prod template location" unless promo_tpl
+raise "promote-to-prod template must be a Git url location" unless promo_tpl["type"] == "url"
 argo_names = (d.dig("argocd", "appLocatorMethods", 0, "instances") || []).map { |i| i["name"] }
 raise "demo argocd must register nonprod-argo and prod-argo: #{argo_names}" unless argo_names == %w[nonprod-argo prod-argo]
-qx_tpl = locs.find { |l| l["target"].to_s.include?("template-quarkus-golden-path.yaml") }
+qx_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-quarkus-golden-path.yaml") }
 raise "demo missing quarkus golden-path template location" unless qx_tpl
-raise "quarkus golden path must be a file location from this chart" unless qx_tpl["type"] == "file"
-web_tpl = locs.find { |l| l["target"].to_s.include?("template-nodejs-website.yaml") }
+raise "quarkus golden path must be a Git url location" unless qx_tpl["type"] == "url"
+web_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-nodejs-website.yaml") }
 raise "demo missing nodejs website template location" unless web_tpl
 db = d.dig("backend", "database") || {}
 raise "demo missing backend.database.client pg" unless db["client"] == "pg"

@@ -92,8 +92,6 @@ auth:
 catalog:
   demoKitchenSink:
     enabled: false
-  goldenPath:
-    enabled: false
   locations: []
   ldap:
     enabled: false

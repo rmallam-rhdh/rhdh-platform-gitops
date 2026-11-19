@@ -1,28 +1,27 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: acme-quarkus-golden-path
-  title: Quarkus backend (Jenkins + Helm + API)
+  name: acme-nodejs-website
+  title: Node.js website (link backend)
   description: >
-    Creates a Quarkus 3 / Java 21 service and registers System + Component
-    (type: service) + API with providesApis. Use this first when you need a
-    website + backend. Then run the Node.js website template and pick this
-    System, Component, and API. Publishes to GitHub.
+    Creates a Node.js 20 website and links it to an existing backend. Pick the
+    System, service Component, and API from the Quarkus (or other) backend
+    template. Writes consumesApis, dependsOn, and system on the catalog entity.
+    Publishes to GitHub.
   tags:
-    - quarkus
-    - java
+    - nodejs
+    - website
     - golden-path
     - jenkins
     - helm
-    - sonarqube
     - demo
     - recommended
 spec:
   owner: group:platform-team
-  type: service
+  type: website
   parameters:
-    - title: Backend service
-      required: [appName, githubOwner, systemName]
+    - title: Website
+      required: [appName, githubOwner, system, backendService, backendApi]
       properties:
         appName:
           title: GitHub repository name
@@ -33,36 +32,52 @@ spec:
         appDescription:
           title: Description
           type: string
-          default: Quarkus golden-path backend with Jenkins, Helm, and OpenAPI
+          default: Node.js website linked to a catalog backend API
         githubOwner:
           title: GitHub owner (org or user)
-          description: GitHub user or org that will own the new repository (default rmallam-rhdh).
           type: string
           default: rmallam-rhdh
           pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$'
-        systemName:
-          title: System name
-          description: Catalog System this backend belongs to. The website template will pick this System.
+        system:
+          title: System
+          description: Product created by the Quarkus backend template (default acme-demo).
           type: string
-          default: acme-demo
-          pattern: '^[a-z][a-z0-9-]{1,40}$'
-        systemDescription:
-          title: System description
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [System]
+        backendService:
+          title: Backend service
+          description: "Component (spec.type: service) this website depends on."
           type: string
-          default: Demo product (website + backend)
-        port:
-          title: Application port
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [Component]
+            catalogFilter:
+              - kind: Component
+                spec.type: service
+        backendApi:
+          title: Backend API
+          description: API this website consumes (providesApis on the backend).
+          type: string
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds: [API]
+        backendPort:
+          title: Backend service port
           type: integer
           default: 8080
+        port:
+          title: Website port
+          type: integer
+          default: 3000
         targetNamespace:
           title: Deploy namespace
           type: string
           default: demo-dev
         clusterBaseDomain:
           title: OpenShift apps domain
-          description: Host suffix for the mesh ingress Route (no scheme). Default is this ROSA cluster.
           type: string
-          default: __CLUSTER_BASE_DOMAIN__
+          default: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
         sonarHostUrl:
           title: SonarQube URL (in-cluster)
           type: string
@@ -70,19 +85,23 @@ spec:
         devSpacesBaseUrl:
           title: Dev Spaces URL
           type: string
-          default: __DEVSPACES_BASE_URL__
+          default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
   steps:
     - id: fetch-skeleton
-      name: Fetch Quarkus golden-path skeleton
+      name: Fetch Node.js website skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-quarkus-golden-path
+        url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-nodejs-website
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}
           githubOwner: ${{ parameters.githubOwner }}
-          systemName: ${{ parameters.systemName }}
-          systemDescription: ${{ parameters.systemDescription }}
+          systemName: ${{ parameters.system | parseEntityRef | pick('name') }}
+          backendServiceRef: ${{ parameters.backendService }}
+          backendServiceName: ${{ parameters.backendService | parseEntityRef | pick('name') }}
+          backendApiRef: ${{ parameters.backendApi }}
+          backendApiName: ${{ parameters.backendApi | parseEntityRef | pick('name') }}
+          backendUrl: http://${{ parameters.backendService | parseEntityRef | pick('name') }}.${{ parameters.targetNamespace }}.svc:${{ parameters.backendPort }}
           port: ${{ parameters.port }}
           targetNamespace: ${{ parameters.targetNamespace }}
           clusterBaseDomain: ${{ parameters.clusterBaseDomain }}
@@ -97,7 +116,7 @@ spec:
         description: ${{ parameters.appDescription }}
         defaultBranch: main
         repoVisibility: public
-        gitCommitMessage: "Initial Quarkus golden path (Jenkins, Helm, API)"
+        gitCommitMessage: "Initial Node.js website (consumes backend API)"
     - id: register
       name: Register in catalog
       action: catalog:register
@@ -110,14 +129,18 @@ spec:
         content: |
           **GitHub repository:** ${{ steps['publish'].output.remoteUrl }}
 
-          Catalog: System `${{ parameters.systemName }}` · Component `${{ parameters.appName }}` (service) · API `${{ parameters.appName }}-api` (providesApis).
+          Catalog entity: `${{ steps['register'].output.entityRef }}` (type: website)
 
-          Next: run **Node.js website** and pick this System, Component, and API.
+          Relations: system `${{ parameters.system | parseEntityRef | pick('name') }}`,
+          dependsOn `${{ parameters.backendService }}`,
+          consumesApis `${{ parameters.backendApi }}`.
+
+          In-cluster the website calls
+          `http://${{ parameters.backendService | parseEntityRef | pick('name') }}.${{ parameters.targetNamespace }}.svc:${{ parameters.backendPort }}/api`.
 
           | In Git | Path |
           |---|---|
           | catalog-info.yaml | `/catalog-info.yaml` |
-          | OpenAPI | `/openapi.yaml` |
           | Helm chart | `/chart` (mesh: Route → Gateway → HTTPRoute, deny-all, STRICT mTLS) |
           | Jenkinsfile | `/Jenkinsfile` |
 

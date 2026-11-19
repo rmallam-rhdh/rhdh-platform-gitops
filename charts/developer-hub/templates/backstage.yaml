@@ -98,11 +98,6 @@ spec:
                 configMap:
                   name: rhdh-demo-catalog
               {{- end }}
-              {{- if .Values.catalog.goldenPath.enabled }}
-              - name: golden-path
-                configMap:
-                  name: rhdh-golden-path
-              {{- end }}
               {{- if and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled }}
               - name: enterprise-ca-chain
                 {{- if eq (.Values.tls.extraCaCerts.kind | default "Secret") "ConfigMap" }}
@@ -130,7 +125,7 @@ spec:
                     - key: bridge-client.keytab
                       path: bridge-client.keytab
               {{- end }}
-            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
+            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
             containers:
               # Always patch backstage-backend when we touch containers (incl. sidecar-only)
               # so strategic merge cannot drop the Hub container.
@@ -163,16 +158,11 @@ spec:
                         name: {{ .Values.database.external.secretName | quote }}
                         key: {{ .Values.database.external.keys.database | quote }}
                 {{- end }}
-                {{- if or .Values.catalog.demoKitchenSink.enabled .Values.catalog.goldenPath.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
+                {{- if or .Values.catalog.demoKitchenSink.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
                 volumeMounts:
                   {{- if .Values.catalog.demoKitchenSink.enabled }}
                   - name: demo-catalog
                     mountPath: /opt/app-root/src/catalog-demo
-                    readOnly: true
-                  {{- end }}
-                  {{- if .Values.catalog.goldenPath.enabled }}
-                  - name: golden-path
-                    mountPath: /opt/app-root/src/golden-path
                     readOnly: true
                   {{- end }}
                   {{- if and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled }}
