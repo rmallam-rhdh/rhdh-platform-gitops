@@ -43,12 +43,12 @@ data:
               navigation:
                 background: {{ .Values.branding.light.shellColor | quote }}
                 indicator: {{ .Values.branding.light.indicatorColor | quote }}
-                color: "#CBD5E1"
-                selectedColor: "#FFFFFF"
+                color: {{ .Values.branding.light.shellTextColor | default "#334155" | quote }}
+                selectedColor: {{ .Values.branding.light.shellSelectedTextColor | default "#0F172A" | quote }}
                 navItem:
                   hoverBackground: {{ .Values.branding.light.shellHoverColor | quote }}
                 submenu:
-                  background: {{ .Values.branding.light.shellColor | quote }}
+                  background: {{ .Values.branding.light.cardColor | quote }}
               rhdh:
                 general:
                   pageInset: {{ .Values.branding.pageInset | default "1rem" | quote }}
@@ -68,9 +68,9 @@ data:
                   tableSubtitleColor: {{ .Values.branding.light.textSecondary | quote }}
                   tableColumnTitleColor: "#334155"
                   tabsLinkHoverBackgroundColor: "rgba(37, 99, 235, 0.10)"
-                  appBarBackgroundScheme: dark
-                  appBarBackgroundColor: {{ .Values.branding.light.shellColor | quote }}
-                  appBarForegroundColor: "#F8FAFC"
+                  appBarBackgroundScheme: light
+                  appBarBackgroundColor: {{ .Values.branding.light.appBarColor | default "#FFFFFF" | quote }}
+                  appBarForegroundColor: {{ .Values.branding.light.textPrimary | quote }}
                 primary:
                   main: {{ .Values.branding.light.primaryColor | quote }}
                   focusVisibleBorder: "#3B82F6"

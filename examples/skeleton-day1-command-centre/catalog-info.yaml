@@ -23,6 +23,7 @@ metadata:
 
     # 2. Multi-Cluster OpenShift GitOps (matches BOTH nonprod-argo & prod-argo)
     argocd/app-selector: app=${{ values.appName }}
+    argocd/app-namespace: openshift-gitops
 
     # 3. Day-2 Self-Service Promotion Metadata (consumed by promote-service-to-production)
     platform.idp/gitops-repo: ${{ values.githubOwner + "/" + (values.gitopsRepoName | default("rhdh-platform-gitops")) | dump }}

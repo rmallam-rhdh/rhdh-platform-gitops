@@ -110,6 +110,7 @@ permission:
     p, role:default/developer, scaffolder.task.cancel, update, allow
     p, role:default/developer, kubernetes.clusters.read, read, allow
     p, role:default/developer, kubernetes.resources.read, read, allow
+    p, role:default/developer, argocd.view.read, read, allow
     g, group:default/developers, role:default/developer
     g, group:default/app-owners, role:default/developer
     g, group:default/platform-team, role:default/developer

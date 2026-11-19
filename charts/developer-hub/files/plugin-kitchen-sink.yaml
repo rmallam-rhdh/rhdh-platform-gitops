@@ -43,6 +43,7 @@ metadata:
     sonarqube.org/project-key: demo-plugin-kitchen-sink
     # Shared Argo CD selector matching BOTH nonprod-argo & prod-argo Application CRs
     argocd/app-selector: app=plugin-kitchen-sink
+    argocd/app-namespace: openshift-gitops
     # Day-2 Self-Service Promotion Metadata (consumed by promote-service-to-production)
     platform.idp/gitops-repo: rmallam-rhdh/rhdh-platform-gitops
     platform.idp/gitops-prod-branch: main
