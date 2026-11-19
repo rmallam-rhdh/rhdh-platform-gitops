@@ -1,0 +1,6 @@
+appName: plugin-kitchen-sink
+environment: nonprod
+replicas: 1
+image:
+  repository: ghcr.io/rmallam-rhdh/plugin-kitchen-sink
+  tag: "1.0.0"

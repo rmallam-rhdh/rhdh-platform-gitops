@@ -123,7 +123,12 @@ integrations:
   bitbucketServer:
     enabled: false
 
+commandCentreLayout:
+  enabled: false
+
 plugins:
+  pagerduty:
+    enabled: false
   kubernetes:
     enabled: false
   ldap:
@@ -135,6 +140,8 @@ plugins:
   argocd:
     enabled: false
   githubScaffolder:
+    enabled: false
+  scaffolderUtils:
     enabled: false
   bitbucket:
     enabled: false

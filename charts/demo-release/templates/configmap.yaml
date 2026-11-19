@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appName }}-release-info
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.appName | quote }}
+    app.kubernetes.io/name: {{ .Values.appName | quote }}
+    backstage.io/kubernetes-id: {{ .Values.appName | quote }}
+    environment: {{ .Values.environment | quote }}
+data:
+  appName: {{ .Values.appName | quote }}
+  environment: {{ .Values.environment | quote }}
+  replicas: {{ .Values.replicas | toString | quote }}
+  imageRepository: {{ .Values.image.repository | quote }}
+  imageTag: {{ .Values.image.tag | quote }}

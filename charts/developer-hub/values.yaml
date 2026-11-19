@@ -96,6 +96,8 @@ catalog:
   demoKitchenSink:
     enabled: false
   # Node.js and Quarkus scaffolder Templates, mounted from this chart.
+  # Single-screen 12-column Command Centre Overview + consolidated CI/CD,
+  # Quality & Security, and Operations top tabs (app-config-command-centre).
   goldenPath:
     enabled: true
   locations:
@@ -108,6 +110,12 @@ catalog:
     - type: file
       target: /opt/app-root/src/golden-path/template-gitops-devspaces-namespace.yaml
       allow: [Template]
+    - type: file
+      target: /opt/app-root/src/golden-path/template-promote-to-prod.yaml
+      allow: [Template]
+
+commandCentreLayout:
+  enabled: true
 
 integrations:
   github:
@@ -239,6 +247,7 @@ plugins:
 
   argocd:
     enabled: true
+    namespacedApps: true
     frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.45.3__2.4.4
     backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend:bs_1.45.3__4.6.0
     scaffolderPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.45.3__1.8.1
@@ -250,6 +259,10 @@ plugins:
   githubScaffolder:
     enabled: true
     package: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-github-dynamic
+
+  scaffolderUtils:
+    enabled: true
+    package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-utils:bs_1.49.4__4.1.2
 
   bitbucket:
     enabled: true
@@ -349,6 +362,11 @@ plugins:
     # Classic API token (dt0c01…). Empty apiTarget skips the /dynatrace proxy.
     accessToken: "${DYNATRACE_ACCESS_TOKEN}"
     apiTarget: ""
+
+  pagerduty:
+    enabled: true
+    frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.49.4__0.19.0
+    backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.49.4__0.12.0
 
   apic:
     enabled: true

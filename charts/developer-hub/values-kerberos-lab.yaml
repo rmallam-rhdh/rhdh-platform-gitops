@@ -119,8 +119,13 @@ integrations:
   bitbucketServer:
     enabled: false
 
+commandCentreLayout:
+  enabled: false
+
 # Jira + GitHub scaffolder on; everything else off.
 plugins:
+  pagerduty:
+    enabled: false
   jenkins:
     enabled: false
   kubernetes:
@@ -161,6 +166,8 @@ plugins:
     enabled: false
   githubScaffolder:
     enabled: true
+  scaffolderUtils:
+    enabled: false
   bitbucket:
     enabled: false
   ldap:

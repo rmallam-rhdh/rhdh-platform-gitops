@@ -1,0 +1,204 @@
+# ==============================================================================
+# RHDH Dynamic Plugin "Command Centre" Entity Layout
+# Managed via OpenShift GitOps (Argo CD Application: developer-hub)
+#
+# Loaded after dynamic-plugins-root/app-config.dynamic-plugins.yaml so each
+# plugin's `mountPoints` array replaces the default scattered tabs (/ci, /cd,
+# /monitoring, /security, /servicenow) with:
+#   1) A unified 12-column Overview tab:
+#      - Row 1 (Operations):         Dynatrace (span 6) + PagerDuty (span 6)
+#      - Row 2 (Build & Security):   Jenkins (span 4) + SonarQube (span 4) + Snyk (span 4)
+#      - Row 3 (Deployments & ITSM): Argo CD Non-Prod/Prod (span 8) + ServiceNow (span 4)
+#   2) Three consolidated top tabs:
+#      - CI/CD              (Jenkins + Argo CD)
+#      - Quality & Security (SonarQube + Snyk)
+#      - Operations         (Dynatrace + PagerDuty + ServiceNow)
+# ==============================================================================
+dynamicPlugins:
+  frontend:
+
+    # ── ROW 1 (Overview: Operations — 6 + 6 = 12 cols) & "Operations" Tab ────
+    backstage-community.plugin-dynatrace:
+      entityTabs:
+        - path: /operations
+          title: Operations
+          mountPoint: entity.page.operations
+        # Kept as an empty/secondary alias only if bookmarked; primary UI tab is /operations
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: DynatraceTab
+          config:
+            priority: 100
+            layout:
+              gridColumn:
+                lg: "1 / span 6"
+                md: "1 / span 6"
+                xs: "1 / -1"
+            if:
+              allOf:
+                - isDynatraceAvailable
+        - mountPoint: entity.page.operations/cards
+          importName: DynatraceTab
+          config:
+            priority: 100
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isDynatraceAvailable
+
+    pagerduty.backstage-plugin:
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: EntityPagerDutyCard
+          config:
+            priority: 95
+            layout:
+              gridColumn:
+                lg: "7 / span 6"
+                md: "7 / span 6"
+                xs: "1 / -1"
+            if:
+              allOf:
+                - isPluginApplicableToEntity
+        - mountPoint: entity.page.operations/cards
+          importName: EntityPagerDutyCard
+          config:
+            priority: 90
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isPluginApplicableToEntity
+
+    # ── ROW 2 (Overview: Build & Security Gates — 4 + 4 + 4 = 12 cols) ───────
+    backstage-community.plugin-jenkins:
+      entityTabs:
+        - path: /ci-cd
+          title: CI/CD
+          mountPoint: entity.page.cicd
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: EntityLatestJenkinsRunCard
+          config:
+            priority: 85
+            layout:
+              gridColumn:
+                lg: "1 / span 4"
+                md: "1 / span 6"
+                xs: "1 / -1"
+            if:
+              allOf:
+                - isJenkinsAvailable
+        - mountPoint: entity.page.cicd/cards
+          importName: EntityJenkinsContent
+          config:
+            priority: 100
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isJenkinsAvailable
+
+    backstage-community.plugin-sonarqube:
+      entityTabs:
+        - path: /quality-security
+          title: Quality & Security
+          mountPoint: entity.page.quality-security
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: EntitySonarQubeCard
+          config:
+            priority: 80
+            layout:
+              gridColumn:
+                lg: "5 / span 4"
+                md: "7 / span 6"
+                xs: "1 / -1"
+            if:
+              allOf:
+                - isSonarQubeAvailable
+        - mountPoint: entity.page.quality-security/cards
+          importName: EntitySonarQubeContentPage
+          config:
+            priority: 100
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isSonarQubeAvailable
+
+    backstage-plugin-snyk:
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: SnykOverview
+          config:
+            priority: 75
+            layout:
+              gridColumn:
+                lg: "9 / span 4"
+                md: "1 / span 6"
+                xs: "1 / -1"
+            if:
+              allOf:
+                - isSnykAvailable
+        - mountPoint: entity.page.quality-security/cards
+          importName: EntitySnykContent
+          config:
+            priority: 90
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isSnykAvailable
+
+    # ── ROW 3 (Overview: Deployments & ITSM — 8 + 4 = 12 cols) ───────────────
+    backstage-community.plugin-argocd:
+      mountPoints:
+        # Unified Multi-Cluster Argo CD Overview Card (renders nonprod-argo & prod-argo)
+        - mountPoint: entity.page.overview/cards
+          importName: ArgocdDeploymentSummary
+          config:
+            priority: 65
+            layout:
+              gridColumn:
+                lg: "1 / span 8"
+                md: "1 / -1"
+                xs: "1 / -1"
+            if:
+              allOf:
+                - isArgocdConfigured
+        # Consolidated CI/CD Tab — Side-by-side Non-Prod & Prod Lifecycle Cards
+        - mountPoint: entity.page.cicd/cards
+          importName: ArgocdDeploymentLifecycle
+          config:
+            priority: 90
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isArgocdConfigured
+
+    backstage-community.plugin-servicenow:
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: ServicenowPage
+          config:
+            priority: 60
+            layout:
+              gridColumn:
+                lg: "9 / span 4"
+                md: "1 / -1"
+                xs: "1 / -1"
+            if:
+              anyOf:
+                - hasAnnotation: servicenow.com/entity-id
+        - mountPoint: entity.page.operations/cards
+          importName: ServicenowPage
+          config:
+            priority: 80
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              anyOf:
+                - hasAnnotation: servicenow.com/entity-id

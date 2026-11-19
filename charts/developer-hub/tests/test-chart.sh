@@ -176,6 +176,10 @@ raise "demo missing kitchen-sink template location" unless ks_tpl
 gp_tpl = locs.find { |l| l["target"].to_s.include?("template-nodejs-golden-path.yaml") }
 raise "demo missing nodejs golden-path template location" unless gp_tpl
 raise "nodejs golden path must be a file location from this chart" unless gp_tpl["type"] == "file"
+promo_tpl = locs.find { |l| l["target"].to_s.include?("template-promote-to-prod.yaml") }
+raise "demo missing promote-to-prod template location" unless promo_tpl
+argo_names = (d.dig("argocd", "appLocatorMethods", 0, "instances") || []).map { |i| i["name"] }
+raise "demo argocd must register nonprod-argo and prod-argo: #{argo_names}" unless argo_names == %w[nonprod-argo prod-argo]
 qx_tpl = locs.find { |l| l["target"].to_s.include?("template-quarkus-golden-path.yaml") }
 raise "demo missing quarkus golden-path template location" unless qx_tpl
 raise "quarkus golden path must be a file location from this chart" unless qx_tpl["type"] == "file"

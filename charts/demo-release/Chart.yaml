@@ -1,0 +1,6 @@
+apiVersion: v2
+name: demo-release
+description: Lightweight GitOps release marker chart for Non-Prod & Prod promotion demos
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

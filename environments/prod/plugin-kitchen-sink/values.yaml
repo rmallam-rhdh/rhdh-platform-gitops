@@ -1,0 +1,8 @@
+# Production GitOps values reconciled by `prod-argo`
+# Updated via self-service RHDH Software Template: `promote-service-to-production`
+appName: plugin-kitchen-sink
+environment: prod
+replicas: 2
+image:
+  repository: ghcr.io/rmallam-rhdh/plugin-kitchen-sink
+  tag: "1.1.0"

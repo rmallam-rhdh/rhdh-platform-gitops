@@ -79,6 +79,9 @@ catalog:
       target: /opt/app-root/src/golden-path/template-gitops-devspaces-namespace.yaml
       allow: [Template]
     - type: file
+      target: /opt/app-root/src/golden-path/template-promote-to-prod.yaml
+      allow: [Template]
+    - type: file
       target: /opt/app-root/src/catalog-demo/catalog-info.yaml
       allow: [Component, System]
 
@@ -135,8 +138,13 @@ plugins:
     proxyTarget: http://jenkins.jenkins.svc
     proxyAuth: "Basic ${JENKINS_BASIC_AUTH_B64}"
   argocd:
+    namespacedApps: true
     instances:
-      - name: default
+      - name: nonprod-argo
+        url: https://openshift-gitops-server-openshift-gitops.{{ .Values.app.clusterBaseDomain }}
+        token: "${ARGOCD_TOKEN}"
+      - name: prod-argo
+        # Swap URL & token when pointing at a separate prod-argo OpenShift GitOps cluster
         url: https://openshift-gitops-server-openshift-gitops.{{ .Values.app.clusterBaseDomain }}
         token: "${ARGOCD_TOKEN}"
   bitbucket:
