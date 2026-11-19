@@ -41,7 +41,7 @@ spec:
         devSpacesBaseUrl:
           title: Dev Spaces URL
           type: string
-          default: __DEVSPACES_BASE_URL__
+          default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
   steps:
     - id: fetch-skeleton
       name: Fetch Node UDI skeleton

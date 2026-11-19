@@ -95,23 +95,20 @@ catalog:
   # Static Component with every plugin annotation. Off in customer values.
   demoKitchenSink:
     enabled: false
-  # Node.js and Quarkus scaffolder Templates, mounted from this chart.
-  # Single-screen 12-column Command Centre Overview + consolidated CI/CD,
-  # Quality & Security, and Operations top tabs (app-config-command-centre).
-  goldenPath:
-    enabled: true
+  # Day-1 & Day-2 Software Templates fetched directly from GitHub (`type: url`)
+  # — no ConfigMap mount required, so template edits take effect without pod restarts.
   locations:
-    - type: file
-      target: /opt/app-root/src/golden-path/template-nodejs-golden-path.yaml
+    - type: url
+      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-nodejs-golden-path.yaml
       allow: [Template]
-    - type: file
-      target: /opt/app-root/src/golden-path/template-quarkus-golden-path.yaml
+    - type: url
+      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-quarkus-golden-path.yaml
       allow: [Template]
-    - type: file
-      target: /opt/app-root/src/golden-path/template-gitops-devspaces-namespace.yaml
+    - type: url
+      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-gitops-devspaces-namespace.yaml
       allow: [Template]
-    - type: file
-      target: /opt/app-root/src/golden-path/template-promote-to-prod.yaml
+    - type: url
+      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-promote-to-prod.yaml
       allow: [Template]
 
 commandCentreLayout:

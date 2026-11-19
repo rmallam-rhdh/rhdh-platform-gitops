@@ -1,0 +1,18 @@
+# Catalog Location index for all Day-1 & Day-2 RHDH Software Templates in Git.
+# RHDH fetches these directly from GitHub (`type: url`) with zero ConfigMap mounts.
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: idp-golden-path-templates
+  description: Day-1 scaffolding and Day-2 GitOps promotion templates managed in Git
+spec:
+  targets:
+    - ./templates/template-nodejs-golden-path.yaml
+    - ./templates/template-quarkus-golden-path.yaml
+    - ./templates/template-plugin-kitchen-sink.yaml
+    - ./templates/template-nodejs-website.yaml
+    - ./templates/template-node-udi-devspaces.yaml
+    - ./templates/template-start-feature-devspaces.yaml
+    - ./templates/template-open-devspaces-namespace.yaml
+    - ./templates/template-gitops-devspaces-namespace.yaml
+    - ./templates/template-promote-to-prod.yaml
