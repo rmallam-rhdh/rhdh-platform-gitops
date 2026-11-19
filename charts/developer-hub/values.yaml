@@ -171,6 +171,7 @@ permission:
     p, role:default/developer, scaffolder.task.cancel, update, allow
     p, role:default/developer, kubernetes.clusters.read, read, allow
     p, role:default/developer, kubernetes.resources.read, read, allow
+    p, role:default/developer, argocd.view.read, read, allow
     g, group:default/developers, role:default/developer
     g, group:default/app-owners, role:default/developer
     g, group:default/platform-team, role:default/developer
@@ -186,13 +187,16 @@ branding:
   light:
     primaryColor: "#2563EB"
     secondaryColor: "#0284C7"
-    indicatorColor: "#38BDF8"
+    indicatorColor: "#2563EB"
     headerStart: "#0F172A"
     headerEnd: "#1E3A8A"
     headerFontColor: "#FFFFFF"
-    shellColor: "#0F172A"
-    shellBorderColor: "#1E293B"
-    shellHoverColor: "#1E293B"
+    shellColor: "#F8FAFC"
+    shellBorderColor: "#E2E8F0"
+    shellHoverColor: "#E2E8F0"
+    shellTextColor: "#334155"
+    shellSelectedTextColor: "#0F172A"
+    appBarColor: "#FFFFFF"
     canvasColor: "#F1F5F9"
     cardColor: "#FFFFFF"
     cardHeaderColor: "#F8FAFC"

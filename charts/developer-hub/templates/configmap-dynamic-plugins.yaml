@@ -164,22 +164,13 @@ data:
             kvVersion: {{ .Values.plugins.vault.kvVersion }}
       - package: {{ .Values.plugins.vault.frontendPackage | quote }}
         disabled: {{ not .Values.plugins.vault.enabled }}
+        # pr_1225__0.19.0 has no dist-scalprum/PluginRoot; omit mountPoints so
+        # Scalprum does not render a broken fallback placeholder on Overview.
         pluginConfig:
           dynamicPlugins:
             frontend:
               backstage-community.plugin-vault:
-                mountPoints:
-                  - mountPoint: entity.page.overview/cards
-                    importName: EntityVaultCard
-                    config:
-                      layout:
-                        gridColumnEnd:
-                          lg: "span 4"
-                          md: "span 6"
-                          xs: "span 12"
-                      if:
-                        anyOf:
-                          - hasAnnotation: vault.io/secrets-path
+                mountPoints: []
 
       - package: {{ .Values.plugins.servicenow.scaffolderPackage | quote }}
         disabled: {{ not .Values.plugins.servicenow.enabled }}

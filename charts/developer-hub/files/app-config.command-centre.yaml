@@ -3,22 +3,20 @@
 # Managed via OpenShift GitOps (Argo CD Application: developer-hub)
 #
 # Architectural Principles:
-#   1) Auto-Flowing Bento Grid on Overview (`gridColumnEnd: span X` ONLY):
-#      RHDH's built-in CatalogEntityPage renders `Links + About` in a static left
-#      rail (`gridColumn: "1 / span 4", gridRow: "span 2"`). Using `gridColumnEnd`
-#      (never hardcoded start columns) lets dynamic KPI cards pack seamlessly into
-#      Columns 5–12 of Rows 1–2 right beside `Links + About`, and automatically
-#      reflow with zero empty holes when an entity omits optional annotations.
-#   2) Compact KPI Cards Only on Overview:
-#      Full-page multi-column data tables (Dynatrace Problems, ServiceNow Incidents,
-#      Jira Backlogs, Kiali Mesh Graphs) live on full-width domain tabs so Overview
-#      stays crisp, uniform (`maxHeight: 260px`), and 100% above-the-fold.
-#   3) Deterministic Top Navigation Bar (`entityTabs` priority ordering):
+#   1) Breakpoint-Aligned Bento Grid on Overview (`gridColumnEnd` ONLY):
+#      RHDH's built-in CatalogEntityPage (`@material-ui/core` v4, `lg=1280px`)
+#      renders `Links + About` as `6 cols` at <=1280px viewports (`1265px` inner
+#      width) and `4 cols` on widescreen (`xl >= 1536px`). Dynamic cards use
+#      MUI v5 `sx` (`lg=1200px`), so pairing `lg: "span 6"` with `xl: "span 4"`
+#      (and `xl: "span 8"` for Argo CD) guarantees cards pack tightly into the
+#      right-hand columns right beside `Links + About` at BOTH 1280px laptop and
+#      1536px+ desktop resolutions — zero empty voids!
+#   2) Compact KPI Cards Only on Overview (`<= 240px` max height):
+#      Descendant `.MuiCard-root` constraints keep all Overview boxes compact and
+#      uniform while full-width data tables live on domain tabs.
+#   3) Deterministic 6-Tab Top Bar (`entityTabs` priority ordering):
 #      Overview (100) -> CI/CD (90) -> Quality & Security (80) -> Runtime (70)
-#      -> Operations (60) -> Docs (50) -> Dependencies (40).
-#      Individual plugin tabs (/kiali, /jira, /servicenow, /dynatrace, /topology,
-#      /kubernetes, /ci, /cd, /monitoring, /image-registry, /api) use `priority: -1`
-#      so RHDH suppresses tab clutter cleanly.
+#      -> Operations (60) -> Docs (50). All scattered plugin tabs use `priority: -1`.
 # ==============================================================================
 dynamicPlugins:
   frontend:
@@ -26,7 +24,6 @@ dynamicPlugins:
     # ── 1. Multi-Cluster Argo CD (Overview Top-Right Bento + CI/CD Tab) ──────
     backstage-community.plugin-argocd:
       entityTabs:
-        # Anchor Overview at priority 100 so custom tabs never sort ahead of `/`
         - path: /
           title: Overview
           mountPoint: entity.page.overview
@@ -36,30 +33,35 @@ dynamicPlugins:
           mountPoint: entity.page.cd
           priority: -1
       mountPoints:
-        # Sits in Row 1, Cols 5–12 (`4 + 8 = 12`) right beside Links + About
         - mountPoint: entity.page.overview/cards
           importName: ArgocdDeploymentSummary
           config:
             priority: 100
             layout:
               gridColumnEnd:
-                lg: "span 8"
+                xl: "span 8"
+                lg: "span 6"
                 md: "span 6"
                 xs: "span 12"
-              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+              "& .MuiCard-root":
                 height: "100%"
-                maxHeight: "260px"
+                maxHeight: "240px"
+                display: "flex"
+                flexDirection: "column"
+                overflow: "hidden"
+              "& .MuiTableContainer-root":
+                maxHeight: "185px"
                 overflowY: "auto"
-                borderRadius: "10px"
-              "& .MuiCardHeader-root":
-                padding: "10px 16px"
-              "& .MuiCardHeader-title":
-                fontSize: "0.95rem"
-                fontWeight: "600"
+              "& .MuiToolbar-root":
+                minHeight: "44px"
+                paddingLeft: "16px"
+                paddingRight: "16px"
             if:
               allOf:
                 - isArgocdConfigured
-        # Full-width Non-Prod & Prod Lifecycle Cards on CI/CD tab
+              anyOf:
+                - hasAnnotation: argocd/app-selector
+                - hasAnnotation: argocd/app-name
         - mountPoint: entity.page.cicd/cards
           importName: ArgocdDeploymentLifecycle
           config:
@@ -82,22 +84,22 @@ dynamicPlugins:
           mountPoint: entity.page.ci
           priority: -1
       mountPoints:
-        # Sits in Cols 5–8 (`span 4`) right beside About (slides up to Row 1 if no Argo)
         - mountPoint: entity.page.overview/cards
           importName: EntityLatestJenkinsRunCard
           config:
             priority: 90
             layout:
               gridColumnEnd:
-                lg: "span 4"
+                xl: "span 4"
+                lg: "span 6"
                 md: "span 6"
                 xs: "span 12"
-              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+              "& .MuiCard-root":
                 height: "100%"
-                maxHeight: "250px"
+                maxHeight: "230px"
                 display: "flex"
                 flexDirection: "column"
-                borderRadius: "10px"
+                overflow: "hidden"
               "& .MuiCardHeader-root":
                 padding: "10px 16px"
               "& .MuiCardHeader-title":
@@ -140,22 +142,22 @@ dynamicPlugins:
           mountPoint: entity.page.quality-security
           priority: 80
       mountPoints:
-        # Sits in Cols 9–12 (`span 4`) completing the 12-column top bento rectangle
         - mountPoint: entity.page.overview/cards
           importName: EntitySonarQubeCard
           config:
             priority: 85
             layout:
               gridColumnEnd:
-                lg: "span 4"
+                xl: "span 4"
+                lg: "span 6"
                 md: "span 6"
                 xs: "span 12"
-              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+              "& .MuiCard-root":
                 height: "100%"
-                maxHeight: "250px"
+                maxHeight: "230px"
                 display: "flex"
                 flexDirection: "column"
-                borderRadius: "10px"
+                overflow: "hidden"
               "& .MuiCardHeader-root":
                 padding: "10px 16px"
               "& .MuiCardHeader-title":
@@ -165,6 +167,9 @@ dynamicPlugins:
                 padding: "12px 16px"
                 overflowY: "auto"
                 flexGrow: "1"
+              "& .MuiCardContent-root svg":
+                maxHeight: "72px"
+                width: "auto"
             if:
               allOf:
                 - isSonarQubeAvailable
@@ -177,6 +182,7 @@ dynamicPlugins:
             if:
               allOf:
                 - isSonarQubeAvailable
+{{- if .Values.plugins.snyk.enabled }}
 
     backstage-plugin-snyk:
       mountPoints:
@@ -186,15 +192,16 @@ dynamicPlugins:
             priority: 75
             layout:
               gridColumnEnd:
-                lg: "span 4"
+                xl: "span 4"
+                lg: "span 6"
                 md: "span 6"
                 xs: "span 12"
-              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+              "& .MuiCard-root":
                 height: "100%"
-                maxHeight: "250px"
+                maxHeight: "230px"
                 display: "flex"
                 flexDirection: "column"
-                borderRadius: "10px"
+                overflow: "hidden"
               "& .MuiCardHeader-root":
                 padding: "10px 16px"
               "& .MuiCardHeader-title":
@@ -216,6 +223,7 @@ dynamicPlugins:
             if:
               allOf:
                 - isSnykAvailable
+{{- end }}
 
     backstage-community.plugin-jfrog-artifactory:
       entityTabs:
@@ -310,7 +318,6 @@ dynamicPlugins:
           mountPoint: entity.page.monitoring
           priority: -1
       mountPoints:
-        # Full 12-column width on Operations tab so all 7 Problems columns fit cleanly
         - mountPoint: entity.page.operations/cards
           importName: DynatraceTab
           config:
@@ -326,22 +333,22 @@ dynamicPlugins:
 
     pagerduty.backstage-plugin:
       mountPoints:
-        # Ultra-compact KPI summary card on Overview (`EntityPagerDutySmallCard`)
         - mountPoint: entity.page.overview/cards
           importName: EntityPagerDutySmallCard
           config:
             priority: 80
             layout:
               gridColumnEnd:
-                lg: "span 4"
+                xl: "span 4"
+                lg: "span 6"
                 md: "span 6"
                 xs: "span 12"
-              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+              "& .MuiCard-root":
                 height: "100%"
-                maxHeight: "250px"
+                maxHeight: "230px"
                 display: "flex"
                 flexDirection: "column"
-                borderRadius: "10px"
+                overflow: "hidden"
               "& .MuiCardHeader-root":
                 padding: "10px 16px"
               "& .MuiCardHeader-title":
@@ -354,7 +361,6 @@ dynamicPlugins:
             if:
               allOf:
                 - isPluginApplicableToEntity
-        # Full PagerDuty incident & escalation console on Operations tab (span 6)
         - mountPoint: entity.page.operations/cards
           importName: EntityPagerDutyCard
           config:
@@ -379,7 +385,6 @@ dynamicPlugins:
           mountPoint: entity.page.issues
           priority: -1
       mountPoints:
-        # Paired alongside PagerDuty (`6 + 6 = 12`) on Operations tab
         - mountPoint: entity.page.operations/cards
           importName: EntityJiraOverviewCard
           config:
@@ -400,7 +405,6 @@ dynamicPlugins:
           mountPoint: entity.page.servicenow
           priority: -1
       mountPoints:
-        # Wrapped in an elevated bordered Paper surface on Operations tab
         - mountPoint: entity.page.operations/cards
           importName: ServicenowPage
           config:
@@ -416,37 +420,7 @@ dynamicPlugins:
               anyOf:
                 - hasAnnotation: servicenow.com/entity-id
 
-    # ── 6. Vault Compact Card + Built-In Tab Ordering (Docs & Dependencies) ──
-    backstage-community.plugin-vault:
-      mountPoints:
-        - mountPoint: entity.page.overview/cards
-          importName: EntityVaultCard
-          config:
-            priority: 70
-            layout:
-              gridColumnEnd:
-                lg: "span 4"
-                md: "span 6"
-                xs: "span 12"
-              "& > .MuiPaper-root, & > div > .MuiPaper-root":
-                height: "100%"
-                maxHeight: "250px"
-                display: "flex"
-                flexDirection: "column"
-                borderRadius: "10px"
-              "& .MuiCardHeader-root":
-                padding: "10px 16px"
-              "& .MuiCardHeader-title":
-                fontSize: "0.95rem"
-                fontWeight: "600"
-              "& .MuiCardContent-root":
-                padding: "12px 16px"
-                overflowY: "auto"
-                flexGrow: "1"
-            if:
-              anyOf:
-                - hasAnnotation: vault.io/secrets-path
-
+    # ── 6. Built-In Tab Ordering (Docs ON, empty API & Dependencies hidden) ──
     backstage.plugin-techdocs:
       entityTabs:
         - path: /docs
@@ -456,7 +430,7 @@ dynamicPlugins:
         - path: /dependencies
           title: Dependencies
           mountPoint: entity.page.dependencies
-          priority: 40
+          priority: -1
         - path: /api
           title: API
           mountPoint: entity.page.api

@@ -8,5 +8,5 @@ metadata:
     {{- include "rhdh.labels" . | nindent 4 }}
 data:
   app-config.command-centre.yaml: |
-{{ .Files.Get "files/app-config.command-centre.yaml" | nindent 4 }}
+{{ tpl (.Files.Get "files/app-config.command-centre.yaml") . | nindent 4 }}
 {{- end }}
