@@ -2,119 +2,169 @@
 # RHDH Dynamic Plugin "Command Centre" Entity Layout
 # Managed via OpenShift GitOps (Argo CD Application: developer-hub)
 #
-# Loaded after dynamic-plugins-root/app-config.dynamic-plugins.yaml so each
-# plugin's `mountPoints` array replaces the default scattered tabs (/ci, /cd,
-# /monitoring, /security, /servicenow) with:
-#   1) A unified 12-column Overview tab:
-#      - Row 1 (Operations):         Dynatrace (span 6) + PagerDuty (span 6)
-#      - Row 2 (Build & Security):   Jenkins (span 4) + SonarQube (span 4) + Snyk (span 4)
-#      - Row 3 (Deployments & ITSM): Argo CD Non-Prod/Prod (span 8) + ServiceNow (span 4)
-#   2) Three consolidated top tabs:
-#      - CI/CD              (Jenkins + Argo CD)
-#      - Quality & Security (SonarQube + Snyk)
-#      - Operations         (Dynatrace + PagerDuty + ServiceNow)
+# Architectural Principles:
+#   1) Auto-Flowing Bento Grid on Overview (`gridColumnEnd: span X` ONLY):
+#      RHDH's built-in CatalogEntityPage renders `Links + About` in a static left
+#      rail (`gridColumn: "1 / span 4", gridRow: "span 2"`). Using `gridColumnEnd`
+#      (never hardcoded start columns) lets dynamic KPI cards pack seamlessly into
+#      Columns 5–12 of Rows 1–2 right beside `Links + About`, and automatically
+#      reflow with zero empty holes when an entity omits optional annotations.
+#   2) Compact KPI Cards Only on Overview:
+#      Full-page multi-column data tables (Dynatrace Problems, ServiceNow Incidents,
+#      Jira Backlogs, Kiali Mesh Graphs) live on full-width domain tabs so Overview
+#      stays crisp, uniform (`maxHeight: 260px`), and 100% above-the-fold.
+#   3) Deterministic Top Navigation Bar (`entityTabs` priority ordering):
+#      Overview (100) -> CI/CD (90) -> Quality & Security (80) -> Runtime (70)
+#      -> Operations (60) -> Docs (50) -> Dependencies (40).
+#      Individual plugin tabs (/kiali, /jira, /servicenow, /dynatrace, /topology,
+#      /kubernetes, /ci, /cd, /monitoring, /image-registry, /api) use `priority: -1`
+#      so RHDH suppresses tab clutter cleanly.
 # ==============================================================================
 dynamicPlugins:
   frontend:
 
-    # ── ROW 1 (Overview: Operations — 6 + 6 = 12 cols) & "Operations" Tab ────
-    backstage-community.plugin-dynatrace:
+    # ── 1. Multi-Cluster Argo CD (Overview Top-Right Bento + CI/CD Tab) ──────
+    backstage-community.plugin-argocd:
       entityTabs:
-        - path: /operations
-          title: Operations
-          mountPoint: entity.page.operations
-        # Kept as an empty/secondary alias only if bookmarked; primary UI tab is /operations
+        # Anchor Overview at priority 100 so custom tabs never sort ahead of `/`
+        - path: /
+          title: Overview
+          mountPoint: entity.page.overview
+          priority: 100
+        - path: /cd
+          title: CD
+          mountPoint: entity.page.cd
+          priority: -1
       mountPoints:
+        # Sits in Row 1, Cols 5–12 (`4 + 8 = 12`) right beside Links + About
         - mountPoint: entity.page.overview/cards
-          importName: DynatraceTab
+          importName: ArgocdDeploymentSummary
           config:
             priority: 100
             layout:
-              gridColumn:
-                lg: "1 / span 6"
-                md: "1 / span 6"
-                xs: "1 / -1"
+              gridColumnEnd:
+                lg: "span 8"
+                md: "span 6"
+                xs: "span 12"
+              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+                height: "100%"
+                maxHeight: "260px"
+                overflowY: "auto"
+                borderRadius: "10px"
+              "& .MuiCardHeader-root":
+                padding: "10px 16px"
+              "& .MuiCardHeader-title":
+                fontSize: "0.95rem"
+                fontWeight: "600"
             if:
               allOf:
-                - isDynatraceAvailable
-        - mountPoint: entity.page.operations/cards
-          importName: DynatraceTab
+                - isArgocdConfigured
+        # Full-width Non-Prod & Prod Lifecycle Cards on CI/CD tab
+        - mountPoint: entity.page.cicd/cards
+          importName: ArgocdDeploymentLifecycle
           config:
             priority: 100
             layout:
               gridColumn: "1 / -1"
             if:
               allOf:
-                - isDynatraceAvailable
+                - isArgocdConfigured
 
-    pagerduty.backstage-plugin:
-      mountPoints:
-        - mountPoint: entity.page.overview/cards
-          importName: EntityPagerDutyCard
-          config:
-            priority: 95
-            layout:
-              gridColumn:
-                lg: "7 / span 6"
-                md: "7 / span 6"
-                xs: "1 / -1"
-            if:
-              allOf:
-                - isPluginApplicableToEntity
-        - mountPoint: entity.page.operations/cards
-          importName: EntityPagerDutyCard
-          config:
-            priority: 90
-            layout:
-              gridColumn: "1 / -1"
-            if:
-              allOf:
-                - isPluginApplicableToEntity
-
-    # ── ROW 2 (Overview: Build & Security Gates — 4 + 4 + 4 = 12 cols) ───────
+    # ── 2. Jenkins + Tekton (Overview Compact Card + Consolidated CI/CD Tab) ─
     backstage-community.plugin-jenkins:
       entityTabs:
         - path: /ci-cd
           title: CI/CD
           mountPoint: entity.page.cicd
+          priority: 90
+        - path: /ci
+          title: CI
+          mountPoint: entity.page.ci
+          priority: -1
       mountPoints:
+        # Sits in Cols 5–8 (`span 4`) right beside About (slides up to Row 1 if no Argo)
         - mountPoint: entity.page.overview/cards
           importName: EntityLatestJenkinsRunCard
           config:
-            priority: 85
+            priority: 90
             layout:
-              gridColumn:
-                lg: "1 / span 4"
-                md: "1 / span 6"
-                xs: "1 / -1"
+              gridColumnEnd:
+                lg: "span 4"
+                md: "span 6"
+                xs: "span 12"
+              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+                height: "100%"
+                maxHeight: "250px"
+                display: "flex"
+                flexDirection: "column"
+                borderRadius: "10px"
+              "& .MuiCardHeader-root":
+                padding: "10px 16px"
+              "& .MuiCardHeader-title":
+                fontSize: "0.95rem"
+                fontWeight: "600"
+              "& .MuiCardContent-root":
+                padding: "12px 16px"
+                overflowY: "auto"
+                flexGrow: "1"
             if:
               allOf:
                 - isJenkinsAvailable
         - mountPoint: entity.page.cicd/cards
           importName: EntityJenkinsContent
           config:
-            priority: 100
+            priority: 90
             layout:
               gridColumn: "1 / -1"
             if:
               allOf:
                 - isJenkinsAvailable
 
+    backstage-community.plugin-tekton:
+      mountPoints:
+        - mountPoint: entity.page.cicd/cards
+          importName: TektonCI
+          config:
+            priority: 80
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isTektonCIAvailable
+
+    # ── 3. SonarQube + Snyk + Artifactory ("Quality & Security" Tab) ─────────
     backstage-community.plugin-sonarqube:
       entityTabs:
         - path: /quality-security
           title: Quality & Security
           mountPoint: entity.page.quality-security
+          priority: 80
       mountPoints:
+        # Sits in Cols 9–12 (`span 4`) completing the 12-column top bento rectangle
         - mountPoint: entity.page.overview/cards
           importName: EntitySonarQubeCard
           config:
-            priority: 80
+            priority: 85
             layout:
-              gridColumn:
-                lg: "5 / span 4"
-                md: "7 / span 6"
-                xs: "1 / -1"
+              gridColumnEnd:
+                lg: "span 4"
+                md: "span 6"
+                xs: "span 12"
+              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+                height: "100%"
+                maxHeight: "250px"
+                display: "flex"
+                flexDirection: "column"
+                borderRadius: "10px"
+              "& .MuiCardHeader-root":
+                padding: "10px 16px"
+              "& .MuiCardHeader-title":
+                fontSize: "0.95rem"
+                fontWeight: "600"
+              "& .MuiCardContent-root":
+                padding: "12px 16px"
+                overflowY: "auto"
+                flexGrow: "1"
             if:
               allOf:
                 - isSonarQubeAvailable
@@ -135,10 +185,25 @@ dynamicPlugins:
           config:
             priority: 75
             layout:
-              gridColumn:
-                lg: "9 / span 4"
-                md: "1 / span 6"
-                xs: "1 / -1"
+              gridColumnEnd:
+                lg: "span 4"
+                md: "span 6"
+                xs: "span 12"
+              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+                height: "100%"
+                maxHeight: "250px"
+                display: "flex"
+                flexDirection: "column"
+                borderRadius: "10px"
+              "& .MuiCardHeader-root":
+                padding: "10px 16px"
+              "& .MuiCardHeader-title":
+                fontSize: "0.95rem"
+                fontWeight: "600"
+              "& .MuiCardContent-root":
+                padding: "12px 16px"
+                overflowY: "auto"
+                flexGrow: "1"
             if:
               allOf:
                 - isSnykAvailable
@@ -152,53 +217,247 @@ dynamicPlugins:
               allOf:
                 - isSnykAvailable
 
-    # ── ROW 3 (Overview: Deployments & ITSM — 8 + 4 = 12 cols) ───────────────
-    backstage-community.plugin-argocd:
+    backstage-community.plugin-jfrog-artifactory:
+      entityTabs:
+        - path: /image-registry
+          title: Image Registry
+          mountPoint: entity.page.image-registry
+          priority: -1
       mountPoints:
-        # Unified Multi-Cluster Argo CD Overview Card (renders nonprod-argo & prod-argo)
-        - mountPoint: entity.page.overview/cards
-          importName: ArgocdDeploymentSummary
-          config:
-            priority: 65
-            layout:
-              gridColumn:
-                lg: "1 / span 8"
-                md: "1 / -1"
-                xs: "1 / -1"
-            if:
-              allOf:
-                - isArgocdConfigured
-        # Consolidated CI/CD Tab — Side-by-side Non-Prod & Prod Lifecycle Cards
-        - mountPoint: entity.page.cicd/cards
-          importName: ArgocdDeploymentLifecycle
-          config:
-            priority: 90
-            layout:
-              gridColumn: "1 / -1"
-            if:
-              allOf:
-                - isArgocdConfigured
-
-    backstage-community.plugin-servicenow:
-      mountPoints:
-        - mountPoint: entity.page.overview/cards
-          importName: ServicenowPage
-          config:
-            priority: 60
-            layout:
-              gridColumn:
-                lg: "9 / span 4"
-                md: "1 / -1"
-                xs: "1 / -1"
-            if:
-              anyOf:
-                - hasAnnotation: servicenow.com/entity-id
-        - mountPoint: entity.page.operations/cards
-          importName: ServicenowPage
+        - mountPoint: entity.page.quality-security/cards
+          importName: JfrogArtifactoryPage
           config:
             priority: 80
             layout:
               gridColumn: "1 / -1"
             if:
               anyOf:
+                - isJfrogArtifactoryAvailable
+
+    # ── 4. Topology + Kubernetes + Kiali ("Runtime" Tab — 3 Tabs -> 1) ───────
+    backstage-community.plugin-topology:
+      entityTabs:
+        - path: /runtime
+          title: Runtime
+          mountPoint: entity.page.runtime
+          priority: 70
+        - path: /topology
+          title: Topology
+          mountPoint: entity.page.topology
+          priority: -1
+      mountPoints:
+        - mountPoint: entity.page.runtime/cards
+          importName: TopologyPage
+          config:
+            priority: 100
+            layout:
+              gridColumn: "1 / -1"
+              height: "65vh"
+            if:
+              anyOf:
+                - hasAnnotation: backstage.io/kubernetes-id
+                - hasAnnotation: backstage.io/kubernetes-namespace
+
+    backstage.plugin-kubernetes:
+      entityTabs:
+        - path: /kubernetes
+          title: Kubernetes
+          mountPoint: entity.page.kubernetes
+          priority: -1
+      mountPoints:
+        - mountPoint: entity.page.runtime/cards
+          importName: EntityKubernetesContent
+          config:
+            priority: 90
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              anyOf:
+                - hasAnnotation: backstage.io/kubernetes-id
+                - hasAnnotation: backstage.io/kubernetes-namespace
+
+    backstage-community.plugin-kiali:
+      entityTabs:
+        - path: /kiali
+          title: Kiali
+          mountPoint: entity.page.kiali
+          priority: -1
+      mountPoints:
+        - mountPoint: entity.page.runtime/cards
+          importName: EntityKialiContent
+          config:
+            priority: 80
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              anyOf:
+                - hasAnnotation: kiali.io/namespace
+                - hasAnnotation: backstage.io/kubernetes-namespace
+
+    # ── 5. Dynatrace + PagerDuty + Jira + ServiceNow ("Operations" Tab) ──────
+    backstage-community.plugin-dynatrace:
+      entityTabs:
+        - path: /operations
+          title: Operations
+          mountPoint: entity.page.operations
+          priority: 60
+        - path: /dynatrace
+          title: Dynatrace
+          mountPoint: entity.page.dynatrace
+          priority: -1
+        - path: /monitoring
+          title: Monitoring
+          mountPoint: entity.page.monitoring
+          priority: -1
+      mountPoints:
+        # Full 12-column width on Operations tab so all 7 Problems columns fit cleanly
+        - mountPoint: entity.page.operations/cards
+          importName: DynatraceTab
+          config:
+            priority: 100
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isDynatraceAvailable
+
+    dynatrace.backstage-plugin-dql:
+      mountPoints: []
+
+    pagerduty.backstage-plugin:
+      mountPoints:
+        # Ultra-compact KPI summary card on Overview (`EntityPagerDutySmallCard`)
+        - mountPoint: entity.page.overview/cards
+          importName: EntityPagerDutySmallCard
+          config:
+            priority: 80
+            layout:
+              gridColumnEnd:
+                lg: "span 4"
+                md: "span 6"
+                xs: "span 12"
+              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+                height: "100%"
+                maxHeight: "250px"
+                display: "flex"
+                flexDirection: "column"
+                borderRadius: "10px"
+              "& .MuiCardHeader-root":
+                padding: "10px 16px"
+              "& .MuiCardHeader-title":
+                fontSize: "0.95rem"
+                fontWeight: "600"
+              "& .MuiCardContent-root":
+                padding: "12px 16px"
+                overflowY: "auto"
+                flexGrow: "1"
+            if:
+              allOf:
+                - isPluginApplicableToEntity
+        # Full PagerDuty incident & escalation console on Operations tab (span 6)
+        - mountPoint: entity.page.operations/cards
+          importName: EntityPagerDutyCard
+          config:
+            priority: 95
+            layout:
+              gridColumnEnd:
+                lg: "span 6"
+                md: "span 12"
+                xs: "span 12"
+            if:
+              allOf:
+                - isPluginApplicableToEntity
+
+    roadiehq.backstage-plugin-jira:
+      entityTabs:
+        - path: /jira
+          title: Jira
+          mountPoint: entity.page.jira
+          priority: -1
+        - path: /issues
+          title: Issues
+          mountPoint: entity.page.issues
+          priority: -1
+      mountPoints:
+        # Paired alongside PagerDuty (`6 + 6 = 12`) on Operations tab
+        - mountPoint: entity.page.operations/cards
+          importName: EntityJiraOverviewCard
+          config:
+            priority: 90
+            layout:
+              gridColumnEnd:
+                lg: "span 6"
+                md: "span 12"
+                xs: "span 12"
+            if:
+              allOf:
+                - isJiraAvailable
+
+    backstage-community.plugin-servicenow:
+      entityTabs:
+        - path: /servicenow
+          title: ServiceNow
+          mountPoint: entity.page.servicenow
+          priority: -1
+      mountPoints:
+        # Wrapped in an elevated bordered Paper surface on Operations tab
+        - mountPoint: entity.page.operations/cards
+          importName: ServicenowPage
+          config:
+            priority: 80
+            layout:
+              gridColumn: "1 / -1"
+              backgroundColor: "background.paper"
+              border: "1px solid"
+              borderColor: "divider"
+              borderRadius: "10px"
+              padding: "16px"
+            if:
+              anyOf:
                 - hasAnnotation: servicenow.com/entity-id
+
+    # ── 6. Vault Compact Card + Built-In Tab Ordering (Docs & Dependencies) ──
+    backstage-community.plugin-vault:
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: EntityVaultCard
+          config:
+            priority: 70
+            layout:
+              gridColumnEnd:
+                lg: "span 4"
+                md: "span 6"
+                xs: "span 12"
+              "& > .MuiPaper-root, & > div > .MuiPaper-root":
+                height: "100%"
+                maxHeight: "250px"
+                display: "flex"
+                flexDirection: "column"
+                borderRadius: "10px"
+              "& .MuiCardHeader-root":
+                padding: "10px 16px"
+              "& .MuiCardHeader-title":
+                fontSize: "0.95rem"
+                fontWeight: "600"
+              "& .MuiCardContent-root":
+                padding: "12px 16px"
+                overflowY: "auto"
+                flexGrow: "1"
+            if:
+              anyOf:
+                - hasAnnotation: vault.io/secrets-path
+
+    backstage.plugin-techdocs:
+      entityTabs:
+        - path: /docs
+          title: Docs
+          mountPoint: entity.page.docs
+          priority: 50
+        - path: /dependencies
+          title: Dependencies
+          mountPoint: entity.page.dependencies
+          priority: 40
+        - path: /api
+          title: API
+          mountPoint: entity.page.api
+          priority: -1

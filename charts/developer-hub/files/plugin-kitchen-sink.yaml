@@ -2,6 +2,19 @@
 # Promotion Template has working annotations and About-card links out of the box.
 ---
 apiVersion: backstage.io/v1alpha1
+kind: User
+metadata:
+  name: guest
+  description: Built-in lab guest identity so guest-owned entities resolve cleanly without orphan warnings
+spec:
+  profile:
+    displayName: Platform Guest
+    email: guest@corp.example.com
+  memberOf:
+    - developers
+    - platform-team
+---
+apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
   name: plugin-kitchen-sink

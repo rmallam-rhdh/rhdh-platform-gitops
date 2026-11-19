@@ -125,11 +125,26 @@ spec:
                     - key: bridge-client.keytab
                       path: bridge-client.keytab
               {{- end }}
-            {{- if or .Values.catalog.demoKitchenSink.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
+            {{- if or .Values.instance.backendResources .Values.instance.startupProbe .Values.catalog.demoKitchenSink.enabled .Values.database.external.enabled .Values.kerberosBridgeSidecar.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
             containers:
               # Always patch backstage-backend when we touch containers (incl. sidecar-only)
               # so strategic merge cannot drop the Hub container.
               - name: backstage-backend
+                {{- if .Values.instance.backendResources }}
+                resources:
+                  {{- toYaml .Values.instance.backendResources | nindent 18 }}
+                {{- end }}
+                {{- if .Values.instance.startupProbe }}
+                startupProbe:
+                  httpGet:
+                    path: /.backstage/health/v1/liveness
+                    port: backend
+                    scheme: HTTP
+                  initialDelaySeconds: {{ .Values.instance.startupProbe.initialDelaySeconds | default 25 }}
+                  periodSeconds: {{ .Values.instance.startupProbe.periodSeconds | default 15 }}
+                  failureThreshold: {{ .Values.instance.startupProbe.failureThreshold | default 12 }}
+                  timeoutSeconds: {{ .Values.instance.startupProbe.timeoutSeconds | default 5 }}
+                {{- end }}
                 {{- if .Values.database.external.enabled }}
                 env:
                   - name: POSTGRES_HOST

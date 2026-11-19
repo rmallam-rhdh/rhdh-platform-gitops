@@ -24,6 +24,19 @@ instance:
   secretsName: rhdh-secrets
   dynamicPluginsRoot:
     size: 8Gi
+  # Avoid startupProbe restarts when loading 40+ dynamic plugins on 1-vCPU default
+  backendResources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2560Mi
+  startupProbe:
+    initialDelaySeconds: 25
+    periodSeconds: 15
+    failureThreshold: 12
+    timeoutSeconds: 5
   extraFiles:
     rbacPolicies: true
     branding: true
@@ -169,9 +182,39 @@ rbac:
 
 branding:
   enabled: true
-  primaryColor: "#D5002B"
-  headerColor1: "#D5002B"
-  headerColor2: "#8B0019"
+  pageInset: "1rem"
+  light:
+    primaryColor: "#2563EB"
+    secondaryColor: "#0284C7"
+    indicatorColor: "#38BDF8"
+    headerStart: "#0F172A"
+    headerEnd: "#1E3A8A"
+    headerFontColor: "#FFFFFF"
+    shellColor: "#0F172A"
+    shellBorderColor: "#1E293B"
+    shellHoverColor: "#1E293B"
+    canvasColor: "#F1F5F9"
+    cardColor: "#FFFFFF"
+    cardHeaderColor: "#F8FAFC"
+    borderColor: "#CBD5E1"
+    textPrimary: "#0F172A"
+    textSecondary: "#475569"
+  dark:
+    primaryColor: "#60A5FA"
+    secondaryColor: "#38BDF8"
+    indicatorColor: "#38BDF8"
+    headerStart: "#0B1120"
+    headerEnd: "#1E3A5F"
+    headerFontColor: "#F8FAFC"
+    shellColor: "#0B1120"
+    shellBorderColor: "#1E293B"
+    shellHoverColor: "#162032"
+    canvasColor: "#0F172A"
+    cardColor: "#162032"
+    cardHeaderColor: "#1B283E"
+    borderColor: "#26354D"
+    textPrimary: "#F8FAFC"
+    textSecondary: "#CBD5E1"
 
 # CloudNativePG Cluster (operator is installed separately — components/cnpg).
 # When external.enabled, Hub reads POSTGRES_* from the CNPG app Secret.

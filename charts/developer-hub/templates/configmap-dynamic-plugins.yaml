@@ -134,16 +134,16 @@ data:
         pluginConfig:
           dynamicPlugins:
             frontend:
-              backstage-community.plugin-artifactory:
+              backstage-community.plugin-jfrog-artifactory:
                 mountPoints:
                   - mountPoint: entity.page.image-registry/cards
-                    importName: ArtifactoryPage
+                    importName: JfrogArtifactoryPage
                     config:
                       layout:
                         gridColumn: 1 / -1
                       if:
-                        allOf:
-                          - isArtifactoryAvailable
+                        anyOf:
+                          - isJfrogArtifactoryAvailable
 
       - package: {{ .Values.plugins.notifications.frontendPackage | quote }}
         disabled: {{ not .Values.plugins.notifications.enabled }}
@@ -173,7 +173,13 @@ data:
                     importName: EntityVaultCard
                     config:
                       layout:
-                        gridColumn: 1 / -1
+                        gridColumnEnd:
+                          lg: "span 4"
+                          md: "span 6"
+                          xs: "span 12"
+                      if:
+                        anyOf:
+                          - hasAnnotation: vault.io/secrets-path
 
       - package: {{ .Values.plugins.servicenow.scaffolderPackage | quote }}
         disabled: {{ not .Values.plugins.servicenow.enabled }}
@@ -290,15 +296,6 @@ data:
                 mountPoints:
                   - mountPoint: entity.page.kiali/cards
                     importName: EntityKialiContent
-                    config:
-                      layout:
-                        gridColumn: 1 / -1
-                      if:
-                        anyOf:
-                          - hasAnnotation: kiali.io/namespace
-                          - hasAnnotation: backstage.io/kubernetes-namespace
-                  - mountPoint: entity.page.overview/cards
-                    importName: EntityKialiGraphCard
                     config:
                       layout:
                         gridColumn: 1 / -1
