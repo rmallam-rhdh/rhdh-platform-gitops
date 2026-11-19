@@ -83,7 +83,7 @@ catalog:
       allow: [Template]
     - type: file
       target: /opt/app-root/src/catalog-demo/catalog-info.yaml
-      allow: [Component, System]
+      allow: [Component, System, User]
 
 permission:
   adminUsers:

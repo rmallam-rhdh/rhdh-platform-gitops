@@ -15,14 +15,136 @@ data:
       branding:
         theme:
           light:
-            primaryColor: {{ .Values.branding.primaryColor | quote }}
-            headerColor1: {{ .Values.branding.headerColor1 | quote }}
-            headerColor2: {{ .Values.branding.headerColor2 | quote }}
-            navigationIndicatorColor: {{ .Values.branding.primaryColor | quote }}
+            defaultPageTheme: default
+            options:
+              # Ensures BackstageHeaderTabs uses explicit MUI palette text colors
+              # instead of RHDH's `color: unset` inheritance bug.
+              tabs: mui
+            pageTheme:
+              default:
+                backgroundColor:
+                  - {{ .Values.branding.light.headerStart | quote }}
+                  - {{ .Values.branding.light.headerEnd | quote }}
+                fontColor: {{ .Values.branding.light.headerFontColor | quote }}
+            palette:
+              primary:
+                main: {{ .Values.branding.light.primaryColor | quote }}
+              secondary:
+                main: {{ .Values.branding.light.secondaryColor | quote }}
+              text:
+                primary: {{ .Values.branding.light.textPrimary | quote }}
+                secondary: {{ .Values.branding.light.textSecondary | quote }}
+              textSubtle: {{ .Values.branding.light.textSecondary | quote }}
+              tabbar:
+                indicator: {{ .Values.branding.light.primaryColor | quote }}
+              background:
+                default: {{ .Values.branding.light.canvasColor | quote }}
+                paper: {{ .Values.branding.light.cardColor | quote }}
+              navigation:
+                background: {{ .Values.branding.light.shellColor | quote }}
+                indicator: {{ .Values.branding.light.indicatorColor | quote }}
+                color: "#CBD5E1"
+                selectedColor: "#FFFFFF"
+                navItem:
+                  hoverBackground: {{ .Values.branding.light.shellHoverColor | quote }}
+                submenu:
+                  background: {{ .Values.branding.light.shellColor | quote }}
+              rhdh:
+                general:
+                  pageInset: {{ .Values.branding.pageInset | default "1rem" | quote }}
+                  pageInsetBackgroundColor: {{ .Values.branding.light.shellColor | quote }}
+                  mainSectionBackgroundColor: {{ .Values.branding.light.canvasColor | quote }}
+                  cardBackgroundColor: {{ .Values.branding.light.cardColor | quote }}
+                  cardBorderColor: {{ .Values.branding.light.borderColor | quote }}
+                  paperBorderColor: {{ .Values.branding.light.borderColor | quote }}
+                  formControlBackgroundColor: {{ .Values.branding.light.cardColor | quote }}
+                  sidebarBackgroundColor: {{ .Values.branding.light.shellColor | quote }}
+                  sidebarDividerColor: {{ .Values.branding.light.shellBorderColor | quote }}
+                  sidebarItemSelectedBackgroundColor: {{ .Values.branding.light.shellHoverColor | quote }}
+                  tableBackgroundColor: {{ .Values.branding.light.cardColor | quote }}
+                  tableBorderColor: "#E2E8F0"
+                  tableRowHover: "#F8FAFC"
+                  tableTitleColor: {{ .Values.branding.light.textPrimary | quote }}
+                  tableSubtitleColor: {{ .Values.branding.light.textSecondary | quote }}
+                  tableColumnTitleColor: "#334155"
+                  tabsLinkHoverBackgroundColor: "rgba(37, 99, 235, 0.10)"
+                  appBarBackgroundScheme: dark
+                  appBarBackgroundColor: {{ .Values.branding.light.shellColor | quote }}
+                  appBarForegroundColor: "#F8FAFC"
+                primary:
+                  main: {{ .Values.branding.light.primaryColor | quote }}
+                  focusVisibleBorder: "#3B82F6"
+                secondary:
+                  main: {{ .Values.branding.light.secondaryColor | quote }}
+                  focusVisibleBorder: "#38BDF8"
+                cards:
+                  headerTextColor: {{ .Values.branding.light.textPrimary | quote }}
+                  headerBackgroundColor: {{ .Values.branding.light.cardHeaderColor | quote }}
+                  headerBackgroundImage: none
           dark:
-            primaryColor: {{ .Values.branding.primaryColor | quote }}
-            headerColor1: {{ .Values.branding.headerColor2 | quote }}
-            headerColor2: {{ .Values.branding.headerColor2 | quote }}
-            navigationIndicatorColor: {{ .Values.branding.primaryColor | quote }}
+            defaultPageTheme: default
+            options:
+              tabs: mui
+            pageTheme:
+              default:
+                backgroundColor:
+                  - {{ .Values.branding.dark.headerStart | quote }}
+                  - {{ .Values.branding.dark.headerEnd | quote }}
+                fontColor: {{ .Values.branding.dark.headerFontColor | quote }}
+            palette:
+              primary:
+                main: {{ .Values.branding.dark.primaryColor | quote }}
+              secondary:
+                main: {{ .Values.branding.dark.secondaryColor | quote }}
+              text:
+                primary: {{ .Values.branding.dark.textPrimary | quote }}
+                secondary: {{ .Values.branding.dark.textSecondary | quote }}
+              textSubtle: {{ .Values.branding.dark.textSecondary | quote }}
+              tabbar:
+                indicator: {{ .Values.branding.dark.indicatorColor | quote }}
+              background:
+                default: {{ .Values.branding.dark.canvasColor | quote }}
+                paper: {{ .Values.branding.dark.cardColor | quote }}
+              navigation:
+                background: {{ .Values.branding.dark.shellColor | quote }}
+                indicator: {{ .Values.branding.dark.indicatorColor | quote }}
+                color: "#CBD5E1"
+                selectedColor: "#FFFFFF"
+                navItem:
+                  hoverBackground: {{ .Values.branding.dark.shellHoverColor | quote }}
+                submenu:
+                  background: {{ .Values.branding.dark.shellColor | quote }}
+              rhdh:
+                general:
+                  pageInset: {{ .Values.branding.pageInset | default "1rem" | quote }}
+                  pageInsetBackgroundColor: {{ .Values.branding.dark.shellColor | quote }}
+                  mainSectionBackgroundColor: {{ .Values.branding.dark.canvasColor | quote }}
+                  cardBackgroundColor: {{ .Values.branding.dark.cardColor | quote }}
+                  cardBorderColor: {{ .Values.branding.dark.borderColor | quote }}
+                  paperBorderColor: {{ .Values.branding.dark.borderColor | quote }}
+                  formControlBackgroundColor: "#1E293B"
+                  sidebarBackgroundColor: {{ .Values.branding.dark.shellColor | quote }}
+                  sidebarDividerColor: {{ .Values.branding.dark.shellBorderColor | quote }}
+                  sidebarItemSelectedBackgroundColor: {{ .Values.branding.dark.shellHoverColor | quote }}
+                  tableBackgroundColor: {{ .Values.branding.dark.cardColor | quote }}
+                  tableBorderColor: {{ .Values.branding.dark.borderColor | quote }}
+                  tableRowHover: "#1E293B"
+                  tableTitleColor: {{ .Values.branding.dark.textPrimary | quote }}
+                  tableSubtitleColor: "#94A3B8"
+                  tableColumnTitleColor: {{ .Values.branding.dark.textSecondary | quote }}
+                  tabsLinkHoverBackgroundColor: "rgba(96, 165, 250, 0.14)"
+                  appBarBackgroundScheme: dark
+                  appBarBackgroundColor: {{ .Values.branding.dark.shellColor | quote }}
+                  appBarForegroundColor: {{ .Values.branding.dark.textPrimary | quote }}
+                primary:
+                  main: {{ .Values.branding.dark.primaryColor | quote }}
+                  focusVisibleBorder: "#93C5FD"
+                secondary:
+                  main: {{ .Values.branding.dark.secondaryColor | quote }}
+                  focusVisibleBorder: "#7DD3FC"
+                cards:
+                  headerTextColor: {{ .Values.branding.dark.textPrimary | quote }}
+                  headerBackgroundColor: {{ .Values.branding.dark.cardHeaderColor | quote }}
+                  headerBackgroundImage: none
       {{- end }}
 {{- end }}
