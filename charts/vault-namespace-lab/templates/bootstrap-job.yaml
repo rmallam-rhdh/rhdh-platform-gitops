@@ -1,16 +1,18 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: vault-namespace-bootstrap-v1
+  name: vault-namespace-bootstrap-v2
   namespace: {{ .Values.labNamespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
-  backoffLimit: 4
+  backoffLimit: 3
   template:
     spec:
       serviceAccountName: vault-bootstrap-sa
-      restartPolicy: OnFailure
+      restartPolicy: Never
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -27,12 +29,12 @@ spec:
               value: {{ .Values.vaultInternalUrl | quote }}
           command:
             - /bin/bash
-            - -euo pipefail
             - -c
             - |
+              set -euo pipefail
               VAULT_TOKEN=$(oc get secret {{ .Values.vaultRootSecretName }} -n {{ .Values.vaultServerNamespace }} -o jsonpath='{.data.token}' | base64 -d)
               REVIEWER_JWT=$(oc create token vault-token-reviewer -n {{ .Values.labNamespace }} --duration=8760h)
-              K8S_CA=$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)
+              K8S_CA_ESCAPED=$(awk '{printf "%s\\n", $0}' /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)
               K8S_HOST="https://kubernetes.default.svc"
 
               vapi() {
@@ -87,14 +89,13 @@ spec:
 
               echo "4. Configuring Kubernetes Auth mounts & namespace-bound roles..."
               AUTH_LIST=$(curl -sS -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/sys/auth")
-              CA_ESCAPED=$(python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' <<<"$K8S_CA")
 
               for am in kubernetes-rhdh kubernetes-payments-nonprod kubernetes-payments-prod kubernetes-retail-nonprod; do
                 if ! echo "$AUTH_LIST" | grep -q "\"${am}/\""; then
                   vapi POST "sys/auth/${am}" '{"type":"kubernetes"}'
                   echo "   Enabled auth mount: $am"
                 fi
-                vapi POST "auth/${am}/config" "{\"kubernetes_host\":\"$K8S_HOST\",\"kubernetes_ca_cert\":$CA_ESCAPED,\"token_reviewer_jwt\":\"$REVIEWER_JWT\",\"disable_iss_validation\":true}"
+                vapi POST "auth/${am}/config" "{\"kubernetes_host\":\"$K8S_HOST\",\"kubernetes_ca_cert\":\"$K8S_CA_ESCAPED\",\"token_reviewer_jwt\":\"$REVIEWER_JWT\",\"disable_iss_validation\":true}"
               done
 
               # Bind RHDH pod SA (`rhdh:default`) -> `rhdh-metadata-list-only`
