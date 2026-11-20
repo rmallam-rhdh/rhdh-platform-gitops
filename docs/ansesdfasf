@@ -10,3 +10,16 @@ kiali:
 (Note: The RHDH Kiali backend uses that shared ServiceAccount token to query Kiali on behalf of RHDH rather than passing through individual user OAuth tokens).
 
 2. Package Confirmation: Yes, that package is the right one. The Kiali Backstage plugin is developed by the Red Hat Kiali team (author: Red Hat), and in RHDH's plugin support tier it is classified under the community support tier (support: community). The redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali-backend OCI artifact (mirrored in Artifactory) is Red Hat's official dynamic-plugin OCI export for the Kiali plugin.
+
+
+```yaml
+pagerDuty:
+  accounts:
+    - id: default
+      isDefault: true
+      oauth:
+        clientId: ${PD_CLIENT_ID}
+        clientSecret: ${PD_CLIENT_SECRET}
+        subDomain: ${PD_ACCOUNT_SUBDOMAIN} 
+        region: us
+```
