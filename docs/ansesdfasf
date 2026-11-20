@@ -1,0 +1,12 @@
+. Kiali openshift Auth Strategy: You do not need to change Kiali away from the openshift auth strategy! When Kiali is configured with auth.strategy: openshift, it still accepts an OpenShift ServiceAccount token via the RHDH Kiali plugin's serviceAccountToken configuration. We just need to generate a long-lived token for an OpenShift ServiceAccount that has view RBAC access to the Service Mesh namespaces, and configure it in app-config.yaml under:
+
+yaml
+kiali:
+  providers:
+    - name: default
+      url: ${KIALI_ENDPOINT}
+      serviceAccountToken: ${KIALI_SA_TOKEN}
+
+(Note: The RHDH Kiali backend uses that shared ServiceAccount token to query Kiali on behalf of RHDH rather than passing through individual user OAuth tokens).
+
+2. Package Confirmation: Yes, that package is the right one. The Kiali Backstage plugin is developed by the Red Hat Kiali team (author: Red Hat), and in RHDH's plugin support tier it is classified under the community support tier (support: community). The redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali-backend OCI artifact (mirrored in Artifactory) is Red Hat's official dynamic-plugin OCI export for the Kiali plugin.
