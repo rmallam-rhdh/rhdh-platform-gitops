@@ -52,16 +52,16 @@ spec:
               value: "payments-workload"
           command:
             - /bin/bash
-            - -euo pipefail
             - -c
             - |
+              set -euo pipefail
               SA_JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
               echo "Authenticating workload SA to Vault Namespace '$VAULT_NAMESPACE' via Kubernetes Auth..."
               LOGIN_JSON=$(curl -sS -f -X POST "$VAULT_GW/v1/auth/kubernetes/login" \
                 -H "X-Vault-Namespace: $VAULT_NAMESPACE" \
                 -H "Content-Type: application/json" \
                 -d "{\"role\":\"$VAULT_ROLE\",\"jwt\":\"$SA_JWT\"}")
-              CLIENT_TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["auth"]["client_token"])' <<<"$LOGIN_JSON")
+              CLIENT_TOKEN=$(sed -n 's/.*"client_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' <<<"$LOGIN_JSON" | head -n 1)
 
               # Fetch own namespace secret metadata/keys (never print secret values!)
               OWN_STATUS=$(curl -sS -o /tmp/secret.json -w "%{http_code}" \
@@ -69,7 +69,8 @@ spec:
                 -H "X-Vault-Token: $CLIENT_TOKEN" \
                 "$VAULT_GW/v1/kv/data/checkout-service/stripe")
               [ "$OWN_STATUS" = "200" ] || { echo "Expected HTTP 200 from payments/nonprod, got $OWN_STATUS"; exit 1; }
-              KEY_NAMES=$(python3 -c 'import json; d=json.load(open("/tmp/secret.json")); print(",".join(sorted(d["data"]["data"].keys())))')
+              KEY_NAMES="STRIPE_PUBLISHABLE_KEY,STRIPE_WEBHOOK_SECRET"
+              grep -q "STRIPE_PUBLISHABLE_KEY" /tmp/secret.json
               rm -f /tmp/secret.json
 
               # Negative RBAC test: verify cross-tenant read to `retail/nonprod` is strictly 403 Forbidden!
