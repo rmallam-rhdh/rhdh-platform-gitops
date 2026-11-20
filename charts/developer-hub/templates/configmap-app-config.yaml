@@ -275,6 +275,15 @@ data:
       baseUrl: {{ .Values.plugins.artifactory.baseUrl | quote }}
       experimentalAnnotations: true
     {{- end }}
+    {{- if and .Values.plugins.vaultNamespace .Values.plugins.vaultNamespace.enabled }}
+    vaultNamespace:
+      baseUrl: {{ .Values.plugins.vaultNamespace.baseUrl | quote }}
+      publicUrl: {{ .Values.plugins.vaultNamespace.publicUrl | quote }}
+      defaultMount: {{ .Values.plugins.vaultNamespace.defaultMount | default "kv" | quote }}
+      kubernetesAuth:
+        role: {{ .Values.plugins.vaultNamespace.kubernetesAuth.role | quote }}
+        authPath: {{ .Values.plugins.vaultNamespace.kubernetesAuth.authPath | default "kubernetes" | quote }}
+    {{- end }}
     proxy:
       endpoints:
         {{- if .Values.plugins.snyk.enabled }}

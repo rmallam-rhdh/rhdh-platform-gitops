@@ -1,0 +1,124 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-namespace-bootstrap-v1
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 4
+  template:
+    spec:
+      serviceAccountName: vault-bootstrap-sa
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: {{ .Values.bootstrap.cliImage | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: VAULT_ADDR
+              value: {{ .Values.vaultInternalUrl | quote }}
+          command:
+            - /bin/bash
+            - -euo pipefail
+            - -c
+            - |
+              VAULT_TOKEN=$(oc get secret {{ .Values.vaultRootSecretName }} -n {{ .Values.vaultServerNamespace }} -o jsonpath='{.data.token}' | base64 -d)
+              REVIEWER_JWT=$(oc create token vault-token-reviewer -n {{ .Values.labNamespace }} --duration=8760h)
+              K8S_CA=$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)
+              K8S_HOST="https://kubernetes.default.svc"
+
+              vapi() {
+                local method="$1" path="$2" body="${3:-}"
+                if [ -n "$body" ]; then
+                  curl -sS -f -X "$method" -H "X-Vault-Token: $VAULT_TOKEN" -H "Content-Type: application/json" -d "$body" "$VAULT_ADDR/v1/$path" >/dev/null
+                else
+                  curl -sS -f -X "$method" -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/$path" >/dev/null
+                fi
+              }
+
+              echo "1. Enabling isolated KV v2 mounts per simulated Vault Enterprise Namespace..."
+              MOUNTS=$(curl -sS -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/sys/mounts")
+              for m in ns-payments-nonprod ns-payments-prod ns-retail-nonprod; do
+                if ! echo "$MOUNTS" | grep -q "\"${m}/\""; then
+                  vapi POST "sys/mounts/${m}" '{"type":"kv","options":{"version":"2"}}'
+                  echo "   Enabled KV v2 mount: $m"
+                else
+                  echo "   KV v2 mount already exists: $m"
+                fi
+              done
+
+              echo "2. Seeding non-sensitive demo secrets into team namespaces..."
+              # payments/nonprod — checkout-service (Solution B: Plugin-Free Kube Auth workload)
+              vapi POST "ns-payments-nonprod/data/checkout-service/stripe" '{"data":{"STRIPE_PUBLISHABLE_KEY":"pk_test_demo_payments_01","STRIPE_WEBHOOK_SECRET":"whsec_demo_nonprod_only"}}'
+              vapi POST "ns-payments-nonprod/data/checkout-service/database" '{"data":{"DB_HOST":"payments-pg.team-payments-nonprod.svc","DB_SSL_MODE":"verify-full"}}'
+              # payments/nonprod — ledger-service (Solution A: Custom RHDH Dynamic Plugin)
+              vapi POST "ns-payments-nonprod/data/ledger-service/database" '{"data":{"LEDGER_DB_URL":"postgresql://ledger-ro@ledger-pg:5432/ledger","LEDGER_KMS_KEY_ID":"kms-key-payments-np-01"}}'
+              vapi POST "ns-payments-nonprod/data/ledger-service/signing" '{"data":{"JWS_KID":"payments-np-ecdsa-2026","AUDIT_HMAC_SALT":"demo-salt-np"}}'
+              # payments/prod
+              vapi POST "ns-payments-prod/data/ledger-service/database" '{"data":{"LEDGER_DB_URL":"postgresql://ledger-rw@ledger-pg-prod:5432/ledger","LEDGER_KMS_KEY_ID":"kms-key-payments-prod-01"}}'
+              vapi POST "ns-payments-prod/data/checkout-service/stripe" '{"data":{"STRIPE_PUBLISHABLE_KEY":"pk_live_demo_placeholder"}}'
+              # retail/nonprod — inventory-service (Solution A: Custom RHDH Dynamic Plugin — Team Retail)
+              vapi POST "ns-retail-nonprod/data/inventory-service/pos-gateway" '{"data":{"POS_ENDPOINT":"https://pos-np.corp.example.com","POS_CLIENT_ID":"retail-pos-np"}}'
+              vapi POST "ns-retail-nonprod/data/inventory-service/warehouse-mq" '{"data":{"AMQP_VHOST":"retail-warehouse-np","AMQP_TLS_CERT_SERIAL":"serial-demo-9912"}}'
+
+              echo "3. Creating strict least-privilege Vault HCL policies..."
+              # RHDH Backend Policy: LIST/READ secret metadata ONLY (ZERO access on `data/*`!)
+              vapi PUT "sys/policies/acl/rhdh-metadata-list-only" '{
+                "policy": "path \"ns-payments-nonprod/metadata/*\" { capabilities = [\"list\", \"read\"] }\npath \"ns-payments-prod/metadata/*\" { capabilities = [\"list\", \"read\"] }\npath \"ns-retail-nonprod/metadata/*\" { capabilities = [\"list\", \"read\"] }\npath \"secrets/metadata/*\" { capabilities = [\"list\", \"read\"] }\n"
+              }'
+
+              # Team Payments Workload Policy: read ONLY `ns-payments-nonprod/data/checkout-service/*` & `ledger-service/*`
+              vapi PUT "sys/policies/acl/payments-nonprod-workload" '{
+                "policy": "path \"ns-payments-nonprod/data/checkout-service/*\" { capabilities = [\"read\"] }\npath \"ns-payments-nonprod/data/ledger-service/*\" { capabilities = [\"read\"] }\npath \"ns-payments-nonprod/metadata/*\" { capabilities = [\"list\"] }\n"
+              }'
+
+              # Team Retail Workload Policy: read ONLY `ns-retail-nonprod/data/inventory-service/*`
+              vapi PUT "sys/policies/acl/retail-nonprod-workload" '{
+                "policy": "path \"ns-retail-nonprod/data/inventory-service/*\" { capabilities = [\"read\"] }\npath \"ns-retail-nonprod/metadata/*\" { capabilities = [\"list\"] }\n"
+              }'
+
+              echo "4. Configuring Kubernetes Auth mounts & namespace-bound roles..."
+              AUTH_LIST=$(curl -sS -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/sys/auth")
+              CA_ESCAPED=$(python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' <<<"$K8S_CA")
+
+              for am in kubernetes-rhdh kubernetes-payments-nonprod kubernetes-payments-prod kubernetes-retail-nonprod; do
+                if ! echo "$AUTH_LIST" | grep -q "\"${am}/\""; then
+                  vapi POST "sys/auth/${am}" '{"type":"kubernetes"}'
+                  echo "   Enabled auth mount: $am"
+                fi
+                vapi POST "auth/${am}/config" "{\"kubernetes_host\":\"$K8S_HOST\",\"kubernetes_ca_cert\":$CA_ESCAPED,\"token_reviewer_jwt\":\"$REVIEWER_JWT\",\"disable_iss_validation\":true}"
+              done
+
+              # Bind RHDH pod SA (`rhdh:default`) -> `rhdh-metadata-list-only`
+              vapi POST "auth/kubernetes-rhdh/role/rhdh-metadata-lister" '{
+                "bound_service_account_names": ["{{ .Values.rhdhServiceAccount }}"],
+                "bound_service_account_namespaces": ["{{ .Values.rhdhNamespace }}"],
+                "policies": ["rhdh-metadata-list-only"],
+                "ttl": "15m"
+              }'
+
+              # Bind Team Payments SA (`team-payments-nonprod:payments-workload-sa`) -> `payments-nonprod-workload`
+              vapi POST "auth/kubernetes-payments-nonprod/role/payments-workload" '{
+                "bound_service_account_names": ["payments-workload-sa"],
+                "bound_service_account_namespaces": ["{{ .Values.teams.paymentsNonprodNamespace }}"],
+                "policies": ["payments-nonprod-workload"],
+                "ttl": "15m"
+              }'
+
+              # Bind Team Retail SA (`team-retail-nonprod:retail-workload-sa`) -> `retail-nonprod-workload`
+              vapi POST "auth/kubernetes-retail-nonprod/role/retail-workload" '{
+                "bound_service_account_names": ["retail-workload-sa"],
+                "bound_service_account_namespaces": ["{{ .Values.teams.retailNonprodNamespace }}"],
+                "policies": ["retail-nonprod-workload"],
+                "ttl": "15m"
+              }'
+
+              echo "Vault Enterprise Namespace Lab bootstrap completed successfully."

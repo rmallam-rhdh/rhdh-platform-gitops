@@ -1,0 +1,15 @@
+apiVersion: v2
+name: vault-namespace-lab
+description: >
+  Multi-tenant Vault Enterprise Namespace lab for RHDH — deploys an X-Vault-Namespace
+  gateway, bootstraps isolated team Vault namespaces + Kubernetes Auth roles, and runs
+  both Solution B (Plugin-Free Kube-Auth workloads) and Solution A (Custom RHDH Dynamic Plugin targets).
+type: application
+version: 0.1.0
+appVersion: "1.18.5"
+keywords:
+  - vault
+  - vault-enterprise
+  - namespaces
+  - kubernetes-auth
+  - rhdh

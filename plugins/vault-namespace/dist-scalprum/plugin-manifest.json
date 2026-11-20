@@ -1,0 +1,11 @@
+{
+  "name": "internal.plugin-vault-namespace",
+  "version": "0.1.0",
+  "extensions": [],
+  "registrationMethod": "callback",
+  "baseURL": "auto",
+  "loadScripts": [
+    "internal.plugin-vault-namespace.js"
+  ],
+  "buildHash": "vaultns010enterprise2026"
+}

@@ -1,0 +1,120 @@
+{{- range $ns := list .Values.labNamespace .Values.teams.paymentsNonprodNamespace .Values.teams.retailNonprodNamespace }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    istio.io/dataplane-mode: none
+    app.kubernetes.io/part-of: idp-platform
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-bootstrap-sa
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-token-reviewer
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+# Allow Vault's Kubernetes Auth backend to call Kubernetes TokenReview API
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-namespace-lab-token-reviewer
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: vault-token-reviewer
+    namespace: {{ .Values.labNamespace }}
+---
+# Least-privilege Role in `vault` namespace: read ONLY `vault-root` Secret during bootstrap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-namespace-bootstrap-root-reader
+  namespace: {{ .Values.vaultServerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.vaultRootSecretName | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-namespace-bootstrap-root-reader
+  namespace: {{ .Values.vaultServerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-namespace-bootstrap-root-reader
+subjects:
+  - kind: ServiceAccount
+    name: vault-bootstrap-sa
+    namespace: {{ .Values.labNamespace }}
+---
+# Allow bootstrap Job to mint a reviewer JWT from vault-token-reviewer SA
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-bootstrap-tokenrequest
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["vault-token-reviewer"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-bootstrap-tokenrequest
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-bootstrap-tokenrequest
+subjects:
+  - kind: ServiceAccount
+    name: vault-bootstrap-sa
+    namespace: {{ .Values.labNamespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments-workload-sa
+  namespace: {{ .Values.teams.paymentsNonprodNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retail-workload-sa
+  namespace: {{ .Values.teams.retailNonprodNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
