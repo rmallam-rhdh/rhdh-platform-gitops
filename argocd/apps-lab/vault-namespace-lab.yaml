@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault-namespace-lab
+  namespace: openshift-gitops
+  labels:
+    app: payments-checkout-service
+    app.kubernetes.io/part-of: idp-platform
+    app.kubernetes.io/component: vault-namespace-lab
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rmallam-rhdh/rhdh-platform-gitops
+    targetRevision: main
+    path: charts/vault-namespace-lab
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault-namespace-lab
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

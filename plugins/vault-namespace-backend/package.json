@@ -1,0 +1,17 @@
+{
+  "name": "@internal/plugin-vault-namespace-backend-dynamic",
+  "version": "0.1.0",
+  "description": "Enterprise Vault Namespace & RBAC-enforced RHDH backend dynamic plugin (Kubernetes Auth + X-Vault-Namespace + PermissionsService)",
+  "license": "Apache-2.0",
+  "main": "dist/index.cjs.js",
+  "configSchema": "config.d.ts",
+  "files": [
+    "dist",
+    "config.d.ts"
+  ],
+  "backstage": {
+    "role": "backend-plugin",
+    "pluginId": "vault-namespace",
+    "supported-versions": "1.49.4"
+  }
+}

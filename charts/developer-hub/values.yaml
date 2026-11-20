@@ -377,6 +377,20 @@ plugins:
     secretEngine: secrets
     kvVersion: 2
 
+  vaultNamespace:
+    # Custom Enterprise Vault Namespace dynamic plugin (Kube Auth + X-Vault-Namespace + RHDH RBAC)
+    enabled: false
+    backendPackage: https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/plugins/dist/internal-plugin-vault-namespace-backend-dynamic-0.1.0.tgz
+    backendIntegrity: sha512-o4DIRONNFmVSoiu+nXtrPaswRV/xZ83m5mMy1182DNx6aDM5jlHl5sj5c7xYfX+6ZrzifpDPmIQgsUYfmLbPzA==
+    frontendPackage: https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/plugins/dist/internal-plugin-vault-namespace-dynamic-0.1.0.tgz
+    frontendIntegrity: sha512-UNpDhJl9zUKOGLZJSXgdMKUNYrB7bBfdMCjjN2gNukGZUScJYuXJnjMy83upc0lI/cVhR1S9x37MxLBw/aesYA==
+    baseUrl: "${VAULT_ADDR}"
+    publicUrl: "${VAULT_ADDR}"
+    defaultMount: kv
+    kubernetesAuth:
+      role: rhdh-metadata-lister
+      authPath: kubernetes
+
   servicenow:
     enabled: true
     frontendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow:bs_1.49.4__1.10.0

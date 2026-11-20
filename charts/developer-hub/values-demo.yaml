@@ -171,6 +171,14 @@ plugins:
     backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-vault-backend:pr_1225__0.21.0
     baseUrl: http://vault.vault.svc:8200
     token: "${VAULT_TOKEN}"
+  vaultNamespace:
+    enabled: true
+    baseUrl: http://vault-enterprise-gw.vault-namespace-lab.svc.cluster.local:8200
+    publicUrl: https://vault-ui.corp.example.com
+    defaultMount: kv
+    kubernetesAuth:
+      role: rhdh-metadata-lister
+      authPath: kubernetes
   servicenow:
     # Host, user, and password are Vault keys servicenow-base-url,
     # servicenow-username, and servicenow-password. A reclaimed

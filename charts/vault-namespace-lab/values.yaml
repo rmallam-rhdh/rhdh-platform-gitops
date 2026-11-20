@@ -1,0 +1,19 @@
+labNamespace: vault-namespace-lab
+vaultServerNamespace: vault
+vaultRootSecretName: vault-root
+vaultInternalUrl: http://vault.vault.svc.cluster.local:8200
+rhdhNamespace: rhdh
+rhdhServiceAccount: default
+
+gateway:
+  replicas: 1
+  port: 8200
+  image: registry.redhat.io/ubi9/nginx-124:latest
+
+bootstrap:
+  cliImage: registry.redhat.io/openshift4/ose-cli:latest
+
+teams:
+  paymentsNonprodNamespace: team-payments-nonprod
+  retailNonprodNamespace: team-retail-nonprod
+  workloadImage: registry.redhat.io/ubi9/httpd-24:latest

@@ -1,0 +1,152 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-enterprise-gw-nginx
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /dev/stderr info;
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 512;
+    }
+
+    http {
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path       /tmp/proxy_temp;
+      fastcgi_temp_path     /tmp/fastcgi_temp;
+      uwsgi_temp_path       /tmp/uwsgi_temp;
+      scgi_temp_path        /tmp/scgi_temp;
+
+      # Emulates HashiCorp Vault Enterprise `X-Vault-Namespace` header routing
+      # on top of isolated KV v2 mounts & Kubernetes Auth mounts in OSS Vault.
+      map $http_x_vault_namespace $vault_kv_mount {
+        default            "secrets";
+        "payments/nonprod" "ns-payments-nonprod";
+        "payments/prod"    "ns-payments-prod";
+        "retail/nonprod"   "ns-retail-nonprod";
+        "platform/rhdh"    "secrets";
+      }
+
+      map $http_x_vault_namespace $vault_auth_mount {
+        default            "kubernetes-rhdh";
+        "payments/nonprod" "kubernetes-payments-nonprod";
+        "payments/prod"    "kubernetes-payments-prod";
+        "retail/nonprod"   "kubernetes-retail-nonprod";
+      }
+
+      server {
+        listen 8080;
+        server_name _;
+
+        location = /healthz {
+          default_type application/json;
+          return 200 '{"status":"ok","emulation":"vault-enterprise-namespaces"}';
+        }
+
+        location = /v1/auth/kubernetes/login {
+          rewrite ^/v1/auth/kubernetes/login$ /v1/auth/$vault_auth_mount/login break;
+          proxy_pass {{ .Values.vaultInternalUrl }};
+          proxy_set_header Host $host;
+        }
+
+        location ~ ^/v1/kv/(.*)$ {
+          rewrite ^/v1/kv/(.*)$ /v1/$vault_kv_mount/$1 break;
+          proxy_pass {{ .Values.vaultInternalUrl }};
+          proxy_set_header Host $host;
+        }
+
+        location / {
+          proxy_pass {{ .Values.vaultInternalUrl }};
+          proxy_set_header Host $host;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault-enterprise-gw
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: vault-enterprise-gw
+    app.kubernetes.io/part-of: idp-platform
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vault-enterprise-gw
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vault-enterprise-gw
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: {{ .Values.gateway.image | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          command: ["nginx", "-g", "daemon off;", "-c", "/etc/nginx-gw/nginx.conf"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx-gw
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: vault-enterprise-gw-nginx
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-enterprise-gw
+  namespace: {{ .Values.labNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    app.kubernetes.io/name: vault-enterprise-gw
+spec:
+  selector:
+    app.kubernetes.io/name: vault-enterprise-gw
+  ports:
+    - name: http
+      port: {{ .Values.gateway.port }}
+      targetPort: 8080

@@ -51,7 +51,8 @@ metadata:
     backstage.io/kubernetes-id: developer-hub
     backstage.io/kubernetes-namespace: rhdh
     kiali.io/namespace: demo-dev
-    vault.io/secrets-path: rhdh
+    vault.io/namespace: payments/nonprod
+    vault.io/secrets-path: ledger-service
     jira/project-key: SCRUM
     snyk.io/org-id: stub-org
     snyk.io/org-name: stub-org
@@ -77,6 +78,129 @@ metadata:
       url: https://github.com/rmallam-rhdh/rhdh-platform-gitops/tree/main/environments
       icon: github
       type: gitops
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/developers
+  system: plugin-kitchen-sink
+---
+# ==============================================================================
+# SOLUTION B (Recommended Plugin-Free Vault Enterprise Pattern):
+# Zero RHDH Vault plugin — uses Namespace-Aware Vault UI Deep-Links (?namespace=)
+# + OpenShift Pod SA Kubernetes Auth + Live Runtime & Argo CD Sync Visibility.
+# ==============================================================================
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payments-checkout-service
+  description: "Solution B (Plugin-Free Pattern): No RHDH Vault plugin — uses ?namespace=payments/nonprod Vault UI deep-links + OpenShift SA Kube Auth + Runtime/Argo CD sync visibility"
+  tags:
+    - vault-plugin-free
+    - vault-enterprise
+    - payments
+    - recommended
+  annotations:
+    argocd/app-selector: app=payments-checkout-service
+    argocd/app-namespace: openshift-gitops
+    backstage.io/kubernetes-id: payments-checkout-service
+    backstage.io/kubernetes-namespace: team-payments-nonprod
+  links:
+    - title: Vault Enterprise UI — Non-Prod (namespace=payments/nonprod)
+      url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/checkout-service?namespace=payments%2Fnonprod
+      icon: lock
+      type: secrets
+    - title: Vault Enterprise UI — Prod (namespace=payments/prod)
+      url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/checkout-service?namespace=payments%2Fprod
+      icon: lock
+      type: secrets
+    - title: GitOps Vault Namespace Manifests
+      url: https://github.com/rmallam-rhdh/rhdh-platform-gitops/tree/main/charts/vault-namespace-lab
+      icon: github
+      type: gitops
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/developers
+  system: plugin-kitchen-sink
+---
+# ==============================================================================
+# SOLUTION A #1 (Custom Dynamic Plugin — Team Payments Allowed):
+# Queries `payments/nonprod` via X-Vault-Namespace + Kube Auth after verifying
+# RHDH RBAC (`catalog.entity.read` + `vault.io/allowed-principals`).
+# ==============================================================================
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payments-ledger-service
+  description: "Solution A (Custom Dynamic Plugin — Team Payments): Lists KV v2 metadata in Vault namespace 'payments/nonprod' via Kube Auth + X-Vault-Namespace"
+  tags:
+    - vault-custom-plugin
+    - vault-enterprise
+    - payments
+  annotations:
+    vault.io/namespace: payments/nonprod
+    vault.io/secrets-path: ledger-service
+    vault.io/allowed-principals: group:default/developers,group:default/platform-team
+    backstage.io/kubernetes-id: payments-ledger-service
+    backstage.io/kubernetes-namespace: team-payments-nonprod
+  links:
+    - title: Vault Enterprise UI — Non-Prod (namespace=payments/nonprod)
+      url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/ledger-service?namespace=payments%2Fnonprod
+      icon: lock
+      type: secrets
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/developers
+  system: plugin-kitchen-sink
+---
+# ==============================================================================
+# SOLUTION A #2 (Custom Dynamic Plugin — Team Retail Separate Vault Namespace):
+# Proves dynamic per-entity `X-Vault-Namespace: retail/nonprod` isolation.
+# ==============================================================================
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: retail-inventory-service
+  description: "Solution A (Custom Dynamic Plugin — Team Retail): Lists KV v2 metadata in isolated Vault namespace 'retail/nonprod'"
+  tags:
+    - vault-custom-plugin
+    - vault-enterprise
+    - retail
+  annotations:
+    vault.io/namespace: retail/nonprod
+    vault.io/secrets-path: inventory-service
+    backstage.io/kubernetes-id: retail-inventory-service
+    backstage.io/kubernetes-namespace: team-retail-nonprod
+  links:
+    - title: Vault Enterprise UI — Non-Prod (namespace=retail/nonprod)
+      url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/inventory-service?namespace=retail%2Fnonprod
+      icon: lock
+      type: secrets
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/developers
+  system: plugin-kitchen-sink
+---
+# ==============================================================================
+# SOLUTION A #3 (Custom Dynamic Plugin — Live 403 Cross-Team RBAC Deny Proof):
+# Restricted to `group:default/finance-pci-team` — demonstrates RHDH blocking
+# unauthorized callers BEFORE executing any Vault API request!
+# ==============================================================================
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: finance-pci-vault-service
+  description: "Solution A (RBAC Deny Demo): Vault namespace 'finance/pci-prod' restricted to 'group:default/finance-pci-team' — blocks unauthorized teams with HTTP 403"
+  tags:
+    - vault-custom-plugin
+    - vault-rbac-demo
+    - finance
+  annotations:
+    vault.io/namespace: finance/pci-prod
+    vault.io/secrets-path: cardholder-keys
+    vault.io/allowed-principals: group:default/finance-pci-team
 spec:
   type: service
   lifecycle: production

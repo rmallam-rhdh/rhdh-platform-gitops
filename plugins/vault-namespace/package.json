@@ -1,0 +1,15 @@
+{
+  "name": "@internal/plugin-vault-namespace-dynamic",
+  "version": "0.1.0",
+  "description": "Enterprise Vault Namespace & Team-RBAC RHDH frontend dynamic plugin (Scalprum)",
+  "license": "Apache-2.0",
+  "main": "dist-scalprum/internal.plugin-vault-namespace.js",
+  "files": [
+    "dist-scalprum"
+  ],
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "vault-namespace",
+    "supported-versions": "1.49.4"
+  }
+}

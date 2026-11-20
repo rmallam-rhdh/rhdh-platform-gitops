@@ -172,6 +172,15 @@ data:
               backstage-community.plugin-vault:
                 mountPoints: []
 
+      {{- if and .Values.plugins.vaultNamespace .Values.plugins.vaultNamespace.enabled }}
+      - package: {{ .Values.plugins.vaultNamespace.backendPackage | quote }}
+        integrity: {{ .Values.plugins.vaultNamespace.backendIntegrity | quote }}
+        disabled: false
+      - package: {{ .Values.plugins.vaultNamespace.frontendPackage | quote }}
+        integrity: {{ .Values.plugins.vaultNamespace.frontendIntegrity | quote }}
+        disabled: false
+      {{- end }}
+
       - package: {{ .Values.plugins.servicenow.scaffolderPackage | quote }}
         disabled: {{ not .Values.plugins.servicenow.enabled }}
         pluginConfig:

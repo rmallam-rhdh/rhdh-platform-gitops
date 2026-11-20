@@ -19,6 +19,10 @@ secrets:
 plugins:
   snyk:
     enabled: false
+  # Disable broken upstream community Vault frontend (pr_1225 has no dist-scalprum);
+  # lab uses our custom `vaultNamespace` plugin + plugin-free Kube-Auth pattern instead.
+  vault:
+    enabled: false
   kubernetes:
     clusterName: rosa-rwx5g
   # Public route is proxied by axios (NO_PROXY suffix match is exact unless

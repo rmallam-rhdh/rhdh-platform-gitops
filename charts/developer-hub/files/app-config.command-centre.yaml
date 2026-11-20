@@ -241,6 +241,40 @@ dynamicPlugins:
             if:
               anyOf:
                 - isJfrogArtifactoryAvailable
+{{- if and .Values.plugins.vaultNamespace .Values.plugins.vaultNamespace.enabled }}
+
+    # ── 3b. Custom Enterprise Vault Namespace Dynamic Plugin (Solution A) ────
+    internal.plugin-vault-namespace:
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: EntityVaultNamespaceCard
+          config:
+            priority: 88
+            layout:
+              gridColumnEnd:
+                xl: "span 4"
+                lg: "span 6"
+                md: "span 6"
+                xs: "span 12"
+              "& .MuiCard-root":
+                height: "100%"
+                maxHeight: "240px"
+                display: "flex"
+                flexDirection: "column"
+                overflow: "hidden"
+            if:
+              allOf:
+                - isVaultNamespaceAvailable
+        - mountPoint: entity.page.quality-security/cards
+          importName: EntityVaultNamespaceCard
+          config:
+            priority: 95
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isVaultNamespaceAvailable
+{{- end }}
 
     # ── 4. Topology + Kubernetes + Kiali ("Runtime" Tab — 3 Tabs -> 1) ───────
     backstage-community.plugin-topology:

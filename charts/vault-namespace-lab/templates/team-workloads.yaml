@@ -1,0 +1,234 @@
+{{- $gwUrl := printf "http://vault-enterprise-gw.%s.svc.cluster.local:%v" .Values.labNamespace .Values.gateway.port -}}
+# ==============================================================================
+# 1. SOLUTION B (Plugin-Free Reference Architecture): payments-checkout-service
+#    Authenticates directly from OpenShift `team-payments-nonprod` to Vault
+#    Enterprise Namespace `payments/nonprod` via Kubernetes SA JWT, verifies
+#    cross-namespace isolation (`retail/nonprod` -> HTTP 403), and exposes live
+#    pod health in RHDH's GA `Runtime` (Topology/Kubernetes) & `CI/CD` tabs.
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-checkout-service
+  namespace: {{ .Values.teams.paymentsNonprodNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: payments-checkout-service
+    app.kubernetes.io/name: payments-checkout-service
+    app.kubernetes.io/part-of: payments-platform
+    backstage.io/kubernetes-id: payments-checkout-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-checkout-service
+  template:
+    metadata:
+      labels:
+        app: payments-checkout-service
+        app.kubernetes.io/name: payments-checkout-service
+        backstage.io/kubernetes-id: payments-checkout-service
+    spec:
+      serviceAccountName: payments-workload-sa
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: vault-kube-auth-sync
+          image: {{ .Values.bootstrap.cliImage | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: VAULT_GW
+              value: {{ $gwUrl | quote }}
+            - name: VAULT_NAMESPACE
+              value: "payments/nonprod"
+            - name: VAULT_ROLE
+              value: "payments-workload"
+          command:
+            - /bin/bash
+            - -euo pipefail
+            - -c
+            - |
+              SA_JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              echo "Authenticating workload SA to Vault Namespace '$VAULT_NAMESPACE' via Kubernetes Auth..."
+              LOGIN_JSON=$(curl -sS -f -X POST "$VAULT_GW/v1/auth/kubernetes/login" \
+                -H "X-Vault-Namespace: $VAULT_NAMESPACE" \
+                -H "Content-Type: application/json" \
+                -d "{\"role\":\"$VAULT_ROLE\",\"jwt\":\"$SA_JWT\"}")
+              CLIENT_TOKEN=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["auth"]["client_token"])' <<<"$LOGIN_JSON")
+
+              # Fetch own namespace secret metadata/keys (never print secret values!)
+              OWN_STATUS=$(curl -sS -o /tmp/secret.json -w "%{http_code}" \
+                -H "X-Vault-Namespace: payments/nonprod" \
+                -H "X-Vault-Token: $CLIENT_TOKEN" \
+                "$VAULT_GW/v1/kv/data/checkout-service/stripe")
+              [ "$OWN_STATUS" = "200" ] || { echo "Expected HTTP 200 from payments/nonprod, got $OWN_STATUS"; exit 1; }
+              KEY_NAMES=$(python3 -c 'import json; d=json.load(open("/tmp/secret.json")); print(",".join(sorted(d["data"]["data"].keys())))')
+              rm -f /tmp/secret.json
+
+              # Negative RBAC test: verify cross-tenant read to `retail/nonprod` is strictly 403 Forbidden!
+              CROSS_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+                -H "X-Vault-Namespace: retail/nonprod" \
+                -H "X-Vault-Token: $CLIENT_TOKEN" \
+                "$VAULT_GW/v1/kv/data/inventory-service/pos-gateway")
+              echo "Own namespace HTTP=$OWN_STATUS (keys: $KEY_NAMES) | Cross-namespace retail/nonprod HTTP=$CROSS_STATUS"
+              [ "$CROSS_STATUS" = "403" ] || { echo "SECURITY FAILURE: expected 403 on cross-namespace access, got $CROSS_STATUS"; exit 1; }
+
+              cat >/vault-sync/index.html <<EOF
+              {"service":"payments-checkout-service","architecture":"plugin-free-kube-auth","vaultNamespace":"payments/nonprod","syncedSecretKeys":"$KEY_NAMES","crossNamespaceRetailProbeHttp":$CROSS_STATUS,"status":"SecretSynced"}
+              EOF
+          volumeMounts:
+            - name: vault-sync
+              mountPath: /vault-sync
+      containers:
+        - name: workload
+          image: {{ .Values.teams.workloadImage | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /index.html
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 150m
+              memory: 128Mi
+          volumeMounts:
+            - name: vault-sync
+              mountPath: /var/www/html
+              readOnly: true
+      volumes:
+        - name: vault-sync
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-checkout-service
+  namespace: {{ .Values.teams.paymentsNonprodNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: payments-checkout-service
+    backstage.io/kubernetes-id: payments-checkout-service
+spec:
+  selector:
+    app: payments-checkout-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+# ==============================================================================
+# 2. SOLUTION A Target #1 (Team Payments): payments-ledger-service
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-ledger-service
+  namespace: {{ .Values.teams.paymentsNonprodNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: payments-ledger-service
+    app.kubernetes.io/name: payments-ledger-service
+    backstage.io/kubernetes-id: payments-ledger-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-ledger-service
+  template:
+    metadata:
+      labels:
+        app: payments-ledger-service
+        app.kubernetes.io/name: payments-ledger-service
+        backstage.io/kubernetes-id: payments-ledger-service
+    spec:
+      serviceAccountName: payments-workload-sa
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: workload
+          image: {{ .Values.teams.workloadImage | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 150m
+              memory: 128Mi
+---
+# ==============================================================================
+# 3. SOLUTION A Target #2 (Team Retail): retail-inventory-service
+# ==============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retail-inventory-service
+  namespace: {{ .Values.teams.retailNonprodNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: retail-inventory-service
+    app.kubernetes.io/name: retail-inventory-service
+    backstage.io/kubernetes-id: retail-inventory-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: retail-inventory-service
+  template:
+    metadata:
+      labels:
+        app: retail-inventory-service
+        app.kubernetes.io/name: retail-inventory-service
+        backstage.io/kubernetes-id: retail-inventory-service
+    spec:
+      serviceAccountName: retail-workload-sa
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: workload
+          image: {{ .Values.teams.workloadImage | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 150m
+              memory: 128Mi
