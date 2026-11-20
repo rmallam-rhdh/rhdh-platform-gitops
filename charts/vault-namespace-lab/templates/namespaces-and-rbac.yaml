@@ -43,6 +43,27 @@ subjects:
     name: vault-token-reviewer
     namespace: {{ .Values.labNamespace }}
 ---
+# Allow ONLY `vault-namespace-lab` (gateway + bootstrap Job) ingress to Vault TCP 8200
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-vault-namespace-lab
+  namespace: {{ .Values.vaultServerNamespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.labNamespace }}
+      ports:
+        - protocol: TCP
+          port: 8200
+---
 # Least-privilege Role in `vault` namespace: read ONLY `vault-root` Secret during bootstrap
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
