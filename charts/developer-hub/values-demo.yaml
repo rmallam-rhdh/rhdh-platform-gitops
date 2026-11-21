@@ -55,28 +55,13 @@ catalog:
     enabled: true
   locations:
     - type: url
-      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-nodejs-golden-path.yaml
-      allow: [Template]
-    - type: url
       target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-quarkus-golden-path.yaml
       allow: [Template]
     - type: url
-      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-plugin-kitchen-sink.yaml
-      allow: [Template]
-    - type: url
-      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-nodejs-website.yaml
-      allow: [Template]
-    - type: url
-      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-node-udi-devspaces.yaml
+      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-nodejs-golden-path.yaml
       allow: [Template]
     - type: url
       target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-start-feature-devspaces.yaml
-      allow: [Template]
-    - type: url
-      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-open-devspaces-namespace.yaml
-      allow: [Template]
-    - type: url
-      target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-gitops-devspaces-namespace.yaml
       allow: [Template]
     - type: url
       target: https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-promote-to-prod.yaml
@@ -99,8 +84,10 @@ permission:
     p, role:default/developer, catalog-entity, read, allow
     p, role:default/developer, catalog.entity.create, create, allow
     p, role:default/developer, catalog.entity.refresh, update, allow
+    p, role:default/developer, catalog.entity.delete, delete, allow
     p, role:default/developer, catalog.location.create, create, allow
     p, role:default/developer, catalog.location.read, read, allow
+    p, role:default/developer, catalog.location.delete, delete, allow
     p, role:default/developer, scaffolder.template.use, use, allow
     p, role:default/developer, scaffolder.template.parameter.read, read, allow
     p, role:default/developer, scaffolder.template.step.read, read, allow
