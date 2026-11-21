@@ -1,0 +1,27 @@
+name: Auto-Merge RHDH Dev Spaces User Namespace GitOps PRs
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "charts/devspaces-user-namespaces/values.yaml"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: startsWith(github.head_ref, 'rhdh/devspaces-user-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-merge RHDH Golden Path Dev Spaces namespace update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --squash \
+            --delete-branch \
+            --subject "feat(devspaces): auto-merge RHDH Golden Path user namespace (${{ github.head_ref }})"

@@ -1,0 +1,16 @@
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml .
+COPY src src
+RUN mvn -q -DskipTests package
+
+FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:latest
+ENV LANGUAGE='en_US:en'
+COPY --from=build --chown=185 /build/target/quarkus-app/lib/ /deployments/lib/
+COPY --from=build --chown=185 /build/target/quarkus-app/*.jar /deployments/
+COPY --from=build --chown=185 /build/target/quarkus-app/app/ /deployments/app/
+COPY --from=build --chown=185 /build/target/quarkus-app/quarkus/ /deployments/quarkus/
+EXPOSE ${{ values.port }}
+ENV PORT=${{ values.port }}
+USER 185
+CMD ["java", "-jar", "/deployments/quarkus-run.jar"]

@@ -1,0 +1,70 @@
+{{- if and .Values.mesh.enabled .Values.mesh.denyAll }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "app.name" . }}-deny-all
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec: {}
+---
+# North-south only: shared ingress gateway. No east-west ALLOW is seeded.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "app.name" . }}-allow-ingress
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  {{- if .Values.mesh.waypoint.enabled }}
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ include "app.waypointName" . }}
+  {{- else }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "app.name" . }}
+  {{- end }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              {{- range .Values.mesh.ingressPrincipals }}
+              - {{ . | quote }}
+              {{- end }}
+      to:
+        - operation:
+            ports:
+              - {{ .Values.service.port | quote }}
+{{- if .Values.mesh.waypoint.enabled }}
+---
+# Ambient L7: waypoint identity is what ztunnel sees on the workload.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "app.name" . }}-allow-waypoint
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "app.name" . }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - {{ printf "cluster.local/ns/%s/sa/%s" .Release.Namespace (include "app.waypointName" .) | quote }}
+      to:
+        - operation:
+            ports:
+              - {{ .Values.service.port | quote }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,143 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.appName }}
+  title: "${{ values.appName }} (${{ values.appId | default('APP-1001') }})"
+  description: "${{ values.appDescription }} [APPID: ${{ values.appId | default('APP-1001') }}]"
+  tags:
+    - quarkus
+    - java-21
+    - golden-path
+    - command-centre
+    - service-mesh
+    - gitops
+    - devspaces
+  labels:
+    platform.idp/app-id: ${{ values.appId | default("APP-1001") | dump }}
+    servicenow.com/support-group: ${{ (values.groupName | default("group:default/developers")).split("/")[-1] | dump }}
+  annotations:
+    # 1. Enterprise Application Identity & Source Control
+    platform.idp/app-id: ${{ values.appId | default("APP-1001") | dump }}
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/source-location: url:https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/
+    backstage.io/view-url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}
+    backstage.io/edit-url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/edit/main/catalog-info.yaml
+    github.com/project-slug: ${{ values.githubOwner }}/${{ values.appName }}
+
+    # 2. Multi-Cluster Argo CD (Overview Top-Right Bento + CI/CD Tab — nonprod-argo & prod-argo)
+    argocd/app-selector: ${{ values.argocdAppSelector | default("app=plugin-kitchen-sink") | dump }}
+    argocd/app-namespace: openshift-gitops
+
+    # 3. Day-2 Self-Service Promotion Metadata (consumed by promote-service-to-production)
+    platform.idp/gitops-repo: ${{ (values.githubOwner + "/" + (values.gitopsRepoName | default("rhdh-platform-gitops"))) | dump }}
+    platform.idp/gitops-prod-branch: main
+    platform.idp/gitops-prod-values-path: ${{ ("environments/prod/" + values.appName + "/values.yaml") | dump }}
+
+    # 4. CI, Code Quality & Security Gates (Overview Bento + CI/CD + Quality & Security Tabs)
+    jenkins.io/job-full-name: ${{ values.jenkinsJobFullName | default("demo/plugin-kitchen-sink") | dump }}
+    sonarqube.org/project-key: ${{ values.sonarProjectKey | default("demo-plugin-kitchen-sink") | dump }}
+    snyk.io/org-id: stub-org
+    snyk.io/org-name: stub-org
+    snyk.io/project-ids: stub
+    jfrog-artifactory/image-name: ${{ values.artifactoryImageName | default("plugin-kitchen-sink") | dump }}
+
+    # 5. HashiCorp Vault Enterprise Namespace Dynamic Plugin (Overview Bento + Quality & Security Tab)
+    vault.io/namespace: ${{ values.vaultNamespace | default("payments/nonprod") | dump }}
+    vault.io/secrets-path: ${{ values.vaultSecretsPath | default("ledger-service") | dump }}
+    vault.io/allowed-principals: ${{ ((values.groupName | default("group:default/developers")) + ",group:default/developers,group:default/platform-team") | dump }}
+
+    # 6. Multi-Cluster Kubernetes & Service Mesh Runtime (Runtime Tab: Topology + Multi-Cluster K8s + Kiali)
+    # NOTE: backstage.io/kubernetes-namespace is intentionally omitted so RHDH discovers resources
+    # across all clusters and differently named environment namespaces (EDEV, NPRD, PROD) by label selector.
+    backstage.io/kubernetes-id: ${{ values.kubernetesId | default("payments-checkout-service") | dump }}
+    kiali.io/namespace: ${{ values.targetNamespace | default("demo-dev") | dump }}
+
+    # 7. Operations, Alerting & ITSM (Overview Bento + Operations Tab: Dynatrace + PagerDuty + Jira + ServiceNow)
+    dynatrace.com/dynatrace-entity-id: ${{ values.dynatraceEntityId | default("SERVICE-39720C1E0047A5C0") | dump }}
+    pagerduty.com/service-id: ${{ values.pagerDutyServiceId | default("P123456") | dump }}
+    jira/project-key: ${{ values.jiraProjectKey | default("SCRUM") | dump }}
+    servicenow.com/entity-id: ${{ values.serviceNowEntityId | default("demo") | dump }}
+    servicenow.com/support-group: ${{ values.groupName | default("group:default/developers") | dump }}
+    servicenow.com/app-id: ${{ values.appId | default("APP-1001") | dump }}
+
+    # 8. OpenShift Dev Spaces (Pinned to GitOps Pre-Created User Namespace)
+    acme.io/devfile-path: devfile.yaml
+    acme.io/helm-chart: chart
+    acme.io/mesh: ambient
+    acme.io/mesh-ingress: gateway
+    acme.io/devspaces-namespace: ${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") | dump }}
+    acme.io/devspaces-url: ${{ values.devSpacesBaseUrl | dump }}
+    acme.io/devspaces-factory-url: ${{ (values.devSpacesBaseUrl + "#https://github.com/" + values.githubOwner + "/" + values.appName + "?new&devfilePath=devfile.yaml&namespace=" + (values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m"))) | dump }}
+  links:
+    - title: "Open in Dev Spaces IDE (Namespace: ${{ values.workspaceNamespace | default('cluster-admin-devspaces-r7k2m') }})"
+      url: ${{ values.devSpacesBaseUrl }}/dashboard/#/ide/${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") }}/${{ values.appName }}
+      icon: dashboard
+      type: devspaces
+    - title: Launch Dev Spaces Factory (Pinned to User Namespace)
+      url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?new&devfilePath=devfile.yaml&namespace=${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") }}
+      icon: code
+      type: devspaces
+    - title: Helm Chart & Ambient Mesh Policy (/chart)
+      url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/chart
+      icon: github
+      type: gitops
+    - title: Jenkinsfile CI/CD Pipeline (Test -> Sonar -> Helm)
+      url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/blob/main/Jenkinsfile
+      icon: github
+      type: cicd
+    - title: JFrog Artifactory — Container Repository
+      url: http://saas-stubs.saas-stubs.svc:8080/ui/repos/tree/General/docker-local/${{ values.appName }}
+      icon: box
+      type: artifact-repository
+    - title: "Vault Enterprise UI — Non-Prod (${{ values.vaultNamespace | default('payments/nonprod') }})"
+      url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/${{ values.vaultSecretsPath | default("ledger-service") }}?namespace=${{ (values.vaultNamespace | default("payments/nonprod")) | replace("/", "%2F") }}
+      icon: lock
+      type: secrets
+    - title: Vault Enterprise UI — Prod (payments/prod)
+      url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/${{ values.vaultSecretsPath | default("ledger-service") }}?namespace=payments%2Fprod
+      icon: lock
+      type: secrets
+    - title: GitOps Environments & Dev Spaces Namespace Registry
+      url: https://github.com/${{ values.githubOwner }}/${{ values.gitopsRepoName | default("rhdh-platform-gitops") }}/blob/main/charts/devspaces-user-namespaces/values.yaml
+      icon: github
+      type: gitops
+spec:
+  type: service
+  lifecycle: production
+  owner: ${{ values.groupName | default("group:default/developers") | dump }}
+  system: ${{ values.systemName | default("plugin-kitchen-sink") | dump }}
+  providesApis:
+    - ${{ values.appName }}-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ${{ values.appName }}-api
+  description: "OpenAPI 3.0 specification for ${{ values.appName }} [APPID: ${{ values.appId | default('APP-1001') }}]"
+  tags:
+    - quarkus
+    - openapi
+    - rest
+  labels:
+    platform.idp/app-id: ${{ values.appId | default("APP-1001") | dump }}
+spec:
+  type: openapi
+  lifecycle: production
+  owner: ${{ values.groupName | default("group:default/developers") | dump }}
+  system: ${{ values.systemName | default("plugin-kitchen-sink") | dump }}
+  definition:
+    $text: ./openapi.yaml
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: ${{ values.systemName | default("plugin-kitchen-sink") }}
+  description: "${{ values.systemDescription | default('Enterprise Golden Path System') }} [APPID: ${{ values.appId | default('APP-1001') }}]"
+  tags:
+    - golden-path
+    - command-centre
+  labels:
+    platform.idp/app-id: ${{ values.appId | default("APP-1001") | dump }}
+spec:
+  owner: ${{ values.groupName | default("group:default/developers") | dump }}

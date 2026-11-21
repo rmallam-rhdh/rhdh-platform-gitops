@@ -1,0 +1,3 @@
+site_name: '${{ values.appName }}'
+nav:
+  - Home: index.md

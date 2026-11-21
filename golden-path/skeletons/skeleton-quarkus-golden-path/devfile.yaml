@@ -1,0 +1,54 @@
+schemaVersion: 2.2.2
+metadata:
+  name: ${{ values.appName }}
+  displayName: ${{ values.appName }}
+  description: ${{ values.appDescription }}
+  tags:
+    - Java
+    - Quarkus
+    - Jenkins
+    - Helm
+  attributes:
+    metadata.openshift.io/scopes: ['devspaces']
+
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:3.30
+      memoryLimit: 4Gi
+      memoryRequest: 1Gi
+      cpuLimit: "2"
+      cpuRequest: 200m
+      mountSources: true
+      sourceMapping: /projects
+      env:
+        - name: PORT
+          value: "${{ values.port }}"
+      endpoints:
+        - name: api
+          targetPort: ${{ values.port }}
+          exposure: public
+          protocol: http
+
+commands:
+  - id: test
+    exec:
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/${{ values.appName }}
+      commandLine: mvn -q test
+      group:
+        kind: test
+        isDefault: true
+  - id: run
+    exec:
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/${{ values.appName }}
+      commandLine: mvn quarkus:dev -Dquarkus.http.host=0.0.0.0
+      group:
+        kind: run
+        isDefault: true
+  - id: helm-lint
+    exec:
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/${{ values.appName }}
+      commandLine: helm lint chart

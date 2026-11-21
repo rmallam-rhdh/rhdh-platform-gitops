@@ -1,0 +1,26 @@
+{{- if and .Values.mesh.enabled .Values.mesh.ingressRoute.create }}
+# OpenShift Route → Istio ingress gateway Service (not the app Service).
+# Passthrough so HAProxy does not terminate TLS; Envoy on the Gateway does.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "app.name" . }}-{{ .Release.Namespace }}
+  namespace: {{ .Values.mesh.gateway.namespace }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  host: {{ include "app.meshHost" . }}
+  to:
+    kind: Service
+    name: istio-ingressgateway
+    weight: 100
+  port:
+    targetPort: https
+  tls:
+    termination: passthrough
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+{{- end }}

@@ -1,0 +1,58 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.appName }}
+  description: ${{ values.appDescription }}
+  tags:
+    - nodejs
+    - website
+    - golden-path
+    - jenkins
+    - helm
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/source-location: url:https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/
+    backstage.io/view-url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}
+    backstage.io/edit-url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/edit/main/catalog-info.yaml
+    github.com/project-slug: ${{ values.githubOwner }}/${{ values.appName }}
+    jenkins.io/job-full-name: demo/${{ values.appName }}
+    sonarqube.org/project-key: ${{ values.sonarProjectKey }}
+    argocd/app-name: ${{ values.appName }}
+    argocd/app-namespace: openshift-gitops
+    # Multi-cluster & multi-namespace discovery: omit backstage.io/kubernetes-namespace
+    # so RHDH discovers resources across clusters/environments by label selector.
+    backstage.io/kubernetes-id: ${{ values.appName }}
+    kiali.io/namespace: ${{ values.targetNamespace }}
+    vault.io/secrets-path: rhdh
+    jira/project-key: SCRUM
+    snyk.io/org-id: stub-org
+    snyk.io/org-name: stub-org
+    snyk.io/project-ids: stub
+    servicenow.com/entity-id: demo
+    jfrog-artifactory/image-name: ${{ values.appName }}
+    dynatrace.com/dynatrace-entity-id: SERVICE-39720C1E0047A5C0
+    acme.io/devfile-path: devfile.yaml
+    acme.io/helm-chart: chart
+    acme.io/mesh: ambient
+    acme.io/mesh-ingress: gateway
+    acme.io/devspaces-url: ${{ values.devSpacesBaseUrl }}
+    acme.io/devspaces-factory-url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?new&devfilePath=devfile.yaml
+  links:
+    - url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/chart
+      title: Helm chart
+      icon: github
+    - url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/blob/main/Jenkinsfile
+      title: Jenkinsfile
+      icon: github
+    - url: https://jenkins-jenkins.${{ values.clusterBaseDomain }}/job/demo/job/${{ values.appName }}/
+      title: Jenkins CI
+      icon: dashboard
+spec:
+  type: website
+  lifecycle: experimental
+  owner: user:default/guest
+  system: ${{ values.systemName }}
+  dependsOn:
+    - ${{ values.backendServiceRef }}
+  consumesApis:
+    - ${{ values.backendApiRef }}
