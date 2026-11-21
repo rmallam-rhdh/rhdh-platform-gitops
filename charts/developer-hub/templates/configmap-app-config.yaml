@@ -256,7 +256,7 @@ data:
     sonarqube:
       baseUrl: {{ .Values.plugins.sonarqube.baseUrl | quote }}
       apiKey: {{ .Values.plugins.sonarqube.apiKey | quote }}
-      authType: Bearer
+      authType: {{ .Values.plugins.sonarqube.authType | default "Basic" }}
     {{- end }}
     {{- if .Values.plugins.snyk.enabled }}
     snyk:
