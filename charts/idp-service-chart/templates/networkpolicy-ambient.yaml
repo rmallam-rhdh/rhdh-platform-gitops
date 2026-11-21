@@ -1,0 +1,23 @@
+{{- if and .Values.mesh.enabled (eq .Values.mesh.dataplane "ambient") }}
+# Allows Istio Ambient HBONE traffic (port 15008) and ztunnel-rewritten kubelet
+# readiness/liveness probes (169.254.7.127/32) in namespaces with default-deny NetworkPolicies.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "app.name" . }}-allow-mesh-hbone
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "app.name" . }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 15008
+    - from:
+        - ipBlock:
+            cidr: 169.254.7.127/32
+{{- end }}

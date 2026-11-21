@@ -11,32 +11,15 @@ metadata:
     {{- include "app.labels" . | nindent 4 }}
     istio: ingressgateway
   annotations:
+    networking.istio.io/service-type: ClusterIP
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   gatewayClassName: {{ .Values.mesh.gateway.className }}
-  addresses:
-    - type: Hostname
-      value: istio-ingressgateway.{{ .Values.mesh.gateway.namespace }}.svc.cluster.local
   listeners:
     - name: http
       hostname: {{ include "app.meshHost" . | quote }}
       port: 80
       protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: Selector
-          selector:
-            matchLabels:
-              kubernetes.io/metadata.name: {{ .Release.Namespace }}
-    - name: https
-      hostname: {{ include "app.meshHost" . | quote }}
-      port: 443
-      protocol: HTTPS
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: {{ .Values.mesh.gateway.credentialName }}
       allowedRoutes:
         namespaces:
           from: Selector

@@ -11,10 +11,6 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   parentRefs:
-    - name: {{ .Values.mesh.gateway.name }}
-      namespace: {{ .Values.mesh.gateway.namespace }}
-      group: gateway.networking.k8s.io
-      kind: Gateway
     - name: {{ include "app.name" . }}-{{ .Release.Namespace }}
       namespace: {{ .Values.mesh.gateway.namespace }}
       group: gateway.networking.k8s.io
