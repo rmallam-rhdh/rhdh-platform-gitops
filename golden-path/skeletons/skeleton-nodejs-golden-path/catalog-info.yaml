@@ -15,7 +15,7 @@ metadata:
     - devspaces
   labels:
     platform.idp/app-id: ${{ values.appId | default("APP-1002") | dump }}
-    servicenow.com/support-group: ${{ (values.groupName | default("group:default/developers")).split("/")[-1] | dump }}
+    servicenow.com/support-group: ${{ (values.groupName | default("group:default/developers")) | replace("group:default/", "") | replace("group:", "") | dump }}
   annotations:
     # 1. Enterprise Application Identity & Source Control
     platform.idp/app-id: ${{ values.appId | default("APP-1002") | dump }}

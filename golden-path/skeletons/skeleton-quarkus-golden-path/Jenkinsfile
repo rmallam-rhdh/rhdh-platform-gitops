@@ -48,7 +48,7 @@ spec:
       steps {
         withEnv(["SONAR_TOKEN=${env.SONAR_TOKEN ?: ''}"]) {
           sh '''
-            set -euo pipefail
+            set -eu
             if [ -z "${SONAR_TOKEN:-}" ]; then
               echo "SONAR_TOKEN unset — skip scanner (add a Jenkins credential if you want a live gate)"
               exit 0
@@ -65,7 +65,7 @@ spec:
     stage('Helm lint (IDP Shared Dependency Chart)') {
       steps {
         sh '''
-          set -euo pipefail
+          set -eu
           if command -v helm >/dev/null 2>&1; then
             helm dependency update chart || true
             helm lint chart
