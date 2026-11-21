@@ -20,4 +20,28 @@ spec:
     - from:
         - ipBlock:
             cidr: 169.254.7.127/32
+---
+# Allows OpenShift Router (network.openshift.io/policy-group: ingress) and mesh namespaces
+# to reach the Gateway API envoy pod in {{ .Values.mesh.gateway.namespace }}.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "app.name" . }}-{{ .Release.Namespace }}-allow-gateway-ingress
+  namespace: {{ .Values.mesh.gateway.namespace }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: {{ include "app.name" . }}-{{ .Release.Namespace }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 15021
 {{- end }}
