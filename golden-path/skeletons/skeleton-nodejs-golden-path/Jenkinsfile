@@ -35,6 +35,8 @@ spec:
   }
 
   environment {
+    HOME             = '/tmp'
+    SONAR_USER_HOME  = '/tmp/.sonar'
     APP_NAME         = '${{ values.appName }}'
     SONAR_HOST_URL   = '${{ values.sonarHostUrl }}'
     SONAR_PROJECT_KEY = '${{ values.sonarProjectKey }}'
@@ -71,8 +73,10 @@ spec:
               exit 0
             fi
             npx --yes sonarqube-scanner \
+              -Dsonar.userHome=/tmp/.sonar \
               -Dsonar.host.url="${SONAR_HOST_URL}" \
               -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+              -Dsonar.token="${SONAR_TOKEN}" \
               -Dsonar.login="${SONAR_TOKEN}"
           '''
         }
