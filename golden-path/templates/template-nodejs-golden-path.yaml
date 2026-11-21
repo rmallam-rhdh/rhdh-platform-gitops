@@ -241,6 +241,8 @@ spec:
         repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
         description: "${{ parameters.appDescription }} [APPID: ${{ parameters.appId }} | Owner: ${{ parameters.groupName }}]"
         defaultBranch: main
+        protectDefaultBranch: false
+        protectEnforceAdmins: false
         repoVisibility: public
         gitCommitMessage: "feat(${{ parameters.appId }}): scaffold Node.js 20 golden path service ${{ parameters.appName }}"
 

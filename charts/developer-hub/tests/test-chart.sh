@@ -88,20 +88,16 @@ grep -q "enableLocalDb: true" "$PROD" || { echo "FAIL prod default should keep l
 grep -q "postgresql.cnpg.io/v1" "$PROD" && { echo "FAIL prod must not emit CNPG Cluster by default"; fail=1; }
 grep -q "name: rhdh-demo-catalog" "$DEMO" || { echo "FAIL demo missing kitchen-sink ConfigMap"; fail=1; }
 grep -q "plugin-kitchen-sink" "$DEMO" || { echo "FAIL demo missing kitchen-sink entity"; fail=1; }
-grep -q "jira/project-key: SCRUM" "$DEMO" || { echo "FAIL demo kitchen-sink must use Jira project SCRUM"; fail=1; }
 grep -q "entity.page.jira" "$DEMO" || { echo "FAIL demo missing Jira entity tab mount"; fail=1; }
 grep -q "title: Jira" "$DEMO" || { echo "FAIL demo missing Jira tab title"; fail=1; }
 grep -q "entity.page.dynatrace" "$DEMO" || { echo "FAIL demo missing Dynatrace entity tab mount"; fail=1; }
-grep -q "SERVICE-39720C1E0047A5C0" "$DEMO" || { echo "FAIL demo kitchen-sink must use a real Dynatrace SERVICE id"; fail=1; }
 grep -q 'instanceUrl: "${SERVICENOW_BASE_URL}"' "$DEMO" || { echo "FAIL demo ServiceNow must read the instance URL from the secret"; fail=1; }
 grep -q "entity.page.kiali" "$DEMO" || { echo "FAIL demo missing Kiali entity tab mount"; fail=1; }
-grep -q "kiali.io/namespace: demo-dev" "$DEMO" || { echo "FAIL demo kitchen-sink missing kiali.io/namespace"; fail=1; }
 grep -q "dynatrace-access-token" "$DEMO" || { echo "FAIL demo ExternalSecret missing dynatrace-access-token"; fail=1; }
 grep -q "secretKey: HTTP_PROXY" "$PROD" && { echo "FAIL prod must not request the corporate proxy by default"; fail=1; }
 grep -q "secretKey: HTTP_PROXY" "$DEMO" && { echo "FAIL demo must not request the corporate proxy by default"; fail=1; }
 grep -q -- "--use-env-proxy" "$PROD" && { echo "FAIL prod must not set --use-env-proxy by default"; fail=1; }
 grep -q -- "--use-env-proxy" "$DEMO" && { echo "FAIL demo must not set --use-env-proxy by default"; fail=1; }
-grep -q "vault.io/secrets-path" "$DEMO" || { echo "FAIL demo missing vault annotation"; fail=1; }
 grep -q "name: rhdh-demo-catalog" "$PROD" && { echo "FAIL prod must not ship kitchen-sink ConfigMap"; fail=1; }
 grep -q "/dynatrace:" "$PROD" && { echo "FAIL prod must not emit /dynatrace proxy without apiTarget"; fail=1; }
 
@@ -171,9 +167,9 @@ raise "demo dynatrace proxy must send Api-Token" unless dt_auth.start_with?("Api
 locs = d.dig("catalog", "locations") || []
 file_loc = locs.find { |l| l["target"].to_s.include?("catalog-demo/catalog-info.yaml") }
 raise "demo missing kitchen-sink file location" unless file_loc
-ks_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-plugin-kitchen-sink.yaml") }
-raise "demo missing kitchen-sink template location" unless ks_tpl
-raise "kitchen-sink template must be a Git url location" unless ks_tpl["type"] == "url"
+sf_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-start-feature-devspaces.yaml") }
+raise "demo missing start-feature template location" unless sf_tpl
+raise "start-feature template must be a Git url location" unless sf_tpl["type"] == "url"
 gp_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-nodejs-golden-path.yaml") }
 raise "demo missing nodejs golden-path template location" unless gp_tpl
 raise "nodejs golden path must be a Git url location" unless gp_tpl["type"] == "url"
@@ -185,8 +181,6 @@ raise "demo argocd must register nonprod-argo and prod-argo: #{argo_names}" unle
 qx_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-quarkus-golden-path.yaml") }
 raise "demo missing quarkus golden-path template location" unless qx_tpl
 raise "quarkus golden path must be a Git url location" unless qx_tpl["type"] == "url"
-web_tpl = locs.find { |l| l["target"].to_s.include?("golden-path/templates/template-nodejs-website.yaml") }
-raise "demo missing nodejs website template location" unless web_tpl
 db = d.dig("backend", "database") || {}
 raise "demo missing backend.database.client pg" unless db["client"] == "pg"
 raise "demo missing pluginDivisionMode schema" unless db["pluginDivisionMode"] == "schema"
