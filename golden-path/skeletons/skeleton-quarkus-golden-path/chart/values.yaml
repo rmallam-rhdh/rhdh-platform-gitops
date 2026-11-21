@@ -27,7 +27,7 @@ idp-service-chart:
       printf '{"status":"ok","app":"${{ values.appName }}","appId":"${{ values.appId | default("APP-1042") }}"}\n' > /tmp/web/health
       printf '{"service":"${{ values.appName }}","system":"${{ values.systemName }}","appId":"${{ values.appId | default("APP-1042") }}","message":"ok"}\n' > /tmp/web/api/index.html
       printf '<!doctype html><html><body style="font-family:sans-serif;margin:2rem"><h1>${{ values.appName }} (${{ values.appId | default("APP-1042") }})</h1><p>${{ values.appDescription }}</p><p>Deployed via IDP Shared Base Chart (idp-service-chart:1.0.0) + Argo CD</p></body></html>\n' > /tmp/web/index.html
-      exec jwebserver -b 0.0.0.0 -p ${{ values.port }} -d /tmp/web
+      exec java -m jdk.httpserver -b 0.0.0.0 -p ${{ values.port }} -d /tmp/web
 
   service:
     port: ${{ values.port }}
