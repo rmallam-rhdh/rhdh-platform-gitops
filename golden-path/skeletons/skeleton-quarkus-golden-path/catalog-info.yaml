@@ -68,15 +68,19 @@ metadata:
     acme.io/mesh-ingress: gateway
     acme.io/devspaces-namespace: ${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") | dump }}
     acme.io/devspaces-url: ${{ values.devSpacesBaseUrl | dump }}
-    acme.io/devspaces-factory-url: ${{ (values.devSpacesBaseUrl + "#https://github.com/" + values.githubOwner + "/" + values.appName + "?new&devfilePath=devfile.yaml&namespace=" + (values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m"))) | dump }}
+    acme.io/devspaces-factory-url: ${{ (values.devSpacesBaseUrl + "#https://github.com/" + values.githubOwner + "/" + values.appName + "?devfilePath=devfile.yaml&namespace=" + (values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m")) + "&policies.create=peruser") | dump }}
   links:
-    - title: "Open in Dev Spaces IDE (Namespace: ${{ values.workspaceNamespace | default('cluster-admin-devspaces-r7k2m') }})"
+    - title: "Open / Reuse Dev Spaces Workspace (IDE: ${{ values.workspaceNamespace | default('cluster-admin-devspaces-r7k2m') }})"
       url: ${{ values.devSpacesBaseUrl }}/dashboard/#/ide/${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") }}/${{ values.appName }}
       icon: dashboard
       type: devspaces
-    - title: Launch Dev Spaces Factory (Pinned to User Namespace)
-      url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?new&devfilePath=devfile.yaml&namespace=${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") }}
+    - title: "Open in Dev Spaces Factory (Reuses Workspace if Present — policies.create=peruser)"
+      url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?devfilePath=devfile.yaml&namespace=${{ values.workspaceNamespace | default("cluster-admin-devspaces-r7k2m") }}&policies.create=peruser
       icon: code
+      type: devspaces
+    - title: "Start Day-2 Feature Branch & Dev Spaces Workspace (RHDH Template)"
+      url: /create/templates/default/acme-start-feature-devspaces
+      icon: scaffolder
       type: devspaces
     - title: Helm Chart & Ambient Mesh Policy (/chart)
       url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/chart

@@ -1,31 +1,37 @@
 ---
-# Day-2 helper — does not create a repo. Use after acme-node-udi-devspaces.
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: acme-start-feature-devspaces
-  title: Start feature + Dev Spaces (day 2)
+  title: Day-2 Feature Branch & Dev Spaces Workspace (Reuse or Provision)
   description: >
-    For an existing catalog service only. Creates a feature branch from the
-    current default branch and gives you an Open in Dev Spaces link for that
-    branch. Does not scaffold a new application.
+    Day-2 workflow for any developer joining or working on an existing Catalog
+    service. Creates a feature branch in GitHub (or uses an existing branch),
+    checks charts/devspaces-user-namespaces/values.yaml (reusing the developer's
+    existing Dev Spaces namespace if present, or provisioning it via the Argo CD
+    Helm chart if they are a new developer), and lets the developer either REUSE
+    their existing DevWorkspace or launch a dedicated per-branch workspace.
   tags:
     - day-2
     - feature-branch
     - devspaces
-    - demo
+    - gitops
+    - golden-path
     - recommended
 spec:
   owner: group:platform-team
   type: service
   parameters:
-    - title: Existing service
-      required: [component, githubOwner, featureBranch]
+    - title: 1. Select Existing Service & Feature Branch
+      required:
+        - component
+        - githubOwner
+        - featureBranch
       properties:
         component:
-          title: Catalog component
+          title: Existing Catalog Service
           type: string
-          description: Service already created by the Node.js + UDI golden path
+          description: Pick the microservice from the RHDH Catalog you want to develop a feature on.
           ui:field: EntityPicker
           ui:autofocus: true
           ui:options:
@@ -34,60 +40,189 @@ spec:
               - kind: Component
                 spec.type: service
         githubOwner:
-          title: GitHub owner
+          title: GitHub Organization / Owner
           type: string
           default: rmallam-rhdh
-        jiraKey:
-          title: Jira story key
+        gitopsRepoName:
+          title: Platform GitOps Repository
           type: string
-          description: Optional. Used in the branch-start commit message
+          default: rhdh-platform-gitops
+        jiraKey:
+          title: Jira Story / Ticket Key
+          type: string
+          default: SCRUM-101
+          description: Used in the branch commit message and PR metadata.
           pattern: '^[A-Z][A-Z0-9]+-\d+$'
         featureBranch:
-          title: Feature branch
+          title: Feature Branch Name
           type: string
-          description: Created from the repo default branch if it does not exist
-          default: feature/DEMO-123-my-change
+          description: Branch name to create from main (or check out if it already exists).
+          default: feature/SCRUM-101-enhance-api
           pattern: '^[A-Za-z0-9][A-Za-z0-9._/-]{1,70}$'
+        createBranchInGitHub:
+          title: Create Feature Branch in GitHub from Default Branch
+          description: Uncheck if the feature branch already exists in GitHub and you only want to open/reuse your Dev Spaces workspace on it.
+          type: boolean
+          default: true
+
+    - title: 2. Developer Identity, Namespace Check & Workspace Reuse Policy
+      required:
+        - openShiftUser
+        - userSlug
+        - namespaceSuffix
+        - workspacePolicy
+      properties:
+        openShiftUser:
+          title: Developer OpenShift Username (che.eclipse.org/username)
+          description: Your OpenShift login username (e.g. cluster-admin, alice, bob).
+          type: string
+          default: cluster-admin
+        userSlug:
+          title: DNS-Safe User Key in charts/devspaces-user-namespaces/values.yaml
+          description: Checked against `users.<userSlug>` in values.yaml. If found, your existing namespace is reused automatically!
+          type: string
+          default: cluster-admin
+          pattern: '^[a-z0-9]([-a-z0-9]{0,20}[a-z0-9])?$'
+        namespaceSuffix:
+          title: Random Suffix (Used ONLY if you do not have a namespace yet)
+          type: string
+          default: f4k8m
+          pattern: '^[a-z0-9]{4,8}$'
+        workspacePolicy:
+          title: Dev Spaces Workspace Reuse Policy
+          description: >
+            Choose whether to reuse your existing DevWorkspace for this service
+            (saves ResourceQuota & keeps your terminal/Maven/npm cache intact) or
+            create a separate DevWorkspace container specifically for this branch.
+          type: string
+          default: reuse-existing
+          enum:
+            - reuse-existing
+            - per-branch-new
+          enumNames:
+            - "Reuse Existing Workspace in My Namespace (Recommended — policies.create=peruser / direct IDE)"
+            - "Create New Dedicated Workspace for This Branch (?new / policies.create=perclick)"
         devSpacesBaseUrl:
-          title: Dev Spaces URL
+          title: OpenShift Dev Spaces URL
           type: string
           default: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+
   steps:
     - id: fetch-component
-      name: Read catalog component
+      name: Read Target Service Metadata from RHDH Catalog
       action: catalog:fetch
       input:
         entityRef: ${{ parameters.component }}
+
+    - id: fetch-devspaces-values
+      name: Fetch charts/devspaces-user-namespaces/values.yaml from GitOps Repo
+      action: fetch:plain:file
+      input:
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.gitopsRepoName }}/blob/main/charts/devspaces-user-namespaces/values.yaml
+        targetPath: ./devspaces-ns-chart/values.yaml
+
+    - id: parse-devspaces-values
+      name: Check if Developer Already Has a Dev Spaces Namespace in values.yaml
+      action: roadiehq:utils:fs:parse
+      input:
+        path: ./devspaces-ns-chart/values.yaml
+        parser: yaml
+
+    - id: log-namespace-decision
+      name: Evaluate Namespace & Workspace Reuse Strategy
+      action: debug:log
+      input:
+        message: >-
+          Developer '${{ parameters.userSlug }}' namespace check:
+          ${{ 'FOUND existing namespace (' + steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace + ') -> Reusing namespace & skipping GitOps values.yaml update!' if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else ('NOT FOUND -> Provisioning new namespace ' + parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix + ' via charts/devspaces-user-namespaces/values.yaml!') }}
+          | Workspace Policy: ${{ parameters.workspacePolicy }}
+
     - id: fetch-repo
-      name: Fetch default branch
+      name: Fetch Service Default Branch from GitHub
+      if: ${{ parameters.createBranchInGitHub }}
       action: fetch:plain
       input:
+        targetPath: ./service-repo
         url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}
+
     - id: push-branch
-      name: Create feature branch
+      name: Create & Push Feature Branch to Service Repository
+      if: ${{ parameters.createBranchInGitHub }}
       action: github:repo:push
       input:
+        sourcePath: ./service-repo
         repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.component | parseEntityRef | pick('name') }}
         defaultBranch: ${{ parameters.featureBranch }}
         protectDefaultBranch: false
         protectEnforceAdmins: false
-        gitCommitMessage: "chore: start ${{ parameters.featureBranch }}"
+        gitCommitMessage: "chore(${{ parameters.jiraKey }}): start feature branch ${{ parameters.featureBranch }}"
+
+    - id: append-user-to-devspaces-values
+      name: Add New Developer to charts/devspaces-user-namespaces/values.yaml (Skipped if Developer Already Has a Namespace)
+      if: ${{ not steps['parse-devspaces-values'].output.content.users[parameters.userSlug] }}
+      action: roadiehq:utils:fs:append
+      input:
+        path: ./devspaces-ns-chart/values.yaml
+        content: |2
+
+            ${{ parameters.userSlug }}:
+              openShiftUser: ${{ parameters.openShiftUser | dump }}
+              namespace: ${{ (parameters.userSlug + "-devspaces-" + parameters.namespaceSuffix) | dump }}
+              appId: ${{ (steps['fetch-component'].output.entity.metadata.annotations['platform.idp/app-id'] | default("APP-DAY2")) | dump }}
+              groupName: ${{ (steps['fetch-component'].output.entity.spec.owner | default("group:default/developers")) | dump }}
+              initialAppName: ${{ (parameters.component | parseEntityRef | pick('name')) | dump }}
+              initialAppRepoUrl: ${{ ("https://github.com/" + parameters.githubOwner + "/" + (parameters.component | parseEntityRef | pick('name')) + ".git") | dump }}
+              initialAppPort: 8080
+
+    - id: publish-devspaces-values-pr
+      name: Push Updated values.yaml to GitOps Repo for Argo CD Helm Reconciliation (Skipped if Developer Already Has a Namespace)
+      if: ${{ not steps['parse-devspaces-values'].output.content.users[parameters.userSlug] }}
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.gitopsRepoName }}
+        branchName: rhdh/devspaces-user-${{ parameters.userSlug }}-${{ parameters.component | parseEntityRef | pick('name') }}
+        targetBranchName: main
+        sourcePath: ./devspaces-ns-chart
+        targetPath: charts/devspaces-user-namespaces
+        title: "feat(devspaces): provision namespace ${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }} for developer ${{ parameters.openShiftUser }}"
+        commitMessage: "feat(devspaces): add ${{ parameters.userSlug }} to charts/devspaces-user-namespaces/values.yaml"
+        description: |
+          ## Automated Day-2 Developer Namespace Provisioning
+          - **Developer:** `${{ parameters.openShiftUser }}` (`users.${{ parameters.userSlug }}`)
+          - **Namespace:** `${{ parameters.userSlug }}-devspaces-${{ parameters.namespaceSuffix }}`
+          - **Service:** `${{ parameters.component | parseEntityRef | pick('name') }}` (`${{ parameters.featureBranch }}`)
+        update: true
+
   output:
     text:
-      - title: Day-2 workspace
+      - title: Day-2 Feature Branch & Dev Spaces Workspace Ready
         content: |
-          Repo: ${{ steps['push-branch'].output.remoteUrl }}
-          Branch was pushed with `github:repo:push`.
+          ### 1. Feature Branch
+          - **Service:** `${{ parameters.component | parseEntityRef | pick('name') }}`
+          - **Feature Branch:** `${{ parameters.featureBranch }}` (${{ 'Created from main in GitHub' if parameters.createBranchInGitHub else 'Using existing branch in GitHub' }})
+          - **Branch URL:** https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.featureBranch }}
+
+          ### 2. Developer Namespace Check (`charts/devspaces-user-namespaces/values.yaml`)
+          - **Developer:** `${{ parameters.openShiftUser }}` (`users.${{ parameters.userSlug }}`)
+          - **Resolved Namespace:** `${{ steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else (parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix) }}`
+          - **GitOps Action:** ${{ 'Skipped values.yaml update (developer already has an active namespace)' if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else ('Added developer to charts/devspaces-user-namespaces/values.yaml -> PR: ' + steps['publish-devspaces-values-pr'].output.remoteUrl) }}
+
+          ### 3. How Workspace Reuse Works (`${{ parameters.workspacePolicy }}`)
+          - **Reuse Existing Workspace (Recommended):** Click **"Open / Reuse Existing DevWorkspace in IDE"** below to jump straight into your existing running workspace pod in `${{ steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else (parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix) }}`, then run `git fetch origin && git checkout ${{ parameters.featureBranch }}` (or use **"Open Branch via Factory (Reuse Existing Workspace)"** which uses `policies.create=peruser` so Dev Spaces reuses your existing workspace instead of creating a duplicate pod).
+          - **Dedicated Branch Workspace:** Click **"Create Dedicated New Workspace for This Branch (?new)"** if you want a separate container alongside your existing workspace.
     links:
-      - title: GitHub repository
+      - title: "Open / Reuse Existing DevWorkspace in IDE (Fastest — Zero Duplicate Pods)"
+        icon: dashboard
+        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/ide/${{ steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else (parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix) }}/${{ parameters.component | parseEntityRef | pick('name') }}
+      - title: "Open Feature Branch via Factory (Reuse Mode: policies.create=peruser)"
+        icon: code
+        url: ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.featureBranch }}?devfilePath=devfile.yaml&namespace=${{ steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else (parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix) }}&policies.create=peruser
+      - title: "Create Dedicated New Workspace for This Feature Branch (?new)"
+        icon: catalog
+        url: ${{ parameters.devSpacesBaseUrl }}#https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.featureBranch }}?new&devfilePath=devfile.yaml&namespace=${{ steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else (parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix) }}
+      - title: View Feature Branch in GitHub
         icon: github
-        url: ${{ steps['push-branch'].output.remoteUrl }}
-      - title: Open in Dev Spaces
-        icon: catalog
-        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/load-factory?url=${{ steps['push-branch'].output.remoteUrl }}&devfilePath=devfile.yaml
-      - title: Dev Spaces dashboard
-        icon: catalog
-        url: ${{ parameters.devSpacesBaseUrl }}/dashboard/#/workspaces
-      - title: Open in catalog
+        url: https://github.com/${{ parameters.githubOwner }}/${{ parameters.component | parseEntityRef | pick('name') }}/tree/${{ parameters.featureBranch }}
+      - title: Open Component Command Centre in RHDH
         icon: catalog
         entityRef: ${{ parameters.component }}
