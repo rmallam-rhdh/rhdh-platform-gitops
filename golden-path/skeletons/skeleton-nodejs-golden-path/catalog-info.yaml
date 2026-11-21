@@ -79,7 +79,7 @@ metadata:
       icon: code
       type: devspaces
     - title: "Start Day-2 Feature Branch & Dev Spaces Workspace (RHDH Template)"
-      url: /create/templates/default/acme-start-feature-devspaces
+      url: https://backstage-developer-hub-rhdh.${{ values.clusterBaseDomain }}/create/templates/default/acme-start-feature-devspaces
       icon: scaffolder
       type: devspaces
     - title: Helm Chart & Ambient Mesh Policy (/chart)

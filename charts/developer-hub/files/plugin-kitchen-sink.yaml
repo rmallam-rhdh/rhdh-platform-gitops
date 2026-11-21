@@ -18,7 +18,7 @@ apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
   name: plugin-kitchen-sink
-  description: Enterprise Golden Path Platform System [APPID: APP-1042]
+  description: "Enterprise Golden Path Platform System [APPID: APP-1042]"
   tags:
     - golden-path
     - command-centre
