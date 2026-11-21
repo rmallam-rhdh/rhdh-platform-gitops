@@ -34,6 +34,7 @@ spec:
     - from:
         - source:
             principals:
+              - {{ printf "cluster.local/ns/%s/sa/%s-%s-istio" .Values.mesh.gateway.namespace (include "app.name" .) .Release.Namespace | quote }}
               {{- range .Values.mesh.ingressPrincipals }}
               - {{ . | quote }}
               {{- end }}
