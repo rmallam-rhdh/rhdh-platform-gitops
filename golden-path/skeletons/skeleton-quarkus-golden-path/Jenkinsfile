@@ -35,6 +35,8 @@ spec:
   }
 
   environment {
+    HOME              = '/tmp'
+    SONAR_USER_HOME   = '/tmp/.sonar'
     APP_NAME          = '${{ values.appName }}'
     SONAR_HOST_URL    = '${{ values.sonarHostUrl }}'
     SONAR_PROJECT_KEY = '${{ values.sonarProjectKey }}'
@@ -57,7 +59,7 @@ spec:
               echo "SONAR_TOKEN unset — skip scanner (add a Jenkins credential if you want a live gate)"
               exit 0
             fi
-            mvn -q -Dmaven.repo.local=/tmp/.m2 org.sonarsource.scanner.maven:sonar-maven-plugin:3.11.0.3922:sonar \
+            mvn -q -Dmaven.repo.local=/tmp/.m2 -Dsonar.userHome=/tmp/.sonar org.sonarsource.scanner.maven:sonar-maven-plugin:3.11.0.3922:sonar \
               -Dsonar.host.url="${SONAR_HOST_URL}" \
               -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
               -Dsonar.token="${SONAR_TOKEN}" \
