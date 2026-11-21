@@ -1,0 +1,50 @@
+# Default values for idp-service-chart (managed by the IDP Platform Engineering team).
+# Application teams override only their app-specific fields in their thin chart/values.yaml.
+name: ""
+appId: "APP-1000"
+ownerGroup: "group:default/developers"
+namespace: "demo-dev"
+
+replicaCount: 1
+
+image:
+  repository: registry.access.redhat.com/ubi9/ubi-minimal
+  tag: latest
+  pullPolicy: IfNotPresent
+
+command: []
+
+service:
+  port: 8080
+  healthCheckPath: /health
+
+route:
+  enabled: false
+
+clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+
+mesh:
+  enabled: true
+  dataplane: ambient
+  denyAll: true
+  host: ""
+  gateway:
+    name: platform-ingressgateway
+    namespace: istio-system
+    className: istio
+    credentialName: istio-ingressgateway-certs
+  ingressRoute:
+    create: true
+  ingressPrincipals:
+    - cluster.local/ns/istio-system/sa/istio-ingressgateway
+    - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+  waypoint:
+    enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

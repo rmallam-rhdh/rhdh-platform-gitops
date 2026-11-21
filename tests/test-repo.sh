@@ -51,6 +51,7 @@ helm lint "$ROOT/charts/devspaces" >/dev/null
 helm lint "$ROOT/charts/developer-hub" >/dev/null
 helm lint "$ROOT/charts/squid" >/dev/null
 helm lint "$ROOT/charts/devspaces-user-namespaces" >/dev/null
+helm lint "$ROOT/charts/idp-service-chart" >/dev/null
 helm lint "$ROOT/charts/gateway-cert-lab" -f "$ROOT/charts/gateway-cert-lab/values-deploy.yaml" >/dev/null
 
 CNPG="$(mktemp)"; DR="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"; SQUID="$(mktemp)"

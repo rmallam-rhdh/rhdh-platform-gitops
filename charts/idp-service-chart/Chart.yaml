@@ -1,0 +1,11 @@
+apiVersion: v2
+name: idp-service-chart
+description: >
+  IDP Platform Engineering shared base Helm chart for all enterprise microservices
+  (Quarkus, Spring Boot, Node.js). Renders standardized Deployment, Service,
+  ServiceAccount, OpenShift Route, Ambient Service Mesh (Gateway API Gateway,
+  HTTPRoute, Waypoint Proxy, AuthorizationPolicy, DestinationRule), and mandatory
+  platform labels (backstage.io/kubernetes-id and platform.idp/app-id).
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
