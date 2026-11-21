@@ -50,6 +50,7 @@ helm lint "$ROOT/charts/service-mesh" >/dev/null
 helm lint "$ROOT/charts/devspaces" >/dev/null
 helm lint "$ROOT/charts/developer-hub" >/dev/null
 helm lint "$ROOT/charts/squid" >/dev/null
+helm lint "$ROOT/charts/devspaces-user-namespaces" >/dev/null
 helm lint "$ROOT/charts/gateway-cert-lab" -f "$ROOT/charts/gateway-cert-lab/values-deploy.yaml" >/dev/null
 
 CNPG="$(mktemp)"; DR="$(mktemp)"; SM="$(mktemp)"; DS="$(mktemp)"; HUB="$(mktemp)"; SQUID="$(mktemp)"
@@ -99,7 +100,11 @@ need "$HUB" "https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/gold
 need "$HUB" "https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-node-udi-devspaces.yaml"
 need "$HUB" "https://github.com/rmallam-rhdh/rhdh-platform-gitops/blob/main/golden-path/templates/template-promote-to-prod.yaml"
 need "$ROOT/golden-path/templates/template-promote-to-prod.yaml" "name: promote-service-to-production"
-need "$ROOT/golden-path/templates/template-nodejs-golden-path.yaml" "RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton"
+need "$ROOT/golden-path/templates/template-nodejs-golden-path.yaml" "golden-path/skeletons/skeleton-nodejs-golden-path"
+need "$ROOT/golden-path/templates/template-quarkus-golden-path.yaml" "golden-path/skeletons/skeleton-quarkus-golden-path"
+need "$ROOT/golden-path/templates/template-quarkus-golden-path.yaml" "charts/devspaces-user-namespaces/values.yaml"
+need "$ROOT/golden-path/templates/template-nodejs-golden-path.yaml" "charts/devspaces-user-namespaces/values.yaml"
+need "$ROOT/argocd/apps/devspaces-user-namespaces.yaml" "charts/devspaces-user-namespaces"
 need "$HUB" "name: app-config-command-centre"
 need "$HUB" "entity.page.cicd"
 need "$HUB" "entity.page.quality-security"

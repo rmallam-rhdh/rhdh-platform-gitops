@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: ${{ values.appName }} API
+  version: 1.0.0
+  description: ${{ values.appDescription }}
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: Service is up
+  /api:
+    get:
+      summary: Backend payload consumed by the website
+      responses:
+        "200":
+          description: JSON service payload

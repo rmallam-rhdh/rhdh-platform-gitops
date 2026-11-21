@@ -57,7 +57,7 @@ spec:
       name: Fetch kitchen-sink skeleton
       action: fetch:template
       input:
-        url: https://github.com/rmallam-rhdh/RHDH-SM-DevSpaces/tree/main/golden-path/demo/skeleton-plugin-kitchen-sink
+        url: https://github.com/rmallam-rhdh/rhdh-platform-gitops/tree/main/golden-path/skeletons/skeleton-plugin-kitchen-sink
         values:
           appName: ${{ parameters.appName }}
           appDescription: ${{ parameters.appDescription }}

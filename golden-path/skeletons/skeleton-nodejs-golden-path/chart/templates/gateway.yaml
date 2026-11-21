@@ -1,0 +1,46 @@
+{{- if .Values.mesh.enabled }}
+# Gateway API north-south listener on the shared Istio ingress class.
+# Path: OpenShift Route → this Gateway → HTTPRoute → app Service.
+# TLS ends here (Terminate). Do not passthrough TLS to the Node process.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "app.name" . }}-{{ .Release.Namespace }}
+  namespace: {{ .Values.mesh.gateway.namespace }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    istio: ingressgateway
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  gatewayClassName: {{ .Values.mesh.gateway.className }}
+  addresses:
+    - type: Hostname
+      value: istio-ingressgateway.{{ .Values.mesh.gateway.namespace }}.svc.cluster.local
+  listeners:
+    - name: http
+      hostname: {{ include "app.meshHost" . | quote }}
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+    - name: https
+      hostname: {{ include "app.meshHost" . | quote }}
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: {{ .Values.mesh.gateway.credentialName }}
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+{{- end }}

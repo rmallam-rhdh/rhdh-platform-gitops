@@ -1,0 +1,53 @@
+name: ${{ values.appName }}
+namespace: ${{ values.targetNamespace }}
+
+replicaCount: 1
+
+image:
+  repository: registry.access.redhat.com/ubi9/openjdk-21-runtime
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Override after CI builds an app image from Containerfile.
+command:
+  - java
+  - -jar
+  - /deployments/quarkus-run.jar
+
+service:
+  port: ${{ values.port }}
+
+# Direct Route to the Service bypasses the mesh. Keep off while mesh.enabled.
+route:
+  enabled: false
+
+# OpenShift apps domain (no scheme), used to build the ingress host.
+clusterBaseDomain: ${{ values.clusterBaseDomain }}
+
+# OSSM ambient. STRICT mTLS is namespace-wide (Kyverno on enroll), not per Service.
+mesh:
+  enabled: true
+  dataplane: ambient
+  denyAll: true
+  # Empty = {{name}}-{{namespace}}.{{clusterBaseDomain}}
+  host: ""
+  gateway:
+    name: platform-ingressgateway
+    namespace: istio-system
+    className: istio
+    credentialName: istio-ingressgateway-certs
+  ingressRoute:
+    create: true
+  ingressPrincipals:
+    - cluster.local/ns/istio-system/sa/istio-ingressgateway
+    - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+  waypoint:
+    enabled: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

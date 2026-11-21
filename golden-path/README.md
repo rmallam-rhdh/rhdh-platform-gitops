@@ -1,10 +1,37 @@
-# Golden Path Software Templates — Multi-Cluster & Multi-Namespace Kubernetes Discovery
+# RHDH Enterprise Golden Path Templates & Skeletons (`rhdh-platform-gitops`)
 
-All Golden Path templates in this repository (`nodejs`, `springboot`, `quarkus`, `nodejs-website`, `node-udi`, and `plugin-kitchen-sink`) use **cluster-wide label-selector discovery** so that a **single shared `catalog-info.yaml`** works across multiple OpenShift clusters and differently named environment namespaces (`EDEV`, `NPRD`, `PROD`).
+All Golden Path Software Templates (`golden-path/templates/`) and application skeletons (`golden-path/skeletons/`) are **100% self-contained in this repository (`rhdh-platform-gitops`)**, with zero dependency on external or locked repositories.
 
 ---
 
-## 1. How Catalog & Workload Annotations Work Across Clusters and Namespaces
+## 1. Self-Contained Golden Path Architecture
+
+| Directory / Chart | Purpose |
+| :--- | :--- |
+| `golden-path/templates/template-quarkus-golden-path.yaml` | End-to-end **Quarkus 3 / Java 21** Golden Path (`APPID`, `groupName`, Command Centre 6-tab + Overview Bento grid, Jenkins + SonarQube + Ambient Mesh Helm chart, and GitOps Dev Spaces namespace check/provisioning) |
+| `golden-path/templates/template-nodejs-golden-path.yaml` | End-to-end **Node.js 20** Golden Path (`APPID`, `groupName`, Command Centre 6-tab + Overview Bento grid, Jenkins + SonarQube + Ambient Mesh Helm chart, and GitOps Dev Spaces namespace check/provisioning) |
+| `golden-path/skeletons/skeleton-quarkus-golden-path/` | Self-contained Quarkus 3 / Java 21 source code, `pom.xml`, JUnit 5 tests, `openapi.yaml`, `Jenkinsfile`, `sonar-project.properties`, `devfile.yaml`, Ambient Mesh Helm `/chart`, TechDocs, and `catalog-info.yaml` |
+| `golden-path/skeletons/skeleton-nodejs-golden-path/` | Self-contained Node.js 20 source code, unit tests, `openapi.yaml`, `Jenkinsfile`, `sonar-project.properties`, `devfile.yaml`, Ambient Mesh Helm `/chart`, TechDocs, and `catalog-info.yaml` |
+| `charts/devspaces-user-namespaces/` | GitOps Helm chart reconciled by Argo CD (`devspaces-user-namespaces`) that provisions isolated per-user Dev Spaces namespaces (`${user}-devspaces-${random}`), `ResourceQuota`, `LimitRange`, `RoleBinding`, and `DevWorkspace` from `values.yaml` |
+
+---
+
+## 2. Automated Dev Spaces User Namespace Check & Helm Provisioning
+
+Before a developer opens a workspace in OpenShift Dev Spaces (where `CheCluster` auto-provisioning is disabled), their user namespace must exist and carry the Che binding labels/annotations (`che.eclipse.org/username`).
+
+When a developer runs the **Quarkus** or **Node.js** Golden Path template:
+1. **Fetch & Parse (`fetch:plain:file` + `roadiehq:utils:fs:parse`)**:
+   The template downloads and parses `charts/devspaces-user-namespaces/values.yaml` from `rhdh-platform-gitops`.
+2. **Idempotent Existing-Namespace Check (`users.<userSlug>`)**:
+   - **If `users.<userSlug>` ALREADY exists in `values.yaml`**:
+     The template **automatically skips** modifying `values.yaml` and skips opening a GitOps update, and immediately binds the new application's Dev Spaces IDE and Factory links to the user's existing namespace (`users.<userSlug>.namespace`).
+   - **If `users.<userSlug>` does NOT exist in `values.yaml`**:
+     The template appends the user's entry under `users:` in `charts/devspaces-user-namespaces/values.yaml` and pushes the update to `rhdh-platform-gitops` (auto-merged by `.github/workflows/auto-merge-gitops-devspaces.yml`), triggering Argo CD (`devspaces-user-namespaces`) to render the Helm chart and create the user's `Namespace`, `ResourceQuota`, `LimitRange`, `RoleBinding`, and initial `DevWorkspace`.
+
+---
+
+## 3. Multi-Cluster & Multi-Namespace Kubernetes Discovery
 
 ### In `catalog-info.yaml`
 All Golden Path templates set **only** `backstage.io/kubernetes-id` and intentionally **omit** `backstage.io/kubernetes-namespace`:
@@ -14,7 +41,10 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: my-service
+  labels:
+    platform.idp/app-id: "APP-1042"
   annotations:
+    platform.idp/app-id: "APP-1042"
     # Matches the backstage.io/kubernetes-id label on Kubernetes resources across all clusters & namespaces.
     # DO NOT set backstage.io/kubernetes-namespace when namespace names differ across environments/clusters.
     backstage.io/kubernetes-id: my-service
@@ -24,19 +54,9 @@ metadata:
 > In `@backstage/plugin-kubernetes-backend` (`KubernetesFanOutHandler`), `backstage.io/kubernetes-namespace` only accepts a **single string** and queries that exact same namespace path (`/namespaces/<ns>/...`) on every configured cluster.
 > When `backstage.io/kubernetes-namespace` is **omitted**, RHDH queries cluster-wide using `?labelSelector=backstage.io/kubernetes-id=<app-name>` across every cluster in `kubernetes.clusterLocatorMethods`, automatically discovering the application's pods, deployments, services, and routes even when the namespace is named `team-payments-edev` in EDEV, `team-payments-nonprod` in NPRD, and `team-payments-prod` in PROD.
 
-### In Application Helm Charts / Kustomize Manifests
-Every Golden Path Helm chart (`_helpers.tpl`) and Kustomize base stamps the matching `backstage.io/kubernetes-id` label on all Kubernetes objects and Pod templates:
-
-```yaml
-metadata:
-  labels:
-    app.kubernetes.io/name: my-service
-    backstage.io/kubernetes-id: my-service
-```
-
 ---
 
-## 2. Required ServiceAccount Permissions on Target Clusters
+## 4. Required ServiceAccount Permissions on Target Clusters
 
 Because RHDH queries resources across namespaces using a label selector (`?labelSelector=backstage.io/kubernetes-id=<app-name>`), the ServiceAccount used by RHDH on each target OpenShift cluster requires a **cluster-scoped read-only `ClusterRole` and `ClusterRoleBinding`** (it does **not** require `cluster-admin`).
 
@@ -83,72 +103,11 @@ If your security team requires a least-privilege `ClusterRole` scoped strictly t
 | `networking.istio.io`, `security.istio.io` | `virtualservices`, `destinationrules`, `gateways`, `peerauthentications`, `authorizationpolicies`, `sidecars` | `get`, `list`, `watch` | Istio traffic routing and mTLS policy visibility |
 | `gateway.networking.k8s.io` | `gateways`, `httproutes` | `get`, `list`, `watch` | Kubernetes Gateway API & Ambient Mesh waypoint proxies |
 
-#### Full Least-Privilege `ClusterRole` + `ClusterRoleBinding` YAML:
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: rhdh-kubernetes-reader
-rules:
-  - apiGroups: [""]
-    resources: [pods, services, configmaps, namespaces, nodes, events, resourcequotas, limitranges, serviceaccounts, persistentvolumeclaims]
-    verbs: [get, list, watch]
-  - apiGroups: [""]
-    resources: [pods/log]
-    verbs: [get]
-  - apiGroups: [metrics.k8s.io]
-    resources: [pods, nodes]
-    verbs: [get, list, watch]
-  - apiGroups: [apps]
-    resources: [deployments, replicasets, statefulsets, daemonsets]
-    verbs: [get, list, watch]
-  - apiGroups: [batch]
-    resources: [jobs, cronjobs]
-    verbs: [get, list, watch]
-  - apiGroups: [autoscaling]
-    resources: [horizontalpodautoscalers]
-    verbs: [get, list, watch]
-  - apiGroups: [networking.k8s.io]
-    resources: [ingresses, networkpolicies]
-    verbs: [get, list, watch]
-  - apiGroups: [route.openshift.io]
-    resources: [routes]
-    verbs: [get, list, watch]
-  - apiGroups: [tekton.dev]
-    resources: [pipelineruns, taskruns, pipelines, tasks]
-    verbs: [get, list, watch]
-  - apiGroups: [argoproj.io]
-    resources: [applications, appprojects, applicationsets]
-    verbs: [get, list, watch]
-  - apiGroups: [sailoperator.io]
-    resources: [istios, istiocnis, ztunnels, istiorevisions]
-    verbs: [get, list, watch]
-  - apiGroups: [networking.istio.io, security.istio.io]
-    resources: [virtualservices, destinationrules, gateways, peerauthentications, authorizationpolicies, sidecars]
-    verbs: [get, list, watch]
-  - apiGroups: [gateway.networking.k8s.io]
-    resources: [gateways, httproutes]
-    verbs: [get, list, watch]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: rhdh-kubernetes-reader-binding
-subjects:
-  - kind: ServiceAccount
-    name: default # or rhdh-kubernetes-reader
-    namespace: rhdh
-roleRef:
-  kind: ClusterRole
-  name: rhdh-kubernetes-reader
-  apiGroup: rbac.authorization.k8s.io
-```
-
 ---
 
-## 3. Required RHDH RBAC Permissions (`rbac-policy.csv`)
+## 5. Required RHDH RBAC Permissions (`rbac-policy.csv`)
 
-In addition to the Kubernetes ServiceAccount `ClusterRole`, RHDH's internal RBAC (`permission.enabled: true`) requires two permissions granted to developer roles in `rbac-policy.csv` so logged-in RHDH users can view the Kubernetes & Topology tabs:
+In addition to the Kubernetes ServiceAccount `ClusterRole`, RHDH's internal RBAC (`permission.enabled: true`) requires permissions granted to developer roles in `rbac-policy.csv`:
 
 ```csv
 p, role:default/developer, kubernetes.clusters.read, read, allow

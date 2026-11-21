@@ -1,0 +1,10 @@
+apiVersion: v2
+name: devspaces-user-namespaces
+description: >
+  GitOps Helm chart managed by Argo CD (devspaces-user-namespaces) that provisions
+  isolated per-user OpenShift Dev Spaces namespaces (${user}-devspaces-${random}),
+  ResourceQuotas, LimitRanges, RoleBindings, and initial DevWorkspaces whenever a
+  new user entry is added to values.yaml by an RHDH Golden Path template.
+type: application
+version: 0.1.0
+appVersion: "3.30"

@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.appName }}
+  description: ${{ values.appDescription }}
+  annotations:
+    github.com/project-slug: ${{ values.githubOwner }}/${{ values.appName }}
+    # Multi-cluster & multi-namespace discovery via label selector
+    backstage.io/kubernetes-id: ${{ values.appName }}
+    acme.io/devfile-path: devfile.yaml
+    acme.io/devspaces-url: ${{ values.devSpacesBaseUrl }}
+    acme.io/devspaces-factory-url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?new&devfilePath=devfile.yaml
+  tags:
+    - nodejs
+    - udi
+    - demo
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/guest

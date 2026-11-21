@@ -1,0 +1,39 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.appName }}
+  description: ${{ values.appDescription }}
+  tags:
+    - nodejs
+    - udi
+    - demo
+    - plugins
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/source-location: url:https://github.com/${{ values.githubOwner }}/${{ values.appName }}/tree/main/
+    backstage.io/view-url: https://github.com/${{ values.githubOwner }}/${{ values.appName }}
+    github.com/project-slug: ${{ values.githubOwner }}/${{ values.appName }}
+    jenkins.io/job-full-name: demo/${{ values.appName }}
+    sonarqube.org/project-key: ${{ values.appName }}
+    argocd/app-name: developer-hub
+    argocd/app-namespace: openshift-gitops
+    # Multi-cluster & multi-namespace discovery: omit backstage.io/kubernetes-namespace
+    # so RHDH discovers resources across clusters/environments by label selector.
+    backstage.io/kubernetes-id: ${{ values.appName }}
+    kiali.io/namespace: ${{ values.targetNamespace }}
+    vault.io/secrets-path: rhdh
+    jira/project-key: SCRUM
+    snyk.io/org-id: stub-org
+    snyk.io/org-name: stub-org
+    snyk.io/project-ids: stub
+    servicenow.com/entity-id: demo
+    jfrog-artifactory/image-name: ${{ values.appName }}
+    dynatrace.com/dynatrace-entity-id: SERVICE-39720C1E0047A5C0
+    acme.io/devfile-path: devfile.yaml
+    acme.io/devspaces-url: ${{ values.devSpacesBaseUrl }}
+    acme.io/devspaces-factory-url: ${{ values.devSpacesBaseUrl }}#https://github.com/${{ values.githubOwner }}/${{ values.appName }}?new&devfilePath=devfile.yaml
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:default/guest
+  system: plugin-kitchen-sink

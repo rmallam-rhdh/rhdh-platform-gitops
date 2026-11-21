@@ -1,0 +1,23 @@
+{{ include "app.name" . }} deployed to {{ .Release.Namespace }}.
+Topology label: backstage.io/kubernetes-id={{ include "app.name" . }}
+{{- if .Values.mesh.enabled }}
+
+North-south: OpenShift Route → Gateway API Gateway → HTTPRoute → app
+  https://{{ include "app.meshHost" . }}
+  Route      {{ .Values.mesh.gateway.namespace }}/{{ include "app.name" . }}-{{ .Release.Namespace }}
+             → Service istio-ingressgateway (TLS passthrough)
+  Gateway    {{ .Values.mesh.gateway.namespace }}/{{ include "app.name" . }}-{{ .Release.Namespace }}
+             (gatewayClassName: {{ .Values.mesh.gateway.className }}, TLS Terminate)
+  HTTPRoute  {{ .Release.Namespace }}/{{ include "app.name" . }}
+             → {{ include "app.name" . }}:{{ .Values.service.port }}
+
+East-west: this chart's deny-all AuthorizationPolicy (plus per-app ALLOW from the gateway).
+STRICT mTLS is not in this chart — Kyverno creates PeerAuthentication default-strict-mtls
+on the namespace when you enrol:
+  oc label namespace {{ .Release.Namespace }} acme.io/mesh-enroll=true istio.io/dataplane-mode=ambient --overwrite
+{{- else }}
+
+Direct Route is enabled (mesh off). This path bypasses mTLS and AuthZ.
+{{- end }}
+
+Upgrade: helm upgrade --install {{ .Release.Name }} chart -n {{ .Release.Namespace }}

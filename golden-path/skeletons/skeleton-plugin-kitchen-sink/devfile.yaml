@@ -1,0 +1,49 @@
+schemaVersion: 2.2.2
+metadata:
+  name: ${{ values.appName }}
+  displayName: ${{ values.appName }}
+  description: ${{ values.appDescription }}
+  tags:
+    - UDI
+    - Node
+  attributes:
+    metadata.openshift.io/scopes: ['devspaces']
+
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel9:3.30
+      memoryLimit: 3Gi
+      memoryRequest: 1Gi
+      cpuLimit: "2"
+      cpuRequest: 200m
+      mountSources: true
+      sourceMapping: /projects
+      env:
+        - name: NODEJS_VERSION
+          value: "20"
+        - name: PORT
+          value: "${{ values.port }}"
+      endpoints:
+        - name: api
+          targetPort: ${{ values.port }}
+          exposure: public
+          protocol: http
+
+commands:
+  - id: test
+    exec:
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/${{ values.appName }}
+      commandLine: npm test
+      group:
+        kind: test
+        isDefault: true
+  - id: run
+    exec:
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/${{ values.appName }}
+      commandLine: npm start
+      group:
+        kind: run
+        isDefault: true

@@ -1,0 +1,10 @@
+chart
+docs
+Jenkinsfile
+*.md
+devfile.yaml
+catalog-info.yaml
+mkdocs.yml
+sonar-project.properties
+node_modules
+.git

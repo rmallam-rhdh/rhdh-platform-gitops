@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: ${{ values.appName }} API (${{ values.appId | default("APP-1002") }})
+  description: ${{ values.appDescription }}
+  version: 1.0.0
+  x-app-id: ${{ values.appId | default("APP-1002") }}
+  x-owner-group: ${{ values.groupName | default("group:default/developers") }}
+paths:
+  /healthz:
+    get:
+      summary: Service liveness and readiness probe
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: ${{ values.appName }}
+  /api:
+    get:
+      summary: Service metadata and APPID status payload
+      operationId: getApiPayload
+      responses:
+        "200":
+          description: Service metadata response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: ${{ values.appName }}
+                  appId:
+                    type: string
+                    example: ${{ values.appId | default("APP-1002") }}
+                  status:
+                    type: string
+                    example: ok

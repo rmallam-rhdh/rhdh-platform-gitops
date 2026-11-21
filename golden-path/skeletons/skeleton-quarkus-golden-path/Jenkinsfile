@@ -1,0 +1,86 @@
+// Quarkus golden path — compile, unit tests, SonarQube, Helm lint.
+// Job name in Hub: demo/${{ values.appName }}
+// Runs on a JDK 21 agent pod (OpenShift Jenkins master has no Maven).
+pipeline {
+  agent {
+    kubernetes {
+      defaultContainer 'jdk'
+      yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jdk
+    image: maven:3.9.9-eclipse-temurin-21
+    command:
+    - sleep
+    args:
+    - 99d
+    tty: true
+    resources:
+      requests:
+        cpu: 200m
+        memory: 1Gi
+'''
+    }
+  }
+
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    timeout(time: 25, unit: 'MINUTES')
+  }
+
+  environment {
+    APP_NAME          = '${{ values.appName }}'
+    SONAR_HOST_URL    = '${{ values.sonarHostUrl }}'
+    SONAR_PROJECT_KEY = '${{ values.sonarProjectKey }}'
+    TARGET_NAMESPACE  = '${{ values.targetNamespace }}'
+  }
+
+  stages {
+    stage('Unit Tests') {
+      steps {
+        sh 'java -version && mvn -q -DskipITs test'
+      }
+    }
+
+    stage('SonarQube') {
+      steps {
+        withEnv(["SONAR_TOKEN=${env.SONAR_TOKEN ?: ''}"]) {
+          sh '''
+            set -euo pipefail
+            if [ -z "${SONAR_TOKEN:-}" ]; then
+              echo "SONAR_TOKEN unset — skip scanner (add a Jenkins credential if you want a live gate)"
+              exit 0
+            fi
+            mvn -q sonar:sonar \
+              -Dsonar.host.url="${SONAR_HOST_URL}" \
+              -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+              -Dsonar.login="${SONAR_TOKEN}"
+          '''
+        }
+      }
+    }
+
+    stage('Helm lint') {
+      steps {
+        sh '''
+          set -euo pipefail
+          if command -v helm >/dev/null 2>&1; then
+            helm lint chart
+            helm template "${APP_NAME}" chart --namespace "${TARGET_NAMESPACE}" >/tmp/helm-render.yaml
+            echo "Helm render OK ($(wc -l < /tmp/helm-render.yaml) lines)"
+          else
+            echo "helm not on this agent — skip lint (chart still ships in the repo)"
+          fi
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "pipeline finished: ${currentBuild.currentResult}"
+    }
+  }
+}

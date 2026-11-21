@@ -1,0 +1,43 @@
+# ==============================================================================
+# Per-User OpenShift Dev Spaces Namespace Registry (Reconciled by Argo CD)
+#
+# How the RHDH Golden Path Templates Use This File:
+#   1. The Scaffolder fetches `charts/devspaces-user-namespaces/values.yaml` and
+#      parses it with `roadiehq:utils:fs:parse`.
+#   2. It checks if `users.<userSlug>` already exists:
+#      - IF PRESENT: The user ALREADY has a Dev Spaces namespace (`users.<userSlug>.namespace`).
+#        The template SKIPS modifying or pushing `values.yaml` and reuses their
+#        existing namespace for the new workspace!
+#      - IF ABSENT: The template appends the new user entry under `users:` and
+#        commits `charts/devspaces-user-namespaces/values.yaml` to Git so Argo CD
+#        automatically creates the Namespace, ResourceQuota, LimitRange, RoleBinding,
+#        and initial DevWorkspace before the user opens Dev Spaces.
+# ==============================================================================
+defaults:
+  devSpacesBaseUrl: https://devspaces.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+  pluginRegistryInternalUrl: http://plugin-registry.openshift-devspaces.svc:8080/v3
+  codeImage: registry.redhat.io/devspaces/code-rhel9:3.30
+  udiImage: registry.redhat.io/devspaces/udi-rhel9:3.30
+  quota:
+    requestsCpu: "4"
+    requestsMemory: 8Gi
+    limitsCpu: "8"
+    limitsMemory: 16Gi
+    pvcs: "4"
+    pods: "10"
+  limitRange:
+    defaultCpu: "1"
+    defaultMemory: 2Gi
+    defaultRequestCpu: 250m
+    defaultRequestMemory: 512Mi
+
+users:
+  cluster-admin:
+    openShiftUser: "cluster-admin"
+    namespace: "cluster-admin-devspaces-r7k2m"
+    appId: "APP-0001"
+    groupName: "group:default/platform-team"
+    initialAppName: "rhdh-gitops-ns-demo"
+    initialAppRepoUrl: "https://github.com/rmallam-rhdh/rhdh-gitops-ns-demo.git"
+    initialAppPort: 3000
+    runtimeCommand: "node server.js"
