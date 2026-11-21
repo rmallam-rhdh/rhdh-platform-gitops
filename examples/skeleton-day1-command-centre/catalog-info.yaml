@@ -47,8 +47,9 @@ metadata:
     jfrog-artifactory/image-name: ${{ values.appName | dump }}
     vault.io/secrets-path: ${{ "apps/" + values.appName | dump }}
     jira/project-key: ${{ values.jiraProjectKey | default("SCRUM") | dump }}
+    # Multi-cluster & multi-namespace discovery: omit backstage.io/kubernetes-namespace
+    # so RHDH discovers resources across clusters/environments by label selector.
     backstage.io/kubernetes-id: ${{ values.appName | dump }}
-    backstage.io/kubernetes-namespace: ${{ values.targetNamespace | default("demo-dev") | dump }}
     kiali.io/namespace: ${{ values.targetNamespace | default("demo-dev") | dump }}
 
   # 6. About Card Quick-Links (JFrog Artifactory & HashiCorp Vault — zero Overview clutter)

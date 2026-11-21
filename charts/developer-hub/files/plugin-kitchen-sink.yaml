@@ -49,7 +49,6 @@ metadata:
     platform.idp/gitops-prod-branch: main
     platform.idp/gitops-prod-values-path: environments/prod/plugin-kitchen-sink/values.yaml
     backstage.io/kubernetes-id: developer-hub
-    backstage.io/kubernetes-namespace: rhdh
     kiali.io/namespace: demo-dev
     vault.io/namespace: payments/nonprod
     vault.io/secrets-path: ledger-service
@@ -102,8 +101,8 @@ metadata:
   annotations:
     argocd/app-selector: app=payments-checkout-service
     argocd/app-namespace: openshift-gitops
+    # Multi-cluster & multi-namespace discovery: omit backstage.io/kubernetes-namespace
     backstage.io/kubernetes-id: payments-checkout-service
-    backstage.io/kubernetes-namespace: team-payments-nonprod
   links:
     - title: Vault Enterprise UI — Non-Prod (namespace=payments/nonprod)
       url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/checkout-service?namespace=payments%2Fnonprod
@@ -142,7 +141,6 @@ metadata:
     vault.io/secrets-path: ledger-service
     vault.io/allowed-principals: group:default/developers,group:default/platform-team
     backstage.io/kubernetes-id: payments-ledger-service
-    backstage.io/kubernetes-namespace: team-payments-nonprod
   links:
     - title: Vault Enterprise UI — Non-Prod (namespace=payments/nonprod)
       url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/ledger-service?namespace=payments%2Fnonprod
@@ -171,7 +169,6 @@ metadata:
     vault.io/namespace: retail/nonprod
     vault.io/secrets-path: inventory-service
     backstage.io/kubernetes-id: retail-inventory-service
-    backstage.io/kubernetes-namespace: team-retail-nonprod
   links:
     - title: Vault Enterprise UI — Non-Prod (namespace=retail/nonprod)
       url: https://vault-ui.corp.example.com/ui/vault/secrets/kv/kv/list/inventory-service?namespace=retail%2Fnonprod
