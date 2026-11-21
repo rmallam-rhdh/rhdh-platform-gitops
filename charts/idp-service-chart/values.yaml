@@ -35,9 +35,7 @@ mesh:
     credentialName: istio-ingressgateway-certs
   ingressRoute:
     create: true
-  ingressPrincipals:
-    - cluster.local/ns/istio-system/sa/istio-ingressgateway
-    - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
+  ingressPrincipals: []
   waypoint:
     enabled: true
 
