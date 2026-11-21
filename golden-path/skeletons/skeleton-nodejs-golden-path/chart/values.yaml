@@ -16,13 +16,27 @@ idp-service-chart:
     tag: latest
     pullPolicy: IfNotPresent
 
+  # Immediate executable bootstrap Node.js HTTP server for /health and / so the
+  # deployment is Ready in demo-dev immediately after Golden Path creation,
+  # before a custom app image is built and pushed from Containerfile.
   command:
     - node
-    - /opt/app-root/src/server.js
+    - -e
+    - |
+      const http = require('http');
+      const port = Number(process.env.PORT || ${{ values.port }});
+      http.createServer((req, res) => {
+        if (req.url === '/health' || req.url === '/healthz') {
+          res.writeHead(200, {'Content-Type': 'application/json'});
+          return res.end(JSON.stringify({status: 'ok', app: '${{ values.appName }}', appId: '${{ values.appId | default("APP-2048") }}'}));
+        }
+        res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
+        res.end('<!doctype html><html><body style="font-family:sans-serif;margin:2rem"><h1>${{ values.appName }} (${{ values.appId | default("APP-2048") }})</h1><p>${{ values.appDescription }}</p><p>Deployed via IDP Shared Base Chart (idp-service-chart:1.0.0) + Argo CD</p></body></html>');
+      }).listen(port, '0.0.0.0', () => console.log('${{ values.appName }} listening on ' + port));
 
   service:
     port: ${{ values.port }}
-    healthCheckPath: /healthz
+    healthCheckPath: /health
 
   clusterBaseDomain: ${{ values.clusterBaseDomain }}
 

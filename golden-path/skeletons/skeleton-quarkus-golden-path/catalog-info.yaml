@@ -26,7 +26,7 @@ metadata:
     github.com/project-slug: ${{ values.githubOwner }}/${{ values.appName }}
 
     # 2. Multi-Cluster Argo CD (Overview Top-Right Bento + CI/CD Tab — nonprod-argo & prod-argo)
-    argocd/app-selector: ${{ values.argocdAppSelector | default("app=plugin-kitchen-sink") | dump }}
+    argocd/app-selector: ${{ values.argocdAppSelector | default("backstage-name=" + values.appName) | dump }}
     argocd/app-namespace: openshift-gitops
 
     # 3. Day-2 Self-Service Promotion Metadata (consumed by promote-service-to-production)
@@ -35,7 +35,7 @@ metadata:
     platform.idp/gitops-prod-values-path: ${{ ("environments/prod/" + values.appName + "/values.yaml") | dump }}
 
     # 4. CI, Code Quality & Security Gates (Overview Bento + CI/CD + Quality & Security Tabs)
-    jenkins.io/job-full-name: ${{ values.jenkinsJobFullName | default("demo/plugin-kitchen-sink") | dump }}
+    jenkins.io/job-full-name: ${{ values.jenkinsJobFullName | default("demo/" + values.appName) | dump }}
     sonarqube.org/project-key: ${{ values.sonarProjectKey | default("demo-plugin-kitchen-sink") | dump }}
     snyk.io/org-id: stub-org
     snyk.io/org-name: stub-org
@@ -50,7 +50,7 @@ metadata:
     # 6. Multi-Cluster Kubernetes & Service Mesh Runtime (Runtime Tab: Topology + Multi-Cluster K8s + Kiali)
     # NOTE: backstage.io/kubernetes-namespace is intentionally omitted so RHDH discovers resources
     # across all clusters and differently named environment namespaces (EDEV, NPRD, PROD) by label selector.
-    backstage.io/kubernetes-id: ${{ values.kubernetesId | default("payments-checkout-service") | dump }}
+    backstage.io/kubernetes-id: ${{ values.kubernetesId | default(values.appName) | dump }}
     kiali.io/namespace: ${{ values.targetNamespace | default("demo-dev") | dump }}
 
     # 7. Operations, Alerting & ITSM (Overview Bento + Operations Tab: Dynatrace + PagerDuty + Jira + ServiceNow)

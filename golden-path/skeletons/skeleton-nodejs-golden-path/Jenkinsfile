@@ -41,7 +41,7 @@ spec:
     stage('Install') {
       steps {
         sh 'node -v && npm -v'
-        sh 'npm install --omit=dev=false'
+        sh 'npm install --cache /tmp/.npm --omit=dev=false'
       }
     }
 
