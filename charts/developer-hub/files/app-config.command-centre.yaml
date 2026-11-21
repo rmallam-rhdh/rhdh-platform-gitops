@@ -88,6 +88,8 @@ dynamicPlugins:
           importName: EntityLatestJenkinsRunCard
           config:
             priority: 90
+            props:
+              branch: main,master
             layout:
               gridColumnEnd:
                 xl: "span 4"
