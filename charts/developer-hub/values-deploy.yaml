@@ -25,6 +25,12 @@ plugins:
     enabled: false
   kubernetes:
     clusterName: rosa-rwx5g
+    extraClusters:
+      - name: rosa-wfnmw-prod
+        url: https://api.rosa-wfnmw.xvzo.p3.openshiftapps.com:443
+        authProvider: serviceAccount
+        serviceAccountToken: "${CLUSTER2_KUBE_TOKEN}"
+        skipTLSVerify: true
   # Public route is proxied by axios (NO_PROXY suffix match is exact unless
   # the entry has a leading dot). In-cluster matches `.svc` and skips Squid.
   kiali:

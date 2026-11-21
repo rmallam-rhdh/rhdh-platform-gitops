@@ -50,3 +50,5 @@ allow:
   - bitbucket.org
   - ghcr.io
   - registry.access.redhat.com
+  - .openshiftapps.com
+  - .pagerduty.com

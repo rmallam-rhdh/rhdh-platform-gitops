@@ -212,6 +212,18 @@ data:
               {{- if .Values.plugins.kubernetes.caData }}
               caData: {{ .Values.plugins.kubernetes.caData | quote }}
               {{- end }}
+            {{- range .Values.plugins.kubernetes.extraClusters }}
+            - name: {{ .name | quote }}
+              url: {{ .url | quote }}
+              authProvider: {{ .authProvider | default "serviceAccount" | quote }}
+              skipTLSVerify: {{ if hasKey . "skipTLSVerify" }}{{ .skipTLSVerify }}{{ else }}false{{ end }}
+              {{- if .serviceAccountToken }}
+              serviceAccountToken: {{ .serviceAccountToken | quote }}
+              {{- end }}
+              {{- if .caData }}
+              caData: {{ .caData | quote }}
+              {{- end }}
+            {{- end }}
     {{- end }}
     {{- if .Values.plugins.jenkins.enabled }}
     jenkins:
