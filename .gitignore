@@ -2,6 +2,8 @@
 *.swp
 *.tgz
 !plugins/dist/*.tgz
+!charts/helm-repo/*.tgz
+!golden-path/skeletons/*/chart/charts/*.tgz
 charts/*/charts/
 charts/*/tmpcharts/
 scripts/__pycache__/
