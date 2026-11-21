@@ -57,9 +57,10 @@ spec:
               echo "SONAR_TOKEN unset — skip scanner (add a Jenkins credential if you want a live gate)"
               exit 0
             fi
-            mvn -q -Dmaven.repo.local=/tmp/.m2 sonar:sonar \
+            mvn -q -Dmaven.repo.local=/tmp/.m2 org.sonarsource.scanner.maven:sonar-maven-plugin:3.11.0.3922:sonar \
               -Dsonar.host.url="${SONAR_HOST_URL}" \
               -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+              -Dsonar.token="${SONAR_TOKEN}" \
               -Dsonar.login="${SONAR_TOKEN}"
           '''
         }
