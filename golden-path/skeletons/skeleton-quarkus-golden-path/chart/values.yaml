@@ -1,53 +1,43 @@
-name: ${{ values.appName }}
-namespace: ${{ values.targetNamespace }}
+# ==============================================================================
+# Thin Application Values (Consumes IDP Platform Base Chart: idp-service-chart)
+# All Kubernetes, OpenShift Route, and Ambient Service Mesh templates live in
+# the IDP-managed `idp-service-chart` dependency — zero template duplication!
+# ==============================================================================
+idp-service-chart:
+  name: ${{ values.appName }}
+  appId: ${{ values.appId | default("APP-1042") | dump }}
+  ownerGroup: ${{ values.groupName | default("group:default/developers") | dump }}
+  namespace: ${{ values.targetNamespace }}
 
-replicaCount: 1
+  replicaCount: 1
 
-image:
-  repository: registry.access.redhat.com/ubi9/openjdk-21-runtime
-  tag: latest
-  pullPolicy: IfNotPresent
+  image:
+    repository: registry.access.redhat.com/ubi9/openjdk-21-runtime
+    tag: latest
+    pullPolicy: IfNotPresent
 
-# Override after CI builds an app image from Containerfile.
-command:
-  - java
-  - -jar
-  - /deployments/quarkus-run.jar
+  command:
+    - java
+    - -jar
+    - /deployments/quarkus-run.jar
 
-service:
-  port: ${{ values.port }}
+  service:
+    port: ${{ values.port }}
+    healthCheckPath: /health
 
-# Direct Route to the Service bypasses the mesh. Keep off while mesh.enabled.
-route:
-  enabled: false
+  clusterBaseDomain: ${{ values.clusterBaseDomain }}
 
-# OpenShift apps domain (no scheme), used to build the ingress host.
-clusterBaseDomain: ${{ values.clusterBaseDomain }}
-
-# OSSM ambient. STRICT mTLS is namespace-wide (Kyverno on enroll), not per Service.
-mesh:
-  enabled: true
-  dataplane: ambient
-  denyAll: true
-  # Empty = {{name}}-{{namespace}}.{{clusterBaseDomain}}
-  host: ""
-  gateway:
-    name: platform-ingressgateway
-    namespace: istio-system
-    className: istio
-    credentialName: istio-ingressgateway-certs
-  ingressRoute:
-    create: true
-  ingressPrincipals:
-    - cluster.local/ns/istio-system/sa/istio-ingressgateway
-    - cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account
-  waypoint:
+  mesh:
     enabled: true
+    dataplane: ambient
+    denyAll: true
+    waypoint:
+      enabled: true
 
-resources:
-  requests:
-    cpu: 100m
-    memory: 256Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

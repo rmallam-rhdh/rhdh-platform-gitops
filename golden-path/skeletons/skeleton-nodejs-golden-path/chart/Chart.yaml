@@ -1,6 +1,10 @@
 apiVersion: v2
 name: ${{ values.appName }}
-description: ${{ values.appDescription }}
+description: "${{ values.appDescription }} — Thin application chart consuming IDP standard idp-service-chart"
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
+dependencies:
+  - name: idp-service-chart
+    version: "1.0.0"
+    repository: "https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/charts/helm-repo"

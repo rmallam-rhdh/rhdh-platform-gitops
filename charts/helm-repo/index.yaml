@@ -1,0 +1,18 @@
+apiVersion: v1
+entries:
+  idp-service-chart:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-11-21T16:51:22.499184+11:00"
+    description: 'IDP Platform Engineering shared base Helm chart for all enterprise
+      microservices (Quarkus, Spring Boot, Node.js). Renders standardized Deployment,
+      Service, ServiceAccount, OpenShift Route, Ambient Service Mesh (Gateway API
+      Gateway, HTTPRoute, Waypoint Proxy, AuthorizationPolicy, DestinationRule), and
+      mandatory platform labels (backstage.io/kubernetes-id and platform.idp/app-id). '
+    digest: 99028a03d64afa70c41dfe9098f7fb5d51c2aa83a3c2972a0231de3b95a8dad1
+    name: idp-service-chart
+    type: application
+    urls:
+    - https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/charts/helm-repo/idp-service-chart-1.0.0.tgz
+    version: 1.0.0
+generated: "2026-11-21T16:51:22.498472+11:00"

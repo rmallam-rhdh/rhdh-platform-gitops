@@ -1,12 +1,13 @@
 {{- define "app.name" -}}
-{{- default .Chart.Name .Values.name | trunc 63 | trimSuffix "-" }}
+{{- default .Release.Name .Values.name | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{- define "app.labels" -}}
 app.kubernetes.io/name: {{ include "app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/part-of: acme-platform
-platform.idp/app-id: "${{ values.appId | default('APP-1002') }}"
+app.kubernetes.io/managed-by: idp-service-chart
+platform.idp/app-id: {{ .Values.appId | default "APP-1000" | quote }}
 backstage.io/kubernetes-id: {{ include "app.name" . }}
 {{- end }}
 

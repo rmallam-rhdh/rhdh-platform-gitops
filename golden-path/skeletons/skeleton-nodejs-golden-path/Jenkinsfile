@@ -75,14 +75,15 @@ spec:
       }
     }
 
-    stage('Helm lint') {
+    stage('Helm lint (IDP Shared Dependency Chart)') {
       steps {
         sh '''
           set -euo pipefail
           if command -v helm >/dev/null 2>&1; then
+            helm dependency update chart || true
             helm lint chart
             helm template "${APP_NAME}" chart --namespace "${TARGET_NAMESPACE}" >/tmp/helm-render.yaml
-            echo "Helm render OK ($(wc -l < /tmp/helm-render.yaml) lines)"
+            echo "Helm render OK ($(wc -l < /tmp/helm-render.yaml) lines from idp-service-chart dependency)"
           else
             echo "helm not on this agent — skip lint (chart still ships in the repo)"
           fi

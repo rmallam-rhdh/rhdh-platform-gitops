@@ -29,7 +29,7 @@ spec:
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           {{- if .Values.command }}
           command:
             {{- toYaml .Values.command | nindent 12 }}
@@ -42,15 +42,17 @@ spec:
               value: {{ .Values.service.port | quote }}
             - name: QUARKUS_HTTP_PORT
               value: {{ .Values.service.port | quote }}
+            - name: APP_ID
+              value: {{ .Values.appId | default "APP-1000" | quote }}
           livenessProbe:
             httpGet:
-              path: /health
+              path: {{ .Values.service.healthCheckPath | default "/health" }}
               port: http
             initialDelaySeconds: 10
             periodSeconds: 15
           readinessProbe:
             httpGet:
-              path: /health
+              path: {{ .Values.service.healthCheckPath | default "/health" }}
               port: http
             initialDelaySeconds: 5
             periodSeconds: 5
