@@ -277,7 +277,7 @@ spec:
         namespace: ${{ parameters.targetNamespace }}
         repoUrl: https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}.git
         path: chart
-        projectName: ${{ parameters.appName }}
+        projectName: default
         labelValue: ${{ parameters.appName }}
 
     - id: register

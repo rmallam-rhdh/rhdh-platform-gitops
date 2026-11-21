@@ -7,4 +7,6 @@ appVersion: "1.0.0"
 dependencies:
   - name: idp-service-chart
     version: "1.0.0"
-    repository: "https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/charts/helm-repo"
+    # Bundled in chart/charts/idp-service-chart-1.0.0.tgz by the Golden Path template.
+    # To pull a newer IDP chart release locally, run:
+    # helm repo add idp https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/charts/helm-repo && helm dependency update chart
