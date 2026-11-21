@@ -36,7 +36,7 @@ metadata:
 
     # 4. CI, Code Quality & Security Gates (Overview Bento + CI/CD + Quality & Security Tabs)
     jenkins.io/job-full-name: ${{ values.jenkinsJobFullName | default("demo/" + values.appName) | dump }}
-    sonarqube.org/project-key: ${{ values.sonarProjectKey | default("demo-plugin-kitchen-sink") | dump }}
+    sonarqube.org/project-key: ${{ values.sonarProjectKey | default(values.appName) | dump }}
     snyk.io/org-id: stub-org
     snyk.io/org-name: stub-org
     snyk.io/project-ids: stub

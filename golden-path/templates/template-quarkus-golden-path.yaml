@@ -224,7 +224,7 @@ spec:
           kubernetesId: ${{ 'payments-checkout-service' if parameters.telemetryBindingMode === 'live-platform-baseline' else parameters.appName }}
           argocdAppSelector: ${{ 'app=plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else ('backstage-name=' + parameters.appName) }}
           jenkinsJobFullName: ${{ 'demo/plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else ('demo/' + parameters.appName) }}
-          sonarProjectKey: ${{ 'demo-plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else 'demo-plugin-kitchen-sink' }}
+          sonarProjectKey: ${{ 'demo-plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else parameters.appName }}
           artifactoryImageName: ${{ 'plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else 'plugin-kitchen-sink' }}
           vaultNamespace: ${{ parameters.vaultNamespace }}
           vaultSecretsPath: ${{ parameters.vaultSecretsPath }}

@@ -17,6 +17,10 @@ spec:
     args:
     - 99d
     tty: true
+    envFrom:
+    - secretRef:
+        name: sonarqube-token
+        optional: true
     resources:
       requests:
         cpu: 200m
