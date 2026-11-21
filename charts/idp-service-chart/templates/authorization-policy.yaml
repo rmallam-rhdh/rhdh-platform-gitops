@@ -9,7 +9,9 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec: {}
 ---
-# North-south only: shared ingress gateway. No east-west ALLOW is seeded.
+# North-south only: shared or per-app ingress gateway.
+# Applied directly to the workload pod selector so ztunnel permits HBONE traffic
+# when an Istio ingress gateway forwards directly to the pod IP.
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -19,16 +21,9 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  {{- if .Values.mesh.waypoint.enabled }}
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: Gateway
-    name: {{ include "app.waypointName" . }}
-  {{- else }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "app.name" . }}
-  {{- end }}
   action: ALLOW
   rules:
     - from:
