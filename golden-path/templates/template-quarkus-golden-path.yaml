@@ -123,18 +123,18 @@ spec:
         telemetryBindingMode:
           title: Command Centre Telemetry Binding Mode
           description: >
-            Choose whether the scaffolded catalog entity binds to active platform
-            baseline telemetry (so Overview Bento cards, Multi-Cluster Kubernetes
-            Runtime, Argo CD, Jenkins, and SonarQube render live data immediately)
-            or strictly uses the new repo's dedicated identifiers.
+            Choose whether the scaffolded catalog entity binds directly to its own
+            newly deployed Argo CD Application, Kubernetes pods in demo-dev, and
+            Jenkins pipeline (demo/<appName>), or binds to the multi-cluster shared
+            platform baseline telemetry.
           type: string
-          default: live-platform-baseline
+          default: dedicated-app-identifiers
           enum:
-            - live-platform-baseline
             - dedicated-app-identifiers
+            - live-platform-baseline
           enumNames:
-            - "Instant Live Command Centre (Recommended for Demo — all Overview cards & tabs populated immediately)"
-            - "Dedicated App Identifiers Only (Wait until Jenkins/Argo CD deploy the new repo)"
+            - "Dedicated Live App Deployment (Recommended — wires to your new Argo CD app in demo-dev & Jenkins job demo/<appName>)"
+            - "Multi-Cluster Platform Baseline Telemetry (Binds K8s/Argo/Jenkins to shared multi-cluster demo baseline)"
         port:
           title: Application HTTP Port
           type: integer
@@ -222,10 +222,10 @@ spec:
           devSpacesBaseUrl: ${{ parameters.devSpacesBaseUrl }}
           workspaceNamespace: ${{ steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else (parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix) }}
           kubernetesId: ${{ 'payments-checkout-service' if parameters.telemetryBindingMode === 'live-platform-baseline' else parameters.appName }}
-          argocdAppSelector: ${{ 'app=plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else ('app=' + parameters.appName) }}
+          argocdAppSelector: ${{ 'app=plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else ('backstage-name=' + parameters.appName) }}
           jenkinsJobFullName: ${{ 'demo/plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else ('demo/' + parameters.appName) }}
-          sonarProjectKey: ${{ 'demo-plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else parameters.appName }}
-          artifactoryImageName: ${{ 'plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else parameters.appName }}
+          sonarProjectKey: ${{ 'demo-plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else 'demo-plugin-kitchen-sink' }}
+          artifactoryImageName: ${{ 'plugin-kitchen-sink' if parameters.telemetryBindingMode === 'live-platform-baseline' else 'plugin-kitchen-sink' }}
           vaultNamespace: ${{ parameters.vaultNamespace }}
           vaultSecretsPath: ${{ parameters.vaultSecretsPath }}
           jiraProjectKey: ${{ parameters.jiraProjectKey }}
@@ -233,18 +233,52 @@ spec:
           serviceNowEntityId: ${{ parameters.serviceNowEntityId }}
           dynatraceEntityId: ${{ parameters.dynatraceEntityId }}
 
-    - id: publish
-      name: Publish Quarkus Service Repository to GitHub
-      action: publish:github
+    - id: create-github-repo
+      name: Create Quarkus Service Repository on GitHub
+      action: github:repo:create
       input:
-        sourcePath: ./app-repo
         repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
         description: "${{ parameters.appDescription }} [APPID: ${{ parameters.appId }} | Owner: ${{ parameters.groupName }}]"
         defaultBranch: main
+        repoVisibility: public
+
+    - id: register-jenkins-webhook
+      name: Wire GitHub Webhook to Jenkins Organization Folder (Auto-Scans & Builds demo/${{ parameters.appName }} Right Away)
+      action: github:webhook
+      input:
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        webhookUrl: https://jenkins-jenkins.${{ parameters.clusterBaseDomain }}/github-webhook/
+        events:
+          - push
+          - pull_request
+          - create
+          - repository
+        active: true
+        contentType: json
+        insecureSsl: true
+
+    - id: publish
+      name: Push Quarkus Service & Thin Helm Chart to GitHub (Triggers Jenkins Build #1 Immediately via Webhook)
+      action: github:repo:push
+      input:
+        sourcePath: ./app-repo
+        repoUrl: github.com?owner=${{ parameters.githubOwner }}&repo=${{ parameters.appName }}
+        defaultBranch: main
         protectDefaultBranch: false
         protectEnforceAdmins: false
-        repoVisibility: public
         gitCommitMessage: "feat(${{ parameters.appId }}): scaffold Quarkus 3 golden path service ${{ parameters.appName }}"
+
+    - id: create-argocd-app
+      name: Wire Application to Argo CD & Auto-Deploy Thin Helm Chart to Dev Namespace (${{ parameters.targetNamespace }})
+      action: argocd:create-resources
+      input:
+        appName: ${{ parameters.appName }}
+        argoInstance: nonprod-argo
+        namespace: ${{ parameters.targetNamespace }}
+        repoUrl: https://github.com/${{ parameters.githubOwner }}/${{ parameters.appName }}.git
+        path: chart
+        projectName: ${{ parameters.appName }}
+        labelValue: ${{ parameters.appName }}
 
     - id: register
       name: Register Component, OpenAPI Spec & System in RHDH Catalog
@@ -302,10 +336,14 @@ spec:
           - **GitHub Repository:** ${{ steps['publish'].output.remoteUrl }}
           - **Catalog Entity:** `${{ steps['register'].output.entityRef }}` (with OpenAPI `${{ parameters.appName }}-api` & System `${{ parameters.systemName }}`)
 
-          ### 2. Dev Spaces Namespace Check (`charts/devspaces-user-namespaces/values.yaml`)
+          ### 2. Automated Argo CD Deployment & Jenkins CI Pipeline Wiring
+          - **Argo CD Application:** `${{ parameters.appName }}` (`nonprod-argo`, auto-syncing `/chart` with `idp-service-chart:1.0.0` dependency into namespace `${{ parameters.targetNamespace }}`)
+          - **Jenkins Pipeline:** `demo/${{ parameters.appName }}` (GitHub webhook registered to `https://jenkins-jenkins.${{ parameters.clusterBaseDomain }}/github-webhook/` and triggered on initial commit)
+
+          ### 3. Dev Spaces Namespace Check (`charts/devspaces-user-namespaces/values.yaml`)
           - **Status:** ${{ 'Reused existing namespace `' + steps['parse-devspaces-values'].output.content.users[parameters.userSlug].namespace + '` (User `' + parameters.userSlug + '` already present in values.yaml — GitOps update skipped!)' if steps['parse-devspaces-values'].output.content.users[parameters.userSlug] else ('Added user `' + parameters.userSlug + '` (`' + parameters.userSlug + '-devspaces-' + parameters.namespaceSuffix + '`) to `charts/devspaces-user-namespaces/values.yaml` -> pushed to GitOps PR: ' + steps['publish-devspaces-values-pr'].output.remoteUrl) }}
 
-          ### 3. Command Centre Tabs Configured on This Entity
+          ### 4. Command Centre Tabs Configured on This Entity
           | Tab | Configured Integrations |
           | :--- | :--- |
           | **Overview** | Bento Grid: Links + About (`APPID`), Multi-Cluster Argo CD Summary, Vault Enterprise Namespace Card, Jenkins Latest Run, SonarQube Gate, PagerDuty On-Call |

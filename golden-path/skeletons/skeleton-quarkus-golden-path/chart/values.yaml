@@ -16,10 +16,18 @@ idp-service-chart:
     tag: latest
     pullPolicy: IfNotPresent
 
+  # Immediate executable bootstrap HTTP server for /health and /api so the
+  # deployment is Ready in demo-dev immediately after Golden Path creation,
+  # before a custom app image is built and pushed from Containerfile.
   command:
-    - java
-    - -jar
-    - /deployments/quarkus-run.jar
+    - /bin/bash
+    - -c
+    - |
+      mkdir -p /tmp/web/api
+      printf '{"status":"ok","app":"${{ values.appName }}","appId":"${{ values.appId | default("APP-1042") }}"}\n' > /tmp/web/health
+      printf '{"service":"${{ values.appName }}","system":"${{ values.systemName }}","appId":"${{ values.appId | default("APP-1042") }}","message":"ok"}\n' > /tmp/web/api/index.html
+      printf '<!doctype html><html><body style="font-family:sans-serif;margin:2rem"><h1>${{ values.appName }} (${{ values.appId | default("APP-1042") }})</h1><p>${{ values.appDescription }}</p><p>Deployed via IDP Shared Base Chart (idp-service-chart:1.0.0) + Argo CD</p></body></html>\n' > /tmp/web/index.html
+      exec jwebserver -b 0.0.0.0 -p ${{ values.port }} -d /tmp/web
 
   service:
     port: ${{ values.port }}
