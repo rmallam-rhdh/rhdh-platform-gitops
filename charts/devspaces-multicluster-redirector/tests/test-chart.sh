@@ -208,6 +208,26 @@ do
 done
 rm -f "$GRP_OUT"
 
+# Structured datacenters (dc1 / dc2 URLs + groups list + Pattern B requiredGroup AND logic).
+DC_OUT="$(mktemp)"
+helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  --set "datacenters.dc1.url=https://devspaces.apps.dc1.example.com" \
+  --set "datacenters.dc1.requiredGroup=corp_nprd_devspaces_users" \
+  --set "datacenters.dc1.groups[0]=corp_nprd_payments_devs" \
+  --set "datacenters.dc1.groups[1]=corp_nprd_channels_devs" \
+  --set "datacenters.dc2.url=https://devspaces.apps.dc2.example.com" \
+  --set "datacenters.dc2.groups[0]=corp_nprd_lending_devs" \
+  --namespace devspaces-redirector >"$DC_OUT"
+for pat in \
+  '"corp_nprd_devspaces_users,corp_nprd_payments_devs":"https://devspaces.apps.dc1.example.com"' \
+  '"corp_nprd_devspaces_users,corp_nprd_channels_devs":"https://devspaces.apps.dc1.example.com"' \
+  '"corp_nprd_lending_devs":"https://devspaces.apps.dc2.example.com"'
+do
+  grep -Fq -- "$pat" "$DC_OUT" || { echo "FAIL datacenters rendering missing: $pat"; fail=1; }
+done
+rm -f "$DC_OUT"
+
 # NetworkPolicy can be disabled.
 OFF="$(mktemp)"
 helm template mcr "$CHART" \
