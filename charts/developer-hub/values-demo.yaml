@@ -127,14 +127,18 @@ plugins:
     proxyAuth: "Basic ${JENKINS_BASIC_AUTH_B64}"
   argocd:
     namespacedApps: true
+    username: "admin"
+    password: "${ARGOCD_ADMIN_PASSWORD}"
     instances:
       - name: nonprod-argo
         url: https://openshift-gitops-server-openshift-gitops.{{ .Values.app.clusterBaseDomain }}
-        token: "${ARGOCD_TOKEN}"
+        username: "admin"
+        password: "${ARGOCD_ADMIN_PASSWORD}"
       - name: prod-argo
-        # Swap URL & token when pointing at a separate prod-argo OpenShift GitOps cluster
+        # Swap URL & credentials when pointing at a separate prod-argo OpenShift GitOps cluster
         url: https://openshift-gitops-server-openshift-gitops.{{ .Values.app.clusterBaseDomain }}
-        token: "${ARGOCD_TOKEN}"
+        username: "admin"
+        password: "${ARGOCD_ADMIN_PASSWORD}"
   bitbucket:
     enabled: true
   apiDocs:

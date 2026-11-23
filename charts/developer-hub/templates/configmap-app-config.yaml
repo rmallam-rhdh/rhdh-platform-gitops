@@ -235,13 +235,27 @@ data:
       {{- if .Values.plugins.argocd.namespacedApps }}
       namespacedApps: true
       {{- end }}
+      {{- if .Values.plugins.argocd.username }}
+      username: {{ .Values.plugins.argocd.username | quote }}
+      {{- end }}
+      {{- if .Values.plugins.argocd.password }}
+      password: {{ .Values.plugins.argocd.password | quote }}
+      {{- end }}
       appLocatorMethods:
         - type: config
           instances:
             {{- range .Values.plugins.argocd.instances }}
             - name: {{ .name | quote }}
               url: {{ tpl .url $ | quote }}
+              {{- if .token }}
               token: {{ .token | quote }}
+              {{- end }}
+              {{- if .username }}
+              username: {{ .username | quote }}
+              {{- end }}
+              {{- if .password }}
+              password: {{ .password | quote }}
+              {{- end }}
             {{- end }}
     {{- end }}
     {{- if .Values.plugins.techdocs.enabled }}
