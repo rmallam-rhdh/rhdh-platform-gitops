@@ -407,6 +407,8 @@ plugins:
     backendPackage: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali-backend:bs_1.49.4__1.29.1
     url: "${KIALI_URL}"
     skipTLSVerify: true
+    serviceAccountToken: "${KUBE_SA_TOKEN}"
+    caData: ""
 
   dynatrace:
     enabled: true

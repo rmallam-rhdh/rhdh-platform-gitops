@@ -295,6 +295,12 @@ data:
         - name: default
           url: {{ .Values.plugins.kiali.url | quote }}
           skipTLSVerify: {{ .Values.plugins.kiali.skipTLSVerify }}
+          {{- if .Values.plugins.kiali.serviceAccountToken }}
+          serviceAccountToken: {{ .Values.plugins.kiali.serviceAccountToken | quote }}
+          {{- end }}
+          {{- if .Values.plugins.kiali.caData }}
+          caData: {{ .Values.plugins.kiali.caData | quote }}
+          {{- end }}
     {{- end }}
     {{- if .Values.plugins.artifactory.enabled }}
     artifactory:

@@ -180,6 +180,7 @@ plugins:
   kiali:
     url: "${KIALI_URL}"
     skipTLSVerify: true
+    serviceAccountToken: "${KUBE_SA_TOKEN}"
   dynatrace:
     url: https://wkf10640.apps.dynatrace.com
     tokenUrl: https://sso.dynatrace.com/sso/oauth2/token
