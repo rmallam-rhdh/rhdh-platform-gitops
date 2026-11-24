@@ -16,6 +16,9 @@ metadata:
   labels:
     platform.idp/app-id: ${{ values.appId | default("APP-1001") | dump }}
     servicenow.com/support-group: ${{ (values.groupName | default("group:default/developers")) | replace("group:default/", "") | replace("group:", "") | dump }}
+    servicenow.com/environment: dev
+    # Please replace the customid label with other label that match with servicenow
+    servicenow.com/customid: 12345
   annotations:
     # 1. Enterprise Application Identity & Source Control
     platform.idp/app-id: ${{ values.appId | default("APP-1001") | dump }}
