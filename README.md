@@ -61,9 +61,13 @@ When developers use the Dev Spaces Remote Connector from a laptop and the worksp
 
 ## Deploy
 
+> **Recreating a Cluster From Scratch:** For the full end-to-end disaster-recovery and cluster-recreation runbook (including backing up `rhdh-secrets`, installing Day-1 operators, running `./scripts/bootstrap-cluster.sh`, and seeding Jenkins), see **[`BOOTSTRAP-FROM-SCRATCH.md`](BOOTSTRAP-FROM-SCRATCH.md)**.
+
 Day-1 (`RHDH-SM-DevSpaces` `bootstrap/root-app.yaml`) already binds the GitOps controller to cluster-admin. After operators are Ready and Secret `rhdh-secrets` exists:
 
 ```bash
+./scripts/bootstrap-cluster.sh
+# or apply the Day-2 App-of-Apps directly:
 oc apply -f argocd/app-of-apps.yaml
 ```
 
