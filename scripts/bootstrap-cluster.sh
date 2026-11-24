@@ -111,7 +111,8 @@ EOF
   echo "    Synced Secret jenkins/sonarqube-token from rhdh/rhdh-secrets (SONARQUBE_API_KEY)."
 fi
 
-echo "==> [5/6] Applying Day-2 Platform App-of-Apps (argocd/app-of-apps.yaml)..."
+echo "==> [5/6] Applying Multicluster Redirector RBAC and Day-2 Platform App-of-Apps (argocd/app-of-apps.yaml)..."
+oc apply -f "$ROOT/manifests/devspaces-multicluster-redirector/rbac.yaml"
 oc apply -f "$ROOT/argocd/app-of-apps.yaml"
 
 echo "==> [6/6] Applying Lab & Command Centre Demo Applications (argocd/apps-lab/)..."

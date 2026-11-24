@@ -20,6 +20,9 @@ spec:
       valueFiles:
         - values.yaml
         - values-deploy.yaml
+      parameters:
+        - name: sessionSecret.mode
+          value: secret
   destination:
     server: https://kubernetes.default.svc
     namespace: devspaces-redirector
