@@ -1,187 +1,88 @@
 # Running a Second Kiali Instance (`kiali-token`) for Red Hat Developer Hub (RHDH) With Full Thanos TLS Verification
 
-## 1. Why a Second Kiali Instance (`auth.strategy: token`) Is Needed
+## 1. Why the Current `kiali-token.yaml` CR Fails Against Thanos Querier
 
-In Red Hat OpenShift Service Mesh 3 (OSSM 3), the default Kiali instance (`kiali` in `istio-system`) is typically configured with `spec.auth.strategy: openshift` so human users can log into the Kiali web console via OpenShift OAuth.
+When deploying a second `Kiali` CR (`kiali-token`) with `spec.auth.strategy: token` and `spec.external_services.prometheus.auth.insecure_skip_verify: false`:
 
-However, the **RHDH / Backstage Kiali Backend Plugin** (`@backstage-community/plugin-kiali-backend`) authenticates non-interactively by calling `POST /api/authenticate` on Kiali:
-- **`auth.strategy: openshift`** requires a browser-based OpenShift OAuth authorization code redirect flow and **does not accept** a raw Kubernetes `ServiceAccount` bearer token on `POST /api/authenticate`.
-- **`auth.strategy: token`** (or `anonymous`) accepts a standard Kubernetes `ServiceAccount` token (`serviceAccountToken: ${KUBE_SA_TOKEN}`) via `POST /api/authenticate`.
+1. **TLS Certificate Error (`x509: certificate signed by unknown authority`)**:
+   - OpenShift's `https://thanos-querier.openshift-monitoring.svc.cluster.local:9091` uses a certificate signed by the **OpenShift Service Serving CA (`service-ca.crt`)**.
+   - Even though the Kiali Operator automatically creates `ConfigMap/kiali-token-cabundle-openshift` and mounts it inside the pod at **`/kiali-cabundle/service-ca.crt`**, Kiali's Go code (`getCABundlePaths` in `config/config.go`) **only loads `/kiali-cabundle/service-ca.crt` when `auth.strategy: openshift`**. When `auth.strategy: token`, Kiali ignores `/kiali-cabundle/service-ca.crt`!
+   - **Minimal Fix (Reuses the existing `/kiali-cabundle/service-ca.crt` already mounted in the pod)**:
+     Add `custom_envs` under `spec.deployment` with `SSL_CERT_FILE: /kiali-cabundle/service-ca.crt` and `SSL_CERT_DIR: /etc/pki/tls/certs`. Go's standard `crypto/x509` library automatically loads `/kiali-cabundle/service-ca.crt` into the TLS trust pool so `insecure_skip_verify: false` works without creating any extra ConfigMaps.
 
-To keep `auth.strategy: openshift` for human users on the primary `kiali` UI while allowing RHDH to query Kiali programmatically with RBAC, deploy a second `Kiali` custom resource (`kiali-token`) in `istio-system` with `spec.auth.strategy: token`.
+2. **Secret Collision (`secret_name: kiali` -> `secret_name: kiali-token`)**:
+   - Change `spec.deployment.secret_name` from `kiali` to `kiali-token` so it does not collide with the primary `kiali` instance.
 
----
-
-## 2. Two Root Causes When Deploying a Second `Kiali` CR (`auth.strategy: token`)
-
-When deploying a second `Kiali` instance with `auth.strategy: token` in `istio-system`, two issues commonly occur:
-
-### Issue A: Thanos Querier `x509: certificate signed by unknown authority` Error
-OpenShift's `https://thanos-querier.openshift-monitoring.svc.cluster.local:9091` endpoint presents a TLS certificate signed by the **OpenShift Service Serving Certificate Signer (`service-ca.crt`)**.
-
-In Kiali v2.x (`config/config.go` -> `getCABundlePaths(authStrategy)`), the CA bundle files loaded into Kiali's TLS trust pool depend on `spec.auth.strategy`:
-
-| `spec.auth.strategy` | CA Bundle Files Loaded by Kiali (`getCABundlePaths`) |
-|---|---|
-| `openshift` | `/kiali-cabundle/additional-ca-bundle.pem`<br>`/kiali-cabundle/oauth-server-ca.crt`<br>**`/kiali-cabundle/service-ca.crt`** *(OpenShift Service CA)*<br>`/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt` |
-| `token` / `anonymous` | **Only `/kiali-cabundle/additional-ca-bundle.pem`** |
-
-Because Kiali **skips loading `/kiali-cabundle/service-ca.crt`** when `auth.strategy` is switched from `openshift` to `token` (and because `external_services.prometheus.auth.ca_file` is deprecated and ignored in Kiali v2.x), Kiali fails to verify `thanos-querier`'s TLS certificate even though the Kiali Operator already mounts `/kiali-cabundle/service-ca.crt` inside the pod!
-
-#### How to Reuse the Existing Mounted `/kiali-cabundle/service-ca.crt` Bundle (Zero Extra ConfigMaps)
-Because Kiali is a Go binary, Go's standard `crypto/x509` library honors the `SSL_CERT_FILE` and `SSL_CERT_DIR` environment variables when initializing `x509.SystemCertPool()`.
-
-By setting:
-```yaml
-spec:
-  deployment:
-    custom_envs:
-      - name: SSL_CERT_FILE
-        value: /kiali-cabundle/service-ca.crt
-      - name: SSL_CERT_DIR
-        value: /etc/pki/tls/certs
-```
-Kiali automatically trusts **both** the operator-mounted `/kiali-cabundle/service-ca.crt` (from `<instance_name>-cabundle-openshift`) and the container's system CA roots (`/etc/pki/tls/certs`), allowing `insecure_skip_verify: false` on Prometheus / Thanos Querier without creating or copying any extra ConfigMaps.
+3. **Thanos Querier RBAC (`cluster-monitoring-view`)**:
+   - Because `use_kiali_token: true` uses the pod's ServiceAccount (`kiali-token-service-account`), add `kiali-token-service-account` to the `subjects` list of the existing `ClusterRoleBinding` (or bind it to `cluster-monitoring-view`).
 
 ---
 
-### Issue B: Resource Collisions Between Two `Kiali` CRs in `istio-system`
-In the Kiali Operator (`roles/default/kiali-deploy/templates/openshift/deployment.yaml`), child resource names are derived from `spec.deployment.instance_name` (which defaults to `kiali`) and `spec.deployment.secret_name` (which also defaults to `kiali`):
+## 2. Exact `kiali-token.yaml` (Matching Your CR + Only the Required Changes)
 
-- `ConfigMap`: `{{ instance_name }}`
-- `Service` & `Route`: `{{ instance_name }}`
-- Serving TLS Cert `Secret`: `{{ instance_name }}-cert-secret`
-- OpenShift Service CA `ConfigMap`: `{{ instance_name }}-cabundle-openshift`
-- Signing Key `Secret`: `{{ instance_name }}-signing-key`
-- `ServiceAccount`: `{{ instance_name }}-service-account`
-- Login `Secret`: `{{ secret_name }}`
-
-If two `Kiali` CRs in `istio-system` share the default `instance_name: kiali` or `secret_name: kiali`, they overwrite each other's `Service`, TLS serving certificate (`kiali-cert-secret`), and session signing keys.
-
-Therefore, the second `Kiali` CR **must** set unique values for both `spec.deployment.instance_name` and `spec.deployment.secret_name` (e.g. `kiali-token`).
-
-For Prometheus / Thanos Querier RBAC (`cluster-monitoring-view`), you have **two choices** so you don't have to create a new `ClusterRoleBinding`:
-1. **Option 1 (Zero new `ClusterRoleBinding` — reuse the existing `kiali-service-account` token for Thanos):**
-   Point `Secret/kiali-token` at the existing `kiali-service-account` (`kubernetes.io/service-account.name: kiali-service-account`) and set `use_kiali_token: false` + `token: "secret:kiali-token:token"`. Because `kiali-service-account` already has the `kiali-cluster-monitoring-view` `ClusterRoleBinding`, `kiali-token` reuses the existing ServiceAccount and RBAC with **zero cluster-scoped RBAC changes**!
-2. **Option 2 (Reuse the existing `kiali-cluster-monitoring-view` `ClusterRoleBinding` by adding `kiali-token-service-account` to `subjects`):**
-   Keep `use_kiali_token: true` and append `kiali-token-service-account` to the `subjects:` array of the existing `kiali-cluster-monitoring-view` `ClusterRoleBinding`.
-
----
-
-## 3. Complete Manifests (`kiali-token`)
-
-### Approach A: Zero Cluster-Scoped RBAC Changes (Reuses Existing `kiali-service-account` & Existing `ClusterRoleBinding`)
-
-Because the Kiali Operator already mounts `Secret/kiali-token` (`spec.deployment.secret_name: kiali-token`), you can annotate `Secret/kiali-token` as a `kubernetes.io/service-account-token` for the **existing** `kiali-service-account` and reference `secret:kiali-token:token` for Prometheus/Thanos auth. This reuses the first Kiali instance's `kiali-service-account` and its existing `ClusterRoleBinding` (`kiali-cluster-monitoring-view`):
+Only **two changes** are needed inside `kiali-token.yaml`:
+1. Change `secret_name: kiali` -> `secret_name: kiali-token`
+2. Add `custom_envs` (`SSL_CERT_FILE` and `SSL_CERT_DIR`) under `spec.deployment`
 
 ```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kiali-token
-  namespace: istio-system
-  annotations:
-    # Reuses the primary Kiali instance's ServiceAccount (which already has cluster-monitoring-view)
-    kubernetes.io/service-account.name: kiali-service-account
-type: kubernetes.io/service-account-token
----
 apiVersion: kiali.io/v1alpha1
 kind: Kiali
 metadata:
   name: kiali-token
   namespace: istio-system
 spec:
-  istio_namespace: istio-system
   auth:
     strategy: token
   deployment:
-    # Must be unique so resources do not collide with the primary 'kiali' (openshift auth) instance
-    instance_name: kiali-token
-    secret_name: kiali-token
-    accessible_namespaces:
-      - "**"
-    ingress:
-      enabled: true
-    # Reuse the operator-mounted /kiali-cabundle/service-ca.crt + system CA roots via Go x509 env vars
+    cluster_wide_access: true
     custom_envs:
       - name: SSL_CERT_FILE
         value: /kiali-cabundle/service-ca.crt
       - name: SSL_CERT_DIR
         value: /etc/pki/tls/certs
+    image_digest: ""
+    image_pull_policy: IfNotPresent
+    instance_name: kiali-token
+    logger:
+      log_format: text
+      log_level: info
+      sampler_rate: "1"
+      time_field_format: 2006-01-02T15:04:05Z07:00
+    remote_cluster_resources_only: false
+    replicas: 1
+    secret_name: kiali-token
+    view_only_mode: true
   external_services:
-    istio:
-      root_namespace: istio-system
-    prometheus:
-      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
-      auth:
-        type: bearer
-        use_kiali_token: false
-        token: "secret:kiali-token:token"
-        insecure_skip_verify: false
-      thanos_proxy:
-        enabled: true
-    custom_dashboards:
-      prometheus:
-        url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
-        auth:
-          type: bearer
-          use_kiali_token: false
-          token: "secret:kiali-token:token"
-          insecure_skip_verify: false
     grafana:
       enabled: false
-```
-
----
-
-### Approach B: Using `use_kiali_token: true` and Reusing the Existing `kiali-cluster-monitoring-view` `ClusterRoleBinding`
-
-If you prefer `use_kiali_token: true` (where `kiali-token` uses its own pod ServiceAccount `kiali-token-service-account`), add `kiali-token-service-account` as a second subject on the **existing** `kiali-cluster-monitoring-view` `ClusterRoleBinding` (see [`charts/service-mesh/templates/telemetry.yaml`](../charts/service-mesh/templates/telemetry.yaml)):
-
-```yaml
-apiVersion: kiali.io/v1alpha1
-kind: Kiali
-metadata:
-  name: kiali-token
-  namespace: istio-system
-spec:
-  istio_namespace: istio-system
-  auth:
-    strategy: token
-  deployment:
-    instance_name: kiali-token
-    secret_name: kiali-token
-    accessible_namespaces:
-      - "**"
-    ingress:
-      enabled: true
-    custom_envs:
-      - name: SSL_CERT_FILE
-        value: /kiali-cabundle/service-ca.crt
-      - name: SSL_CERT_DIR
-        value: /etc/pki/tls/certs
-  external_services:
-    istio:
-      root_namespace: istio-system
+      internal_url: http://grafana.istio-system:3000
+      is_core: false
     prometheus:
-      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
       auth:
+        insecure_skip_verify: false
         type: bearer
         use_kiali_token: true
-        insecure_skip_verify: false
+      cache_duration: 7
+      cache_enabled: true
+      cache_expiration: 300
+      enabled: true
+      is_core: true
       thanos_proxy:
         enabled: true
-    custom_dashboards:
-      prometheus:
-        url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
-        auth:
-          type: bearer
-          use_kiali_token: true
-          insecure_skip_verify: false
-    grafana:
-      enabled: false
+        retention_period: 7d
+        scrape_interval: 30s
+      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+  istio_namespace: istio-system
+  version: default
+```
+
 ---
-# Reuse the existing kiali-cluster-monitoring-view ClusterRoleBinding by listing both ServiceAccounts
+
+## 3. Reusing the Existing `cluster-monitoring-view` ClusterRoleBinding
+
+Because `use_kiali_token: true` authenticates to `thanos-querier` using `kiali-token-service-account`, add `kiali-token-service-account` as a subject on the existing `cluster-monitoring-view` `ClusterRoleBinding` that the primary `kiali-service-account` uses:
+
+```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -199,37 +100,4 @@ subjects:
     namespace: istio-system
 ```
 
----
-
-## 4. RHDH `app-config.yaml` Configuration
-
-Point the RHDH Kiali plugin at the in-cluster `kiali-token` Service (`https://kiali-token.istio-system.svc:20001`) using the RHDH ServiceAccount token (`${KUBE_SA_TOKEN}`):
-
-```yaml
-kiali:
-  providers:
-    - name: default
-      url: https://kiali-token.istio-system.svc:20001
-      serviceAccountToken: ${KUBE_SA_TOKEN}
-      skipTLSVerify: true
-```
-
----
-
-## 5. Verification From Inside the RHDH Pod
-
-```bash
-oc exec -n rhdh deploy/backstage-developer-hub -c backstage-backend -- sh -c '
-  echo "=== 1. Check Kiali Auth Strategy (/api/auth/info) ==="
-  curl -sk https://kiali-token.istio-system.svc:20001/api/auth/info && echo ""
-
-  echo "=== 2. Authenticate with ServiceAccount Token (POST /api/authenticate) ==="
-  curl -sk -i -c /tmp/kiali.cookie \
-    -H "X-Auth-Type-Kiali-UI: 1" \
-    --data-urlencode "token=${KUBE_SA_TOKEN}" \
-    https://kiali-token.istio-system.svc:20001/api/authenticate && echo ""
-
-  echo "=== 3. Query Kiali Status & Verify Prometheus/Thanos Health ==="
-  curl -sk -b /tmp/kiali.cookie https://kiali-token.istio-system.svc:20001/api/status && echo ""
-'
-```
+*(Or via CLI: `oc adm policy add-cluster-role-to-user cluster-monitoring-view -z kiali-token-service-account -n istio-system`)*
