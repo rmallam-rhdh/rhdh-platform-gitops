@@ -34,7 +34,7 @@ plugins:
   # Public route is proxied by axios (NO_PROXY suffix match is exact unless
   # the entry has a leading dot). In-cluster matches `.svc` and skips Squid.
   kiali:
-    url: https://kiali.istio-system.svc:20001
+    url: https://kiali-token.istio-system.svc:20001
 
 createNamespace: false
 
