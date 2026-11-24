@@ -110,6 +110,11 @@ roleRef:
   name: cluster-monitoring-view
 subjects:
   - kind: ServiceAccount
-    name: kiali-service-account
+    name: {{ .Values.kiali.name }}-service-account
     namespace: {{ .Values.kiali.namespace }}
+  {{- if and .Values.kiali.tokenInstance .Values.kiali.tokenInstance.enabled }}
+  - kind: ServiceAccount
+    name: {{ .Values.kiali.tokenInstance.name | default "kiali-token" }}-service-account
+    namespace: {{ .Values.kiali.namespace }}
+  {{- end }}
 {{- end }}

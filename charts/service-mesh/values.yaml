@@ -42,6 +42,11 @@ kiali:
   namespace: istio-system
   authStrategy: anonymous
   prometheusUrl: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+  # Second Kiali instance with auth.strategy=token and full Thanos TLS verification for RHDH plugin
+  tokenInstance:
+    enabled: true
+    name: kiali-token
+    viewOnlyMode: true
 
 telemetry:
   enabled: true

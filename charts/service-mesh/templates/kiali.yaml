@@ -42,3 +42,60 @@ spec:
     grafana:
       enabled: false
   istio_namespace: {{ .Values.istio.namespace }}
+{{- if and .Values.kiali.tokenInstance .Values.kiali.tokenInstance.enabled }}
+---
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: {{ .Values.kiali.tokenInstance.name | default "kiali-token" }}
+  namespace: {{ .Values.kiali.namespace }}
+  labels:
+    {{- include "mesh.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  auth:
+    strategy: token
+  deployment:
+    cluster_wide_access: true
+    custom_envs:
+      - name: SSL_CERT_FILE
+        value: /kiali-cabundle/service-ca.crt
+      - name: SSL_CERT_DIR
+        value: /etc/pki/tls/certs
+    image_digest: ""
+    image_pull_policy: IfNotPresent
+    instance_name: {{ .Values.kiali.tokenInstance.name | default "kiali-token" }}
+    logger:
+      log_format: text
+      log_level: info
+      sampler_rate: "1"
+      time_field_format: 2006-01-02T15:04:05Z07:00
+    remote_cluster_resources_only: false
+    replicas: 1
+    secret_name: {{ .Values.kiali.tokenInstance.name | default "kiali-token" }}
+    view_only_mode: {{ .Values.kiali.tokenInstance.viewOnlyMode | default true }}
+  external_services:
+    grafana:
+      enabled: false
+      internal_url: http://grafana.{{ .Values.istio.namespace }}:3000
+      is_core: false
+    prometheus:
+      auth:
+        insecure_skip_verify: false
+        type: bearer
+        use_kiali_token: true
+      cache_duration: 7
+      cache_enabled: true
+      cache_expiration: 300
+      enabled: true
+      is_core: true
+      thanos_proxy:
+        enabled: true
+        retention_period: 7d
+        scrape_interval: 30s
+      url: {{ .Values.kiali.prometheusUrl | quote }}
+  istio_namespace: {{ .Values.istio.namespace }}
+  version: default
+{{- end }}
