@@ -9,4 +9,8 @@ metadata:
 data:
   rbac-policies.csv: |
 {{ .Values.permission.policiesCsv | nindent 4 }}
+  {{- if .Values.permission.conditionalPoliciesYaml }}
+  rbac-conditional-policies.yaml: |
+{{ .Values.permission.conditionalPoliciesYaml | nindent 4 }}
+  {{- end }}
 {{- end }}

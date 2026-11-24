@@ -12,6 +12,11 @@ data:
       baseUrl: {{ include "rhdh.baseUrl" . | quote }}
     organization:
       name: {{ .Values.app.organization | quote }}
+    {{- if hasKey .Values.permission "includeTransitiveGroupOwnership" }}
+    includeTransitiveGroupOwnership: {{ .Values.permission.includeTransitiveGroupOwnership }}
+    {{- else }}
+    includeTransitiveGroupOwnership: true
+    {{- end }}
     backend:
       baseUrl: {{ include "rhdh.baseUrl" . | quote }}
       listen:
@@ -379,6 +384,10 @@ data:
         admin:
           users:
 {{ .Values.permission.adminUsers | toYaml | nindent 12 }}
+          {{- if .Values.permission.superUsers }}
+          superUsers:
+{{ .Values.permission.superUsers | toYaml | nindent 12 }}
+          {{- end }}
           {{- if .Values.permission.adminGroups }}
           groups:
 {{ .Values.permission.adminGroups | toYaml | nindent 12 }}
@@ -386,4 +395,7 @@ data:
         pluginsWithPermission:
 {{ .Values.permission.pluginsWithPermission | toYaml | nindent 10 }}
         policies-csv-file: /opt/app-root/src/rbac-policies.csv
+        {{- if .Values.permission.conditionalPoliciesYaml }}
+        conditionalPoliciesFile: /opt/app-root/src/rbac-conditional-policies.yaml
+        {{- end }}
         policyFileReload: true

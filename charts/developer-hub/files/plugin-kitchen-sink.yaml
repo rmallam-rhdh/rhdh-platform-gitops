@@ -26,3 +26,70 @@ metadata:
     platform.idp/app-id: "APP-1042"
 spec:
   owner: group:default/developers
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: payments-platform
+  description: "Payments Domain Platform owned by parent LDAP group team-payments"
+  tags:
+    - payments
+    - multi-tenant-rbac
+  labels:
+    platform.idp/app-id: "APP-2010"
+spec:
+  owner: group:default/team-payments
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payments-checkout-service
+  description: "Payments Checkout API — owned by umbrella group team-payments (RW: alice via team-payments-rw, RO: bob via team-payments-ro)"
+  tags:
+    - java
+    - quarkus
+    - payments
+  annotations:
+    backstage.io/kubernetes-id: payments-checkout-service
+    backstage.io/kubernetes-namespace: team-payments-nonprod
+    vault.io/namespace: payments/nonprod
+    vault.io/secret-path: payments-checkout-service/database
+    vault.io/allowed-principals: group:default/team-payments,group:default/team-payments-rw,group:default/team-payments-ro,user:default/alice,user:default/bob,user:default/guest
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/team-payments
+  system: payments-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: retail-platform
+  description: "Retail Domain Platform owned by parent LDAP group team-retail"
+  tags:
+    - retail
+    - multi-tenant-rbac
+  labels:
+    platform.idp/app-id: "APP-3020"
+spec:
+  owner: group:default/team-retail
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: retail-inventory-service
+  description: "Retail Inventory API — owned by umbrella group team-retail (RW: carol via team-retail-rw; isolated from team-payments)"
+  tags:
+    - nodejs
+    - retail
+  annotations:
+    backstage.io/kubernetes-id: retail-inventory-service
+    backstage.io/kubernetes-namespace: team-retail-nonprod
+    vault.io/namespace: retail/nonprod
+    vault.io/secret-path: retail-inventory-service/api-keys
+    vault.io/allowed-principals: group:default/team-retail,group:default/team-retail-rw,group:default/team-retail-ro,user:default/carol,user:default/guest
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/team-retail
+  system: retail-platform

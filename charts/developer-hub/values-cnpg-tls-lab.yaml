@@ -104,6 +104,8 @@ permission:
   enabled: true
   adminUsers:
     - name: user:default/guest
+  superUsers:
+    - name: user:default/guest
   adminGroups: []
   pluginsWithPermission:
     - catalog
@@ -112,6 +114,7 @@ permission:
   policiesCsv: |
     p, role:default/developer, catalog-entity, read, allow
     g, user:default/guest, role:default/developer
+  conditionalPoliciesYaml: ""
 
 integrations:
   github:

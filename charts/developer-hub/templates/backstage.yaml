@@ -76,6 +76,14 @@ spec:
         replicas: {{ .Values.instance.replicas }}
         template:
           metadata:
+            annotations:
+              checksum/app-config: {{ include (print $.Template.BasePath "/configmap-app-config.yaml") . | sha256sum }}
+              {{- if .Values.instance.extraFiles.rbacPolicies }}
+              checksum/rbac-policies: {{ include (print $.Template.BasePath "/configmap-rbac.yaml") . | sha256sum }}
+              {{- end }}
+              {{- if .Values.catalog.demoKitchenSink.enabled }}
+              checksum/demo-catalog: {{ include (print $.Template.BasePath "/configmap-demo-catalog.yaml") . | sha256sum }}
+              {{- end }}
             labels:
               app.kubernetes.io/name: backstage
               backstage.io/kubernetes-id: {{ include "rhdh.fullname" . }}

@@ -71,8 +71,10 @@ catalog:
       allow: [Component, System, User]
 
 permission:
+  includeTransitiveGroupOwnership: true
   adminUsers:
-    - name: user:default/bob
+    - name: user:default/guest
+  superUsers:
     - name: user:default/guest
   adminGroups: []
   pluginsWithPermission:
@@ -81,30 +83,35 @@ permission:
     - permission
     - kubernetes
   policiesCsv: |
-    p, role:default/developer, catalog-entity, read, allow
-    p, role:default/developer, catalog.entity.create, create, allow
-    p, role:default/developer, catalog.entity.refresh, update, allow
-    p, role:default/developer, catalog.entity.delete, delete, allow
-    p, role:default/developer, catalog.location.create, create, allow
-    p, role:default/developer, catalog.location.read, read, allow
-    p, role:default/developer, catalog.location.delete, delete, allow
-    p, role:default/developer, scaffolder.template.use, use, allow
-    p, role:default/developer, scaffolder.template.parameter.read, read, allow
-    p, role:default/developer, scaffolder.template.step.read, read, allow
-    p, role:default/developer, scaffolder.action.execute, use, allow
-    p, role:default/developer, scaffolder.task.create, create, allow
-    p, role:default/developer, scaffolder.task.read, read, allow
-    p, role:default/developer, scaffolder.task.cancel, update, allow
-    p, role:default/developer, kubernetes.clusters.read, read, allow
-    p, role:default/developer, kubernetes.resources.read, read, allow
-    p, role:default/developer, argocd.view.read, read, allow
-    g, group:default/developers, role:default/developer
-    g, group:default/app-owners, role:default/developer
-    g, group:default/platform-team, role:default/developer
-    g, user:default/guest, role:default/developer
-    g, user:default/alice, role:default/developer
-    g, user:default/bob, role:default/developer
-    g, user:default/carol, role:default/developer
+    # Role 1: Team Viewer (Read-Only) — bob (team-payments-ro)
+    p, role:default/team-viewer, catalog.location.read, read, allow
+    p, role:default/team-viewer, scaffolder.template.parameter.read, read, allow
+    p, role:default/team-viewer, scaffolder.template.step.read, read, allow
+    p, role:default/team-viewer, kubernetes.clusters.read, read, allow
+    p, role:default/team-viewer, kubernetes.resources.read, read, allow
+    p, role:default/team-viewer, argocd.view.read, read, allow
+
+    # Role 2: Team Editor (Read-Write) — alice (team-payments-rw), carol (team-retail-rw)
+    p, role:default/team-editor, catalog.entity.create, create, allow
+    p, role:default/team-editor, catalog.location.create, create, allow
+    p, role:default/team-editor, catalog.location.read, read, allow
+    p, role:default/team-editor, catalog.location.delete, delete, allow
+    p, role:default/team-editor, scaffolder.template.use, use, allow
+    p, role:default/team-editor, scaffolder.template.parameter.read, read, allow
+    p, role:default/team-editor, scaffolder.template.step.read, read, allow
+    p, role:default/team-editor, scaffolder.action.execute, use, allow
+    p, role:default/team-editor, scaffolder.task.create, create, allow
+    p, role:default/team-editor, scaffolder.task.read, read, allow
+    p, role:default/team-editor, scaffolder.task.cancel, update, allow
+    p, role:default/team-editor, kubernetes.clusters.read, read, allow
+    p, role:default/team-editor, kubernetes.resources.read, read, allow
+    p, role:default/team-editor, argocd.view.read, read, allow
+
+    # Nested LDAP child-group bindings (parent groups team-payments & team-retail own the entities)
+    g, group:default/team-payments-ro, role:default/team-viewer
+    g, group:default/team-payments-rw, role:default/team-editor
+    g, group:default/team-retail-ro, role:default/team-viewer
+    g, group:default/team-retail-rw, role:default/team-editor
 
 integrations:
   bitbucketCloud:

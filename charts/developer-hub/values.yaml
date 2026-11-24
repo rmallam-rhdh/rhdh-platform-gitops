@@ -143,7 +143,13 @@ integrations:
 
 permission:
   enabled: true
+  # Enables transitive parent-group ownership in user JWT $ownerRefs so members of
+  # child LDAP groups (team-payments-ro / team-payments-rw) match entities owned by
+  # their parent umbrella group (spec.owner: group:default/team-payments).
+  includeTransitiveGroupOwnership: true
   adminUsers:
+    - name: user:default/platform-admin
+  superUsers:
     - name: user:default/platform-admin
   adminGroups:
     - name: group:default/platform-team
@@ -157,24 +163,92 @@ permission:
     - techdocs
     - sonarqube
   policiesCsv: |
-    p, role:default/developer, catalog-entity, read, allow
-    p, role:default/developer, catalog.entity.create, create, allow
-    p, role:default/developer, catalog.entity.refresh, update, allow
-    p, role:default/developer, catalog.location.create, create, allow
-    p, role:default/developer, catalog.location.read, read, allow
-    p, role:default/developer, scaffolder.template.use, use, allow
-    p, role:default/developer, scaffolder.template.parameter.read, read, allow
-    p, role:default/developer, scaffolder.template.step.read, read, allow
-    p, role:default/developer, scaffolder.action.execute, use, allow
-    p, role:default/developer, scaffolder.task.create, create, allow
-    p, role:default/developer, scaffolder.task.read, read, allow
-    p, role:default/developer, scaffolder.task.cancel, update, allow
-    p, role:default/developer, kubernetes.clusters.read, read, allow
-    p, role:default/developer, kubernetes.resources.read, read, allow
-    p, role:default/developer, argocd.view.read, read, allow
-    g, group:default/developers, role:default/developer
-    g, group:default/app-owners, role:default/developer
-    g, group:default/platform-team, role:default/developer
+    # Role 1: Team Viewer (Read-Only) — catalog-entity read is scoped via conditionalPoliciesYaml
+    p, role:default/team-viewer, catalog.location.read, read, allow
+    p, role:default/team-viewer, scaffolder.template.parameter.read, read, allow
+    p, role:default/team-viewer, scaffolder.template.step.read, read, allow
+    p, role:default/team-viewer, kubernetes.clusters.read, read, allow
+    p, role:default/team-viewer, kubernetes.resources.read, read, allow
+    p, role:default/team-viewer, argocd.view.read, read, allow
+
+    # Role 2: Team Editor (Read-Write) — catalog-entity read/update/delete is scoped via conditionalPoliciesYaml
+    p, role:default/team-editor, catalog.entity.create, create, allow
+    p, role:default/team-editor, catalog.location.create, create, allow
+    p, role:default/team-editor, catalog.location.read, read, allow
+    p, role:default/team-editor, catalog.location.delete, delete, allow
+    p, role:default/team-editor, scaffolder.template.use, use, allow
+    p, role:default/team-editor, scaffolder.template.parameter.read, read, allow
+    p, role:default/team-editor, scaffolder.template.step.read, read, allow
+    p, role:default/team-editor, scaffolder.action.execute, use, allow
+    p, role:default/team-editor, scaffolder.task.create, create, allow
+    p, role:default/team-editor, scaffolder.task.read, read, allow
+    p, role:default/team-editor, scaffolder.task.cancel, update, allow
+    p, role:default/team-editor, kubernetes.clusters.read, read, allow
+    p, role:default/team-editor, kubernetes.resources.read, read, allow
+    p, role:default/team-editor, argocd.view.read, read, allow
+
+    # Group-to-Role bindings (Option 1 Nested LDAP child groups -> Reusable Platform Roles)
+    g, group:default/team-payments-ro, role:default/team-viewer
+    g, group:default/team-payments-rw, role:default/team-editor
+    g, group:default/team-retail-ro, role:default/team-viewer
+    g, group:default/team-retail-rw, role:default/team-editor
+  conditionalPoliciesYaml: |
+    ---
+    result: CONDITIONAL
+    roleEntityRef: role:default/team-viewer
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - read
+    conditions:
+      anyOf:
+        - resourceType: catalog-entity
+          rule: IS_ENTITY_OWNER
+          params:
+            claims:
+              - $ownerRefs
+        - resourceType: catalog-entity
+          rule: IS_ENTITY_KIND
+          params:
+            kinds:
+              - Template
+              - User
+              - Group
+    ---
+    result: CONDITIONAL
+    roleEntityRef: role:default/team-editor
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - read
+    conditions:
+      anyOf:
+        - resourceType: catalog-entity
+          rule: IS_ENTITY_OWNER
+          params:
+            claims:
+              - $ownerRefs
+        - resourceType: catalog-entity
+          rule: IS_ENTITY_KIND
+          params:
+            kinds:
+              - Template
+              - User
+              - Group
+    ---
+    result: CONDITIONAL
+    roleEntityRef: role:default/team-editor
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - update
+      - delete
+    conditions:
+      resourceType: catalog-entity
+      rule: IS_ENTITY_OWNER
+      params:
+        claims:
+          - $ownerRefs
 
 rbac:
   kubernetesReader: true
