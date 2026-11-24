@@ -1,5 +1,6 @@
 namespace: openshift-devspaces
-createNamespace: true
+# Day-1 (devspaces-operator) creates Namespace/openshift-devspaces.
+createNamespace: false
 
 cheCluster:
   name: devspaces

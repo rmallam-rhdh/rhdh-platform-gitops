@@ -13,11 +13,14 @@ if grep -qE "kind: Subscription|kind: CatalogSource|kind: OperatorGroup" "$OUT";
   echo "FAIL operator install must not be rendered"
   fail=1
 fi
-# Mesh-level PeerAuthentication must be off by default until mtls.enabled=true.
-if grep -q "kind: PeerAuthentication" "$OUT"; then
+# Mesh-level PeerAuthentication must not render when mtls.enabled=false.
+MTLS_OFF="$(mktemp)"
+helm template mesh "$CHART" --set mtls.enabled=false >"$MTLS_OFF"
+if grep -q "kind: PeerAuthentication" "$MTLS_OFF"; then
   echo "FAIL PeerAuthentication must not render when mtls.enabled=false"
   fail=1
 fi
+rm -f "$MTLS_OFF"
 
 # Mesh-level STRICT mTLS enabled.
 MTLS_STRICT="$(mktemp)"

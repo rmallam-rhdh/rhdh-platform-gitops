@@ -22,9 +22,10 @@ metadata:
     {{- include "gateway-cert-lab.labels" $ | nindent 4 }}
     {{- if $.Values.appNamespaces.ambient }}
     istio.io/dataplane-mode: ambient
-    {{- else }}
-    istio-discovery: enabled
     {{- end }}
+    # Always include istio-discovery: enabled so Istio CRs whose discoverySelectors match
+    # istio-discovery=enabled watch team namespaces for ReferenceGrants and HTTPRoutes.
+    istio-discovery: enabled
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 {{- end }}

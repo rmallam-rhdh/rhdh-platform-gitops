@@ -5,3 +5,7 @@ replicas: 1
 image:
   repository: ghcr.io/rmallam-rhdh/plugin-kitchen-sink
   tag: "1.2.0"
+
+trafficGenerator:
+  enabled: true
+  clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com

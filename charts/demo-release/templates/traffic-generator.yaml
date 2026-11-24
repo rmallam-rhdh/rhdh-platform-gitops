@@ -1,0 +1,77 @@
+{{- if and .Values.trafficGenerator .Values.trafficGenerator.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.trafficGenerator.serviceAccountName | default "mesh-traffic-client" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ printf "%s-allow-traffic-client" (.Values.trafficGenerator.targetServiceName | default "orders-api") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: acme-platform
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ .Values.trafficGenerator.waypointName | default "orders-api-waypoint" }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - {{ printf "cluster.local/ns/%s/sa/%s" .Release.Namespace (.Values.trafficGenerator.serviceAccountName | default "mesh-traffic-client") | quote }}
+      to:
+        - operation:
+            ports:
+              - {{ (.Values.trafficGenerator.targetPort | default 8080) | toString | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout-traffic-generator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: checkout-traffic-generator
+    app.kubernetes.io/name: checkout-traffic-generator
+    app.kubernetes.io/part-of: acme-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: checkout-traffic-generator
+  template:
+    metadata:
+      labels:
+        app: checkout-traffic-generator
+        app.kubernetes.io/name: checkout-traffic-generator
+        istio.io/dataplane-mode: ambient
+    spec:
+      serviceAccountName: {{ .Values.trafficGenerator.serviceAccountName | default "mesh-traffic-client" }}
+      containers:
+        - name: traffic-gen
+          image: {{ .Values.trafficGenerator.image | default "registry.access.redhat.com/ubi9/ubi-minimal:latest" }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                for target in "http://{{ .Values.trafficGenerator.targetServiceName | default "orders-api" }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.trafficGenerator.targetPort | default 8080 }}/health" "http://{{ .Values.trafficGenerator.targetServiceName | default "orders-api" }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.trafficGenerator.targetPort | default 8080 }}/api/" "https://{{ .Values.trafficGenerator.targetServiceName | default "orders-api" }}-{{ .Release.Namespace }}.{{ .Values.trafficGenerator.clusterBaseDomain }}/api/"; do
+                  curl -sk -o /dev/null --max-time 3 "$target" || true
+                done
+                sleep 1
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+{{- end }}

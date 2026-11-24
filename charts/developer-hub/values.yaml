@@ -180,6 +180,10 @@ rbac:
   kubernetesReader: true
   clusterAdmin: false
   serviceAccount: default
+  # Create a permanent kubernetes.io/service-account-token Secret (e.g. rhdh-k8s-sa-token)
+  # for Kiali and Kubernetes plugins on K8s 1.24+ / OpenShift 4.11+.
+  createServiceAccountTokenSecret: false
+  serviceAccountTokenSecretName: rhdh-k8s-sa-token
 
 branding:
   enabled: true
@@ -541,6 +545,8 @@ secrets:
     JENKINS_BASIC_AUTH_B64: jenkins-basic-auth-b64
     ARGOCD_URL: argocd-url
     ARGOCD_TOKEN: argocd-token
+    ARGOCD_ADMIN_PASSWORD: argocd-admin-password
+    CLUSTER2_KUBE_TOKEN: cluster2-kube-token
     SONARQUBE_BASE_URL: sonarqube-base-url
     SONARQUBE_API_KEY: sonarqube-api-key
     SNYK_ORG_SLUG: snyk-org-slug
@@ -585,6 +591,8 @@ secrets:
     JENKINS_BASIC_AUTH_B64: placeholder
     ARGOCD_URL: https://argocd.example.invalid
     ARGOCD_TOKEN: placeholder
+    ARGOCD_ADMIN_PASSWORD: placeholder
+    CLUSTER2_KUBE_TOKEN: placeholder
     SONARQUBE_BASE_URL: https://sonarqube.example.invalid
     SONARQUBE_API_KEY: placeholder
     JIRA_BASE_URL: https://jira.example.invalid

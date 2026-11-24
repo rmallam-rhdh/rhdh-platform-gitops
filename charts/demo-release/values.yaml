@@ -4,3 +4,13 @@ replicas: 1
 image:
   repository: ghcr.io/rmallam-rhdh/plugin-kitchen-sink
   tag: "1.0.0"
+
+# Ambient mesh traffic generator + waypoint AuthorizationPolicy for demo-dev (nonprod)
+trafficGenerator:
+  enabled: false
+  image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+  serviceAccountName: mesh-traffic-client
+  waypointName: orders-api-waypoint
+  targetServiceName: orders-api
+  targetPort: 8080
+  clusterBaseDomain: apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com

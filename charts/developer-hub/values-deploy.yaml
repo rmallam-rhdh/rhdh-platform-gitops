@@ -38,6 +38,10 @@ plugins:
 
 createNamespace: false
 
+rbac:
+  createServiceAccountTokenSecret: true
+  serviceAccountTokenSecretName: rhdh-k8s-sa-token
+
 instance:
   replicas: 1
   database:

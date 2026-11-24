@@ -78,3 +78,17 @@ roleRef:
   name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
+{{- if .Values.rbac.createServiceAccountTokenSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.rbac.serviceAccountTokenSecretName | default "rhdh-k8s-sa-token" | quote }}
+  namespace: {{ include "rhdh.namespace" . }}
+  labels:
+    {{- include "rhdh.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/service-account.name: {{ .Values.rbac.serviceAccount | quote }}
+    argocd.argoproj.io/sync-wave: "-1"
+type: kubernetes.io/service-account-token
+{{- end }}

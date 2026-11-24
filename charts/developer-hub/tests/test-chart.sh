@@ -7,6 +7,8 @@ ROOT="$(cd "$CHART/../.." && pwd)"
 need() { command -v "$1" >/dev/null || { echo "missing $1" >&2; exit 1; }; }
 need helm
 need ruby
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
 
 fail=0
 helm lint "$CHART"
