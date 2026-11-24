@@ -58,15 +58,33 @@ In the Kiali Operator (`roles/default/kiali-deploy/templates/openshift/deploymen
 
 If two `Kiali` CRs in `istio-system` share the default `instance_name: kiali` or `secret_name: kiali`, they overwrite each other's `Service`, TLS serving certificate (`kiali-cert-secret`), and session signing keys.
 
-Therefore, the second `Kiali` CR **must** set unique values for both `spec.deployment.instance_name` and `spec.deployment.secret_name` (e.g. `kiali-token`), and its dedicated ServiceAccount (`kiali-token-service-account`) must be bound to the `cluster-monitoring-view` ClusterRole so `thanos-querier` accepts its bearer token.
+Therefore, the second `Kiali` CR **must** set unique values for both `spec.deployment.instance_name` and `spec.deployment.secret_name` (e.g. `kiali-token`).
+
+For Prometheus / Thanos Querier RBAC (`cluster-monitoring-view`), you have **two choices** so you don't have to create a new `ClusterRoleBinding`:
+1. **Option 1 (Zero new `ClusterRoleBinding` — reuse the existing `kiali-service-account` token for Thanos):**
+   Point `Secret/kiali-token` at the existing `kiali-service-account` (`kubernetes.io/service-account.name: kiali-service-account`) and set `use_kiali_token: false` + `token: "secret:kiali-token:token"`. Because `kiali-service-account` already has the `kiali-cluster-monitoring-view` `ClusterRoleBinding`, `kiali-token` reuses the existing ServiceAccount and RBAC with **zero cluster-scoped RBAC changes**!
+2. **Option 2 (Reuse the existing `kiali-cluster-monitoring-view` `ClusterRoleBinding` by adding `kiali-token-service-account` to `subjects`):**
+   Keep `use_kiali_token: true` and append `kiali-token-service-account` to the `subjects:` array of the existing `kiali-cluster-monitoring-view` `ClusterRoleBinding`.
 
 ---
 
-## 3. Complete `Kiali` CR & RBAC Manifest (`kiali-token`)
+## 3. Complete Manifests (`kiali-token`)
 
-Apply the following manifest to deploy `kiali-token` in `istio-system` with full TLS verification (`insecure_skip_verify: false`) against OpenShift Thanos Querier:
+### Approach A: Zero Cluster-Scoped RBAC Changes (Reuses Existing `kiali-service-account` & Existing `ClusterRoleBinding`)
+
+Because the Kiali Operator already mounts `Secret/kiali-token` (`spec.deployment.secret_name: kiali-token`), you can annotate `Secret/kiali-token` as a `kubernetes.io/service-account-token` for the **existing** `kiali-service-account` and reference `secret:kiali-token:token` for Prometheus/Thanos auth. This reuses the first Kiali instance's `kiali-service-account` and its existing `ClusterRoleBinding` (`kiali-cluster-monitoring-view`):
 
 ```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kiali-token
+  namespace: istio-system
+  annotations:
+    # Reuses the primary Kiali instance's ServiceAccount (which already has cluster-monitoring-view)
+    kubernetes.io/service-account.name: kiali-service-account
+type: kubernetes.io/service-account-token
+---
 apiVersion: kiali.io/v1alpha1
 kind: Kiali
 metadata:
@@ -97,6 +115,58 @@ spec:
       url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
       auth:
         type: bearer
+        use_kiali_token: false
+        token: "secret:kiali-token:token"
+        insecure_skip_verify: false
+      thanos_proxy:
+        enabled: true
+    custom_dashboards:
+      prometheus:
+        url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+        auth:
+          type: bearer
+          use_kiali_token: false
+          token: "secret:kiali-token:token"
+          insecure_skip_verify: false
+    grafana:
+      enabled: false
+```
+
+---
+
+### Approach B: Using `use_kiali_token: true` and Reusing the Existing `kiali-cluster-monitoring-view` `ClusterRoleBinding`
+
+If you prefer `use_kiali_token: true` (where `kiali-token` uses its own pod ServiceAccount `kiali-token-service-account`), add `kiali-token-service-account` as a second subject on the **existing** `kiali-cluster-monitoring-view` `ClusterRoleBinding` (see [`charts/service-mesh/templates/telemetry.yaml`](../charts/service-mesh/templates/telemetry.yaml)):
+
+```yaml
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali-token
+  namespace: istio-system
+spec:
+  istio_namespace: istio-system
+  auth:
+    strategy: token
+  deployment:
+    instance_name: kiali-token
+    secret_name: kiali-token
+    accessible_namespaces:
+      - "**"
+    ingress:
+      enabled: true
+    custom_envs:
+      - name: SSL_CERT_FILE
+        value: /kiali-cabundle/service-ca.crt
+      - name: SSL_CERT_DIR
+        value: /etc/pki/tls/certs
+  external_services:
+    istio:
+      root_namespace: istio-system
+    prometheus:
+      url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+      auth:
+        type: bearer
         use_kiali_token: true
         insecure_skip_verify: false
       thanos_proxy:
@@ -111,16 +181,19 @@ spec:
     grafana:
       enabled: false
 ---
-# Grant kiali-token-service-account permission to query OpenShift Thanos Querier
+# Reuse the existing kiali-cluster-monitoring-view ClusterRoleBinding by listing both ServiceAccounts
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kiali-token-cluster-monitoring-view
+  name: kiali-cluster-monitoring-view
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-monitoring-view
 subjects:
+  - kind: ServiceAccount
+    name: kiali-service-account
+    namespace: istio-system
   - kind: ServiceAccount
     name: kiali-token-service-account
     namespace: istio-system
