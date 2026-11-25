@@ -27,8 +27,8 @@ Any `Secret` with these metadata fields is automatically attached via `envFrom` 
 2. **Developer (Day-2 Self-Service Update)**:
    Because each developer has `admin` RBAC on their own `<user>-devspaces` namespace (via `RoleBinding/devspaces-user-admin`), the developer simply opens the OpenShift Console (`Workloads -> Secrets -> user-workspace-env -> Edit Secret`) and replaces `REPLACE_ME` with their personal `SNYK_TOKEN`.
 3. **Automatic Workspace Injection & Reload**:
-   - **New Workspaces**: Immediately receive `SNYK_TOKEN` as an environment variable on startup.
-   - **Running Workspaces**: Because of the `controller.devfile.io/watch-secret: "true"` label, the DevWorkspace Operator detects the Secret update and automatically rolls the running workspace pod to load the new `SNYK_TOKEN` value.
+   - **New Workspaces**: Immediately receive `SNYK_TOKEN` as an environment variable (`envFrom.secretRef`) on startup.
+   - **Running Workspaces**: Creating a new Secret with `controller.devfile.io/watch-secret: "true"` automatically triggers a Deployment rollout. When updating the *value* of an existing key inside `user-workspace-env` (e.g., `REPLACE_ME` -> actual token), any **already-running** workspace loads the new value once the developer clicks **Restart Workspace** in Dev Spaces (because Kubernetes `envFrom.secretRef` evaluates environment variables at container start).
 4. **Argo CD Drift Protection**:
    With `ignoreDifferences` (`/data` and `/stringData`), `RespectIgnoreDifferences=true`, `ApplyOutOfSyncOnly=true`, and the resource annotation `argocd.argoproj.io/sync-options: CreateOnly=true` (or `Prune=false`), Argo CD creates the Secret if it does not exist, keeps the Application status `Synced` / `Healthy`, and **never overwrites** the developer's secret value on future GitOps syncs.
 
@@ -88,7 +88,7 @@ stringData:
 | Field | Key | Value | Purpose |
 | :--- | :--- | :--- | :--- |
 | **Label** | `controller.devfile.io/mount-to-devworkspace` | `"true"` | Tells the DevWorkspace Operator to mount this Secret into all workspaces in this namespace. |
-| **Label** | `controller.devfile.io/watch-secret` | `"true"` | Watches the Secret for changes and automatically restarts running workspace pods when the user updates their token. |
+| **Label** | `controller.devfile.io/watch-secret` | `"true"` | Instructs the DevWorkspace Operator to watch the Secret metadata/existence and reconcile workspace deployments when mounted Secrets are added or modified. |
 | **Annotation** | `controller.devfile.io/mount-as` | `env` | Injects all key-value pairs in the Secret as environment variables (`envFrom`) into every workspace container. |
 | **Annotation** | `argocd.argoproj.io/sync-options` | `CreateOnly=true,Prune=false` | Ensures Argo CD only creates the initial skeleton Secret on Day 1 and never overwrites or prunes the developer's custom values during subsequent syncs. |
 
@@ -188,7 +188,8 @@ oc patch secret user-workspace-env \
 ```
 
 ### Verifying Inside Your Dev Spaces Workspace
-Open a terminal inside any new or running Dev Spaces workspace and run:
+1. If you already had a workspace **Running** while you edited `user-workspace-env`, click **Restart Workspace** (or Stop/Start) in the Dev Spaces dashboard so the container restarts and loads the updated `envFrom` Secret values. (Any newly started workspace loads it automatically).
+2. Open a terminal inside your Dev Spaces workspace and run:
 ```bash
 echo $SNYK_TOKEN
 ```
