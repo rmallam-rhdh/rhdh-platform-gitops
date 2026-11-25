@@ -14,15 +14,20 @@ In Backstage and RHDH, every Catalog entity (`Component`, `System`, `API`, `Reso
 If a team has two separate LDAP groups — `team-payments-ro` (viewers) and `team-payments-rw` (editors) — making both groups match `spec.owner: group:default/team-payments` cleanly at scale uses **Nested LDAP Umbrella Groups** paired with **Transitive Group Ownership** (`includeTransitiveGroupOwnership: true`):
 
 ```
-OpenLDAP / Active Directory Hierarchy (ou=groups,dc=acme,dc=demo)
-├── cn=team-payments              <── Catalog Entity spec.owner: group:default/team-payments
-│   ├── cn=team-payments-rw       <── Bound to role:default/team-editor  (e.g., uid=alice)
-│   └── cn=team-payments-ro       <── Bound to role:default/team-viewer  (e.g., uid=bob)
-│
-└── cn=team-retail                <── Catalog Entity spec.owner: group:default/team-retail
-    ├── cn=team-retail-rw         <── Bound to role:default/team-editor  (e.g., uid=carol)
-    └── cn=team-retail-ro         <── Bound to role:default/team-viewer
+Enterprise 3-Level AD / OpenLDAP Hierarchy (ou=groups,dc=acme,dc=demo)
+└── cn=rhdh-users                     <── Level 1: Top-level Portal Login & LDAP Sync Gatekeeper Group
+    ├── cn=team-payments              <── Level 2: Team Umbrella Group (spec.owner: group:default/team-payments)
+    │   ├── cn=team-payments-rw       <── Level 3a: Bound to role:default/team-editor  (e.g., uid=alice)
+    │   └── cn=team-payments-ro       <── Level 3b: Bound to role:default/team-viewer  (e.g., uid=bob)
+    │
+    └── cn=team-retail                <── Level 2: Team Umbrella Group (spec.owner: group:default/team-retail)
+        ├── cn=team-retail-rw         <── Level 3a: Bound to role:default/team-editor  (e.g., uid=carol)
+        └── cn=team-retail-ro         <── Level 3b: Bound to role:default/team-viewer
 ```
+
+> **Important Rule When Using a Top-Level `rhdh-users` Gatekeeper Group:**
+>1. Use `rhdh-users` **only** for SSO / LDAP sync admission (e.g., AD recursive filter `(memberOf:1.2.840.113556.1.4.1941:=CN=rhdh-users,OU=Groups,...)`). Do **not** bind `rhdh-users` to any RHDH RBAC role, and **never** set `spec.owner: group:default/rhdh-users` on team entities (because `includeTransitiveGroupOwnership: true` walks all ancestor groups, every user under `rhdh-users` inherits `group:default/rhdh-users` in `$ownerRefs` — whereas only Payments users inherit `group:default/team-payments`).
+>2. If using Microsoft Entra ID Enterprise Application "User Assignment Required", verify whether your Entra ID tier expands multi-level nested groups for app assignment; if not, either assign the team groups directly in Entra ID or allow org-wide authentication in Entra ID and rely on RHDH's `signIn.resolvers` (without `dangerouslyAllowSignInWithoutUserInCatalog`), which blocks login for anyone not synced via `rhdh-users` in LDAP.
 
 ### Why This Is the Enterprise Best Practice
 - **Only 2 RBAC roles ever exist in RHDH:** `role:default/team-viewer` and `role:default/team-editor`.
@@ -166,10 +171,14 @@ permission:
       - jenkins
       - sonarqube
       - techdocs
-    policies-csv-file: /opt/app-root/src/rbac-policies.csv
-    conditionalPoliciesFile: /opt/app-root/src/rbac-conditional-policies.yaml
+    policies-csv-file: /opt/app-root/src/rbac/rbac-policies.csv
+    conditionalPoliciesFile: /opt/app-root/src/rbac/rbac-conditional-policies.yaml
     policyFileReload: true
 ```
+
+> **Zero-Restart Hot Reload Architecture:**
+> Do **not** mount `rbac-policies` via `spec.application.extraFiles.configMaps` on the `Backstage` CR — the RHDH Operator mounts `extraFiles` with Kubernetes `subPath` (which kubelet never updates live) and stamps `rhdh.redhat.com/ext-config-hash` (forcing a pod rollout on every edit).
+> Instead, our chart mounts `rbac-policies` as a **directory volume** at `/opt/app-root/src/rbac` under `spec.deployment.patch` and sets `CHOKIDAR_USEPOLLING=true` + `CHOKIDAR_INTERVAL=5000` (required because default Linux `inotify` misses Kubernetes's atomic `..data` symlink swap). Adding a new team to `values.yaml` hot-reloads in memory within ~60 seconds with **zero pod restarts**.
 
 ---
 
@@ -188,7 +197,7 @@ permission:
       - team-retail-rw
 ```
 
-Helm automatically renders those lists alongside the static `team-viewer` and `team-editor` role rules into `rbac-policies.csv` (mounted via `spec.application.extraFiles.configMaps` on the `Backstage` CR).
+Helm automatically renders those lists alongside the static `team-viewer` and `team-editor` role rules into `rbac-policies.csv` (mounted as a live-updating directory volume at `/opt/app-root/src/rbac` under `spec.deployment.patch` on the `Backstage` CR).
 
 > **Important Gotcha:** Do **not** add unconditional `p, role:default/team-viewer, catalog-entity, read, allow` or `p, role:default/team-editor, catalog-entity, read, allow` lines in `rbac-policies.csv`. All `catalog-entity` permissions (`read`, `update`, `delete`) must come **exclusively** from `rbac-conditional-policies.yaml` so global allow rules never shadow ownership conditions.
 

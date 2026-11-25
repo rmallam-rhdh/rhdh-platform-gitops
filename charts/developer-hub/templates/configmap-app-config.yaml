@@ -394,8 +394,8 @@ data:
           {{- end }}
         pluginsWithPermission:
 {{ .Values.permission.pluginsWithPermission | toYaml | nindent 10 }}
-        policies-csv-file: /opt/app-root/src/rbac-policies.csv
+        policies-csv-file: /opt/app-root/src/rbac/rbac-policies.csv
         {{- if .Values.permission.conditionalPoliciesYaml }}
-        conditionalPoliciesFile: /opt/app-root/src/rbac-conditional-policies.yaml
+        conditionalPoliciesFile: /opt/app-root/src/rbac/rbac-conditional-policies.yaml
         {{- end }}
         policyFileReload: true
