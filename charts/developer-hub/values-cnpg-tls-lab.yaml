@@ -111,6 +111,9 @@ permission:
     - catalog
     - scaffolder
     - permission
+  teamGroups:
+    readOnly: []
+    readWrite: []
   policiesCsv: |
     p, role:default/developer, catalog-entity, read, allow
     g, user:default/guest, role:default/developer

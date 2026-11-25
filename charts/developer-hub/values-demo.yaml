@@ -82,36 +82,14 @@ permission:
     - scaffolder
     - permission
     - kubernetes
-  policiesCsv: |
-    # Role 1: Team Viewer (Read-Only) — bob (team-payments-ro)
-    p, role:default/team-viewer, catalog.location.read, read, allow
-    p, role:default/team-viewer, scaffolder.template.parameter.read, read, allow
-    p, role:default/team-viewer, scaffolder.template.step.read, read, allow
-    p, role:default/team-viewer, kubernetes.clusters.read, read, allow
-    p, role:default/team-viewer, kubernetes.resources.read, read, allow
-    p, role:default/team-viewer, argocd.view.read, read, allow
-
-    # Role 2: Team Editor (Read-Write) — alice (team-payments-rw), carol (team-retail-rw)
-    p, role:default/team-editor, catalog.entity.create, create, allow
-    p, role:default/team-editor, catalog.location.create, create, allow
-    p, role:default/team-editor, catalog.location.read, read, allow
-    p, role:default/team-editor, catalog.location.delete, delete, allow
-    p, role:default/team-editor, scaffolder.template.use, use, allow
-    p, role:default/team-editor, scaffolder.template.parameter.read, read, allow
-    p, role:default/team-editor, scaffolder.template.step.read, read, allow
-    p, role:default/team-editor, scaffolder.action.execute, use, allow
-    p, role:default/team-editor, scaffolder.task.create, create, allow
-    p, role:default/team-editor, scaffolder.task.read, read, allow
-    p, role:default/team-editor, scaffolder.task.cancel, update, allow
-    p, role:default/team-editor, kubernetes.clusters.read, read, allow
-    p, role:default/team-editor, kubernetes.resources.read, read, allow
-    p, role:default/team-editor, argocd.view.read, read, allow
-
-    # Nested LDAP child-group bindings (parent groups team-payments & team-retail own the entities)
-    g, group:default/team-payments-ro, role:default/team-viewer
-    g, group:default/team-payments-rw, role:default/team-editor
-    g, group:default/team-retail-ro, role:default/team-viewer
-    g, group:default/team-retail-rw, role:default/team-editor
+  # Add only synced LDAP group names here — base roles & conditional policies live in values.yaml!
+  teamGroups:
+    readOnly:
+      - team-payments-ro
+      - team-retail-ro
+    readWrite:
+      - team-payments-rw
+      - team-retail-rw
 
 integrations:
   bitbucketCloud:

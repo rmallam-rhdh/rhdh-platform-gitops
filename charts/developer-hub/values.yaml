@@ -162,6 +162,15 @@ permission:
     - argocd
     - techdocs
     - sonarqube
+  # Onboard application teams simply by listing their synced LDAP group names here.
+  # templates/configmap-rbac.yaml automatically renders the Casbin `g, group:default/<name>, ...` lines.
+  teamGroups:
+    readOnly:
+      - team-payments-ro
+      - team-retail-ro
+    readWrite:
+      - team-payments-rw
+      - team-retail-rw
   policiesCsv: |
     # Role 1: Team Viewer (Read-Only) — catalog-entity read is scoped via conditionalPoliciesYaml
     p, role:default/team-viewer, catalog.location.read, read, allow
@@ -186,12 +195,6 @@ permission:
     p, role:default/team-editor, kubernetes.clusters.read, read, allow
     p, role:default/team-editor, kubernetes.resources.read, read, allow
     p, role:default/team-editor, argocd.view.read, read, allow
-
-    # Group-to-Role bindings (Option 1 Nested LDAP child groups -> Reusable Platform Roles)
-    g, group:default/team-payments-ro, role:default/team-viewer
-    g, group:default/team-payments-rw, role:default/team-editor
-    g, group:default/team-retail-ro, role:default/team-viewer
-    g, group:default/team-retail-rw, role:default/team-editor
   conditionalPoliciesYaml: |
     ---
     result: CONDITIONAL

@@ -26,7 +26,7 @@ OpenLDAP / Active Directory Hierarchy (ou=groups,dc=acme,dc=demo)
 
 ### Why This Is the Enterprise Best Practice
 - **Only 2 RBAC roles ever exist in RHDH:** `role:default/team-viewer` and `role:default/team-editor`.
-- **Onboarding Team #50 requires 2 lines in `rbac-policies.csv`** (`g, group:default/team-foo-ro, role:default/team-viewer` and `g, group:default/team-foo-rw, role:default/team-editor`) and **zero changes** to `rbac-conditional-policies.yaml`.
+- **Onboarding Team #50 requires zero Casbin CSV editing:** just add the group names under `permission.teamGroups.readOnly` and `permission.teamGroups.readWrite` in `values.yaml`, and our Helm chart renders the Casbin `g, group:default/<name>, ...` bindings automatically (with **zero changes** to `rbac-conditional-policies.yaml`).
 - **Clean Catalog ownership:** Every `catalog-info.yaml` simply declares `spec.owner: group:default/team-payments`.
 - **Least-privilege template protection:** Conditional policies split `read` (team-owned entities **or** `Template`/`User`/`Group`) from `update`/`delete` (team-owned entities **only**), preventing `team-editor` users from deleting shared Golden Path templates.
 
@@ -173,12 +173,26 @@ permission:
 
 ---
 
-### Step 3: Configure `rbac-policies.csv` (Non-Conditional Actions & Group-to-Role Bindings)
+### Step 3: Onboard Teams via `permission.teamGroups` in `values.yaml` (Zero CSV Editing)
 
-Mount `rbac-policies.csv` via a `ConfigMap` under `spec.application.extraFiles.configMaps` on the `Backstage` CR.
+Instead of manually writing Casbin `g, ...` CSV lines for every team, our Helm chart (`charts/developer-hub/templates/configmap-rbac.yaml`) exposes two clean YAML lists in `values.yaml`:
+
+```yaml
+permission:
+  teamGroups:
+    readOnly:
+      - team-payments-ro
+      - team-retail-ro
+    readWrite:
+      - team-payments-rw
+      - team-retail-rw
+```
+
+Helm automatically renders those lists alongside the static `team-viewer` and `team-editor` role rules into `rbac-policies.csv` (mounted via `spec.application.extraFiles.configMaps` on the `Backstage` CR).
 
 > **Important Gotcha:** Do **not** add unconditional `p, role:default/team-viewer, catalog-entity, read, allow` or `p, role:default/team-editor, catalog-entity, read, allow` lines in `rbac-policies.csv`. All `catalog-entity` permissions (`read`, `update`, `delete`) must come **exclusively** from `rbac-conditional-policies.yaml` so global allow rules never shadow ownership conditions.
 
+Rendered `rbac-policies.csv`:
 ```csv
 # Role 1: Team Viewer (Read-Only) — no entity create/delete/unregister, no template execution
 p, role:default/team-viewer, catalog.location.read, read, allow
@@ -204,10 +218,11 @@ p, role:default/team-editor, kubernetes.clusters.read, read, allow
 p, role:default/team-editor, kubernetes.resources.read, read, allow
 p, role:default/team-editor, argocd.view.read, read, allow
 
-# Onboarding teams: bind each child LDAP group to team-viewer (-ro) or team-editor (-rw)
+# Read-Only team groups (auto-rendered from permission.teamGroups.readOnly)
 g, group:default/team-payments-ro, role:default/team-viewer
-g, group:default/team-payments-rw, role:default/team-editor
 g, group:default/team-retail-ro, role:default/team-viewer
+# Read-Write team groups (auto-rendered from permission.teamGroups.readWrite)
+g, group:default/team-payments-rw, role:default/team-editor
 g, group:default/team-retail-rw, role:default/team-editor
 ```
 
@@ -330,10 +345,14 @@ This setup is deployed and verified live on the ROSA lab cluster (`namespace: rh
 | **`guest`** | `superUsers` | `user:default/guest` (Super-Admin bypass) | `role:default/rbac_admin` + `superUsers` | **All Components** (`payments-checkout-service`, `retail-inventory-service`, `orders-api`, `demo`) | **ALLOW** | **ALLOW** | **ALLOW** | **ALLOW** |
 
 ### Onboarding Checklist for Adding a New Application Team (`team-<name>`)
-1. Create `cn=team-<name>-ro`, `cn=team-<name>-rw`, and parent `cn=team-<name>` in LDAP (wait up to 5 minutes for `ldapOrg` sync, or restart/refresh catalog).
-2. Add two lines to `permission.policiesCsv` in `values.yaml`:
-   ```csv
-   g, group:default/team-<name>-ro, role:default/team-viewer
-   g, group:default/team-<name>-rw, role:default/team-editor
+1. Create `cn=team-<name>-ro`, `cn=team-<name>-rw`, and parent `cn=team-<name>` in LDAP (and nest `team-<name>` into your SSO/AD portal gatekeeper group if applicable).
+2. Add the two group names under `permission.teamGroups` in `values.yaml` (no CSV editing needed):
+   ```yaml
+   permission:
+     teamGroups:
+       readOnly:
+         - team-<name>-ro
+       readWrite:
+         - team-<name>-rw
    ```
-3. Set `spec.owner: group:default/team-<name>` in the team's `catalog-info.yaml` (or Golden Path template `OwnerPicker`). Because `policyFileReload: true` is enabled, RHDH reloads `rbac-policies.csv` automatically when the ConfigMap updates.
+3. Set `spec.owner: group:default/team-<name>` in the team's `catalog-info.yaml` (or Golden Path template `OwnerPicker`).

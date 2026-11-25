@@ -9,6 +9,18 @@ metadata:
 data:
   rbac-policies.csv: |
 {{ .Values.permission.policiesCsv | nindent 4 }}
+    {{- if and .Values.permission.teamGroups .Values.permission.teamGroups.readOnly }}
+    # Read-Only team groups (auto-rendered from permission.teamGroups.readOnly)
+    {{- range .Values.permission.teamGroups.readOnly }}
+    g, {{ if hasPrefix "group:" . }}{{ . }}{{ else }}group:default/{{ . }}{{ end }}, role:default/team-viewer
+    {{- end }}
+    {{- end }}
+    {{- if and .Values.permission.teamGroups .Values.permission.teamGroups.readWrite }}
+    # Read-Write team groups (auto-rendered from permission.teamGroups.readWrite)
+    {{- range .Values.permission.teamGroups.readWrite }}
+    g, {{ if hasPrefix "group:" . }}{{ . }}{{ else }}group:default/{{ . }}{{ end }}, role:default/team-editor
+    {{- end }}
+    {{- end }}
   {{- if .Values.permission.conditionalPoliciesYaml }}
   rbac-conditional-policies.yaml: |
 {{ .Values.permission.conditionalPoliciesYaml | nindent 4 }}
