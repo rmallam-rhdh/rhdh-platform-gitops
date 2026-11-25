@@ -1,0 +1,155 @@
+# Standalone RHDH 1.10 Branding & Theme ConfigMap (Light + Dark Mode)
+# Apply directly (`oc apply -f`) or include in Argo CD / Kustomize, then list
+# `app-config-rhdh-branding` under `spec.application.appConfig.configMaps` on your Backstage CR.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-rhdh-branding
+  namespace: rhdh
+  labels:
+    app.kubernetes.io/part-of: developer-hub
+    app.kubernetes.io/component: branding
+data:
+  app-config-branding.yaml: |
+    app:
+      title: "Acme Developer Hub"
+      baseUrl: "https://backstage-developer-hub-rhdh.apps.example.com"
+      branding:
+        # Optional custom logos (uncomment to replace default RHDH wordmark & icon):
+        # fullLogo: "data:image/svg+xml;base64,<BASE64_ENCODED_SVG>"
+        # iconLogo: "data:image/svg+xml;base64,<BASE64_ENCODED_SVG>"
+        theme:
+          # ── Light Mode (Corporate Royal Blue & Clean Slate) ──────────────────
+          light:
+            defaultPageTheme: default
+            options:
+              # Fixes RHDH 1.10 header tab contrast (`color: unset` inheritance bug)
+              tabs: mui
+            pageTheme:
+              default:
+                backgroundColor:
+                  - "#0F172A"
+                  - "#1E3A8A"
+                fontColor: "#FFFFFF"
+            palette:
+              primary:
+                main: "#2563EB"
+              secondary:
+                main: "#0284C7"
+              text:
+                primary: "#0F172A"
+                secondary: "#475569"
+              textSubtle: "#475569"
+              tabbar:
+                indicator: "#2563EB"
+              background:
+                default: "#F1F5F9"
+                paper: "#FFFFFF"
+              navigation:
+                background: "#F8FAFC"
+                indicator: "#2563EB"
+                color: "#334155"
+                selectedColor: "#0F172A"
+                navItem:
+                  hoverBackground: "#E2E8F0"
+                submenu:
+                  background: "#FFFFFF"
+              rhdh:
+                general:
+                  pageInset: "1rem"
+                  pageInsetBackgroundColor: "#F8FAFC"
+                  mainSectionBackgroundColor: "#F1F5F9"
+                  cardBackgroundColor: "#FFFFFF"
+                  cardBorderColor: "#CBD5E1"
+                  paperBorderColor: "#CBD5E1"
+                  formControlBackgroundColor: "#FFFFFF"
+                  sidebarBackgroundColor: "#F8FAFC"
+                  sidebarDividerColor: "#E2E8F0"
+                  sidebarItemSelectedBackgroundColor: "#E2E8F0"
+                  tableBackgroundColor: "#FFFFFF"
+                  tableBorderColor: "#E2E8F0"
+                  tableRowHover: "#F8FAFC"
+                  tableTitleColor: "#0F172A"
+                  tableSubtitleColor: "#475569"
+                  tableColumnTitleColor: "#334155"
+                  tabsLinkHoverBackgroundColor: "rgba(37, 99, 235, 0.10)"
+                  appBarBackgroundScheme: light
+                  appBarBackgroundColor: "#FFFFFF"
+                  appBarForegroundColor: "#0F172A"
+                primary:
+                  main: "#2563EB"
+                  focusVisibleBorder: "#3B82F6"
+                secondary:
+                  main: "#0284C7"
+                  focusVisibleBorder: "#38BDF8"
+                cards:
+                  headerTextColor: "#0F172A"
+                  headerBackgroundColor: "#F8FAFC"
+                  headerBackgroundImage: none
+
+          # ── Dark Mode (Deep Navy & Sky Blue Accents) ─────────────────────────
+          dark:
+            defaultPageTheme: default
+            options:
+              tabs: mui
+            pageTheme:
+              default:
+                backgroundColor:
+                  - "#0B1120"
+                  - "#1E3A5F"
+                fontColor: "#F8FAFC"
+            palette:
+              primary:
+                main: "#60A5FA"
+              secondary:
+                main: "#38BDF8"
+              text:
+                primary: "#F8FAFC"
+                secondary: "#CBD5E1"
+              textSubtle: "#CBD5E1"
+              tabbar:
+                indicator: "#38BDF8"
+              background:
+                default: "#0F172A"
+                paper: "#162032"
+              navigation:
+                background: "#0B1120"
+                indicator: "#38BDF8"
+                color: "#CBD5E1"
+                selectedColor: "#FFFFFF"
+                navItem:
+                  hoverBackground: "#162032"
+                submenu:
+                  background: "#0B1120"
+              rhdh:
+                general:
+                  pageInset: "1rem"
+                  pageInsetBackgroundColor: "#0B1120"
+                  mainSectionBackgroundColor: "#0F172A"
+                  cardBackgroundColor: "#162032"
+                  cardBorderColor: "#26354D"
+                  paperBorderColor: "#26354D"
+                  formControlBackgroundColor: "#1E293B"
+                  sidebarBackgroundColor: "#0B1120"
+                  sidebarDividerColor: "#1E293B"
+                  sidebarItemSelectedBackgroundColor: "#162032"
+                  tableBackgroundColor: "#162032"
+                  tableBorderColor: "#26354D"
+                  tableRowHover: "#1E293B"
+                  tableTitleColor: "#F8FAFC"
+                  tableSubtitleColor: "#94A3B8"
+                  tableColumnTitleColor: "#CBD5E1"
+                  tabsLinkHoverBackgroundColor: "rgba(96, 165, 250, 0.14)"
+                  appBarBackgroundScheme: dark
+                  appBarBackgroundColor: "#0B1120"
+                  appBarForegroundColor: "#F8FAFC"
+                primary:
+                  main: "#60A5FA"
+                  focusVisibleBorder: "#93C5FD"
+                secondary:
+                  main: "#38BDF8"
+                  focusVisibleBorder: "#7DD3FC"
+                cards:
+                  headerTextColor: "#F8FAFC"
+                  headerBackgroundColor: "#1B283E"
+                  headerBackgroundImage: none

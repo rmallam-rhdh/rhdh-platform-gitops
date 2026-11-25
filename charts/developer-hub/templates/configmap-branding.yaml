@@ -13,6 +13,19 @@ data:
       baseUrl: {{ include "rhdh.baseUrl" . | quote }}
       {{- if .Values.branding.enabled }}
       branding:
+        {{- if and .Values.branding.logo .Values.branding.logo.fullLogoWidth }}
+        fullLogoWidth: {{ .Values.branding.logo.fullLogoWidth | quote }}
+        {{- end }}
+        {{- if and .Values.branding.logo .Values.branding.logo.fullLogoLight .Values.branding.logo.fullLogoDark }}
+        fullLogo:
+          light: {{ .Values.branding.logo.fullLogoLight | quote }}
+          dark: {{ .Values.branding.logo.fullLogoDark | quote }}
+        {{- else if and .Values.branding.logo .Values.branding.logo.fullLogo }}
+        fullLogo: {{ .Values.branding.logo.fullLogo | quote }}
+        {{- end }}
+        {{- if and .Values.branding.logo .Values.branding.logo.iconLogo }}
+        iconLogo: {{ .Values.branding.logo.iconLogo | quote }}
+        {{- end }}
         theme:
           light:
             defaultPageTheme: default
@@ -62,21 +75,21 @@ data:
                   sidebarDividerColor: {{ .Values.branding.light.shellBorderColor | quote }}
                   sidebarItemSelectedBackgroundColor: {{ .Values.branding.light.shellHoverColor | quote }}
                   tableBackgroundColor: {{ .Values.branding.light.cardColor | quote }}
-                  tableBorderColor: "#E2E8F0"
-                  tableRowHover: "#F8FAFC"
+                  tableBorderColor: {{ .Values.branding.light.shellBorderColor | default "#E5E2EE" | quote }}
+                  tableRowHover: {{ .Values.branding.light.shellColor | default "#F9F8FC" | quote }}
                   tableTitleColor: {{ .Values.branding.light.textPrimary | quote }}
                   tableSubtitleColor: {{ .Values.branding.light.textSecondary | quote }}
-                  tableColumnTitleColor: "#334155"
-                  tabsLinkHoverBackgroundColor: "rgba(37, 99, 235, 0.10)"
+                  tableColumnTitleColor: {{ .Values.branding.light.shellTextColor | default "#2D2A4A" | quote }}
+                  tabsLinkHoverBackgroundColor: {{ .Values.branding.light.tabsHoverBg | default "rgba(218, 23, 16, 0.10)" | quote }}
                   appBarBackgroundScheme: light
                   appBarBackgroundColor: {{ .Values.branding.light.appBarColor | default "#FFFFFF" | quote }}
                   appBarForegroundColor: {{ .Values.branding.light.textPrimary | quote }}
                 primary:
                   main: {{ .Values.branding.light.primaryColor | quote }}
-                  focusVisibleBorder: "#3B82F6"
+                  focusVisibleBorder: {{ .Values.branding.light.focusPrimary | default .Values.branding.light.primaryColor | quote }}
                 secondary:
                   main: {{ .Values.branding.light.secondaryColor | quote }}
-                  focusVisibleBorder: "#38BDF8"
+                  focusVisibleBorder: {{ .Values.branding.light.focusSecondary | default .Values.branding.light.secondaryColor | quote }}
                 cards:
                   headerTextColor: {{ .Values.branding.light.textPrimary | quote }}
                   headerBackgroundColor: {{ .Values.branding.light.cardHeaderColor | quote }}
@@ -122,26 +135,26 @@ data:
                   cardBackgroundColor: {{ .Values.branding.dark.cardColor | quote }}
                   cardBorderColor: {{ .Values.branding.dark.borderColor | quote }}
                   paperBorderColor: {{ .Values.branding.dark.borderColor | quote }}
-                  formControlBackgroundColor: "#1E293B"
+                  formControlBackgroundColor: {{ .Values.branding.dark.shellBorderColor | default "#2A2648" | quote }}
                   sidebarBackgroundColor: {{ .Values.branding.dark.shellColor | quote }}
                   sidebarDividerColor: {{ .Values.branding.dark.shellBorderColor | quote }}
                   sidebarItemSelectedBackgroundColor: {{ .Values.branding.dark.shellHoverColor | quote }}
                   tableBackgroundColor: {{ .Values.branding.dark.cardColor | quote }}
                   tableBorderColor: {{ .Values.branding.dark.borderColor | quote }}
-                  tableRowHover: "#1E293B"
+                  tableRowHover: {{ .Values.branding.dark.cardHeaderColor | default "#272347" | quote }}
                   tableTitleColor: {{ .Values.branding.dark.textPrimary | quote }}
-                  tableSubtitleColor: "#94A3B8"
+                  tableSubtitleColor: {{ .Values.branding.dark.textSecondary | quote }}
                   tableColumnTitleColor: {{ .Values.branding.dark.textSecondary | quote }}
-                  tabsLinkHoverBackgroundColor: "rgba(96, 165, 250, 0.14)"
+                  tabsLinkHoverBackgroundColor: {{ .Values.branding.dark.tabsHoverBg | default "rgba(255, 90, 82, 0.16)" | quote }}
                   appBarBackgroundScheme: dark
                   appBarBackgroundColor: {{ .Values.branding.dark.shellColor | quote }}
                   appBarForegroundColor: {{ .Values.branding.dark.textPrimary | quote }}
                 primary:
                   main: {{ .Values.branding.dark.primaryColor | quote }}
-                  focusVisibleBorder: "#93C5FD"
+                  focusVisibleBorder: {{ .Values.branding.dark.focusPrimary | default .Values.branding.dark.primaryColor | quote }}
                 secondary:
                   main: {{ .Values.branding.dark.secondaryColor | quote }}
-                  focusVisibleBorder: "#7DD3FC"
+                  focusVisibleBorder: {{ .Values.branding.dark.focusSecondary | default .Values.branding.dark.secondaryColor | quote }}
                 cards:
                   headerTextColor: {{ .Values.branding.dark.textPrimary | quote }}
                   headerBackgroundColor: {{ .Values.branding.dark.cardHeaderColor | quote }}

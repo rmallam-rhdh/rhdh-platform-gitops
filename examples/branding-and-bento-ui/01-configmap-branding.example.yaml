@@ -1,4 +1,6 @@
-# Standalone RHDH 1.10 Branding & Theme ConfigMap (Light + Dark Mode)
+# Standalone RHDH 1.10 Branding & Theme ConfigMap — Crimson & Deep Plum Enterprise Palette
+# Includes custom Light + Dark `fullLogo` SVGs, `iconLogo`, and full Light/Dark theme tokens.
+#
 # Apply directly (`oc apply -f`) or include in Argo CD / Kustomize, then list
 # `app-config-rhdh-branding` under `spec.application.appConfig.configMaps` on your Backstage CR.
 apiVersion: v1
@@ -15,11 +17,21 @@ data:
       title: "Acme Developer Hub"
       baseUrl: "https://backstage-developer-hub-rhdh.apps.example.com"
       branding:
-        # Optional custom logos (uncomment to replace default RHDH wordmark & icon):
-        # fullLogo: "data:image/svg+xml;base64,<BASE64_ENCODED_SVG>"
-        # iconLogo: "data:image/svg+xml;base64,<BASE64_ENCODED_SVG>"
+        # ── Custom Sidebar Logos (Base64 Data URIs — SVG or PNG) ──────────────
+        # Generate your own from SVG/PNG files:
+        #   echo "data:image/svg+xml;base64,$(base64 -i logo-light.svg | tr -d '\n')"
+        #   echo "data:image/png;base64,$(base64 -i logo-icon.png | tr -d '\n')"
+        fullLogoWidth: "172px"
+        fullLogo:
+          # Dark-text wordmark for the light sidebar (#F9F8FC)
+          light: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMTAgNDAiIHdpZHRoPSIyMTAiIGhlaWdodD0iNDAiPiA8cmVjdCB4PSIyIiB5PSI0IiB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI3IiBmaWxsPSIjREExNzEwIi8+IDxwYXRoIGQ9Ik0xMCAyNyBMMTggMTEgTDI2IDI3IE0xMyAyMiBIMjMiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz4gPHRleHQgeD0iNDQiIHk9IjI2IiBmb250LWZhbWlseT0ic3lzdGVtLXVpLC1hcHBsZS1zeXN0ZW0sU2Vnb2UgVUksUm9ib3RvLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSI4MDAiIGxldHRlci1zcGFjaW5nPSIwLjUiIGZpbGw9IiMxRjFDNEYiPkFDTUU8L3RleHQ+IDx0ZXh0IHg9IjEwMiIgeT0iMjYiIGZvbnQtZmFtaWx5PSJzeXN0ZW0tdWksLWFwcGxlLXN5c3RlbSxTZWdvZSBVSSxSb2JvdG8sc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjUwMCIgZmlsbD0iIzYyMUE0QiI+UE9SVEFMPC90ZXh0PiA8L3N2Zz4="
+          # White-text wordmark for the dark sidebar (#121026)
+          dark: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMTAgNDAiIHdpZHRoPSIyMTAiIGhlaWdodD0iNDAiPiA8cmVjdCB4PSIyIiB5PSI0IiB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI3IiBmaWxsPSIjREExNzEwIi8+IDxwYXRoIGQ9Ik0xMCAyNyBMMTggMTEgTDI2IDI3IE0xMyAyMiBIMjMiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz4gPHRleHQgeD0iNDQiIHk9IjI2IiBmb250LWZhbWlseT0ic3lzdGVtLXVpLC1hcHBsZS1zeXN0ZW0sU2Vnb2UgVUksUm9ib3RvLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSI4MDAiIGxldHRlci1zcGFjaW5nPSIwLjUiIGZpbGw9IiNGRkZGRkYiPkFDTUU8L3RleHQ+IDx0ZXh0IHg9IjEwMiIgeT0iMjYiIGZvbnQtZmFtaWx5PSJzeXN0ZW0tdWksLWFwcGxlLXN5c3RlbSxTZWdvZSBVSSxSb2JvdG8sc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjUwMCIgZmlsbD0iI0ZGOEE4NCI+UE9SVEFMPC90ZXh0PiA8L3N2Zz4="
+        # Compact square mark shown when the left sidebar is collapsed
+        iconLogo: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNiAzNiIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM2Ij4gPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iI0RBMTcxMCIvPiA8cGF0aCBkPSJNMTAgMjUgTDE4IDkgTDI2IDI1IE0xMyAyMCBIMjMiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz4gPC9zdmc+"
+
         theme:
-          # ── Light Mode (Corporate Royal Blue & Clean Slate) ──────────────────
+          # ── Light Mode (Crimson #DA1710 + Deep Plum/Indigo #1F1C4F -> #621A4B) ─
           light:
             defaultPageTheme: default
             options:
@@ -28,66 +40,66 @@ data:
             pageTheme:
               default:
                 backgroundColor:
-                  - "#0F172A"
-                  - "#1E3A8A"
+                  - "#1F1C4F"
+                  - "#621A4B"
                 fontColor: "#FFFFFF"
             palette:
               primary:
-                main: "#2563EB"
+                main: "#DA1710"
               secondary:
-                main: "#0284C7"
+                main: "#621A4B"
               text:
-                primary: "#0F172A"
-                secondary: "#475569"
-              textSubtle: "#475569"
+                primary: "#181636"
+                secondary: "#524F6E"
+              textSubtle: "#524F6E"
               tabbar:
-                indicator: "#2563EB"
+                indicator: "#DA1710"
               background:
-                default: "#F1F5F9"
+                default: "#F3F2F7"
                 paper: "#FFFFFF"
               navigation:
-                background: "#F8FAFC"
-                indicator: "#2563EB"
-                color: "#334155"
-                selectedColor: "#0F172A"
+                background: "#F9F8FC"
+                indicator: "#DA1710"
+                color: "#2D2A4A"
+                selectedColor: "#DA1710"
                 navItem:
-                  hoverBackground: "#E2E8F0"
+                  hoverBackground: "#F1ECF6"
                 submenu:
                   background: "#FFFFFF"
               rhdh:
                 general:
                   pageInset: "1rem"
-                  pageInsetBackgroundColor: "#F8FAFC"
-                  mainSectionBackgroundColor: "#F1F5F9"
+                  pageInsetBackgroundColor: "#F9F8FC"
+                  mainSectionBackgroundColor: "#F3F2F7"
                   cardBackgroundColor: "#FFFFFF"
-                  cardBorderColor: "#CBD5E1"
-                  paperBorderColor: "#CBD5E1"
+                  cardBorderColor: "#D8D5E2"
+                  paperBorderColor: "#D8D5E2"
                   formControlBackgroundColor: "#FFFFFF"
-                  sidebarBackgroundColor: "#F8FAFC"
-                  sidebarDividerColor: "#E2E8F0"
-                  sidebarItemSelectedBackgroundColor: "#E2E8F0"
+                  sidebarBackgroundColor: "#F9F8FC"
+                  sidebarDividerColor: "#E5E2EE"
+                  sidebarItemSelectedBackgroundColor: "#F1ECF6"
                   tableBackgroundColor: "#FFFFFF"
-                  tableBorderColor: "#E2E8F0"
-                  tableRowHover: "#F8FAFC"
-                  tableTitleColor: "#0F172A"
-                  tableSubtitleColor: "#475569"
-                  tableColumnTitleColor: "#334155"
-                  tabsLinkHoverBackgroundColor: "rgba(37, 99, 235, 0.10)"
+                  tableBorderColor: "#E5E2EE"
+                  tableRowHover: "#F9F8FC"
+                  tableTitleColor: "#181636"
+                  tableSubtitleColor: "#524F6E"
+                  tableColumnTitleColor: "#2D2A4A"
+                  tabsLinkHoverBackgroundColor: "rgba(218, 23, 16, 0.08)"
                   appBarBackgroundScheme: light
                   appBarBackgroundColor: "#FFFFFF"
-                  appBarForegroundColor: "#0F172A"
+                  appBarForegroundColor: "#181636"
                 primary:
-                  main: "#2563EB"
-                  focusVisibleBorder: "#3B82F6"
+                  main: "#DA1710"
+                  focusVisibleBorder: "#DA1710"
                 secondary:
-                  main: "#0284C7"
-                  focusVisibleBorder: "#38BDF8"
+                  main: "#621A4B"
+                  focusVisibleBorder: "#621A4B"
                 cards:
-                  headerTextColor: "#0F172A"
-                  headerBackgroundColor: "#F8FAFC"
+                  headerTextColor: "#181636"
+                  headerBackgroundColor: "#FAF9FC"
                   headerBackgroundImage: none
 
-          # ── Dark Mode (Deep Navy & Sky Blue Accents) ─────────────────────────
+          # ── Dark Mode (Deep Charcoal-Plum #121026 + Coral-Crimson #FF5A52) ───
           dark:
             defaultPageTheme: default
             options:
@@ -95,61 +107,61 @@ data:
             pageTheme:
               default:
                 backgroundColor:
-                  - "#0B1120"
-                  - "#1E3A5F"
-                fontColor: "#F8FAFC"
+                  - "#121026"
+                  - "#4A153B"
+                fontColor: "#FFFFFF"
             palette:
               primary:
-                main: "#60A5FA"
+                main: "#FF5A52"
               secondary:
-                main: "#38BDF8"
+                main: "#E879F9"
               text:
-                primary: "#F8FAFC"
-                secondary: "#CBD5E1"
-              textSubtle: "#CBD5E1"
+                primary: "#F8F7FC"
+                secondary: "#C8C5DF"
+              textSubtle: "#C8C5DF"
               tabbar:
-                indicator: "#38BDF8"
+                indicator: "#FF5A52"
               background:
-                default: "#0F172A"
-                paper: "#162032"
+                default: "#17152B"
+                paper: "#201D3A"
               navigation:
-                background: "#0B1120"
-                indicator: "#38BDF8"
-                color: "#CBD5E1"
+                background: "#121026"
+                indicator: "#FF5A52"
+                color: "#C8C5DF"
                 selectedColor: "#FFFFFF"
                 navItem:
-                  hoverBackground: "#162032"
+                  hoverBackground: "#1E1B36"
                 submenu:
-                  background: "#0B1120"
+                  background: "#121026"
               rhdh:
                 general:
                   pageInset: "1rem"
-                  pageInsetBackgroundColor: "#0B1120"
-                  mainSectionBackgroundColor: "#0F172A"
-                  cardBackgroundColor: "#162032"
-                  cardBorderColor: "#26354D"
-                  paperBorderColor: "#26354D"
-                  formControlBackgroundColor: "#1E293B"
-                  sidebarBackgroundColor: "#0B1120"
-                  sidebarDividerColor: "#1E293B"
-                  sidebarItemSelectedBackgroundColor: "#162032"
-                  tableBackgroundColor: "#162032"
-                  tableBorderColor: "#26354D"
-                  tableRowHover: "#1E293B"
-                  tableTitleColor: "#F8FAFC"
-                  tableSubtitleColor: "#94A3B8"
-                  tableColumnTitleColor: "#CBD5E1"
-                  tabsLinkHoverBackgroundColor: "rgba(96, 165, 250, 0.14)"
+                  pageInsetBackgroundColor: "#121026"
+                  mainSectionBackgroundColor: "#17152B"
+                  cardBackgroundColor: "#201D3A"
+                  cardBorderColor: "#36315E"
+                  paperBorderColor: "#36315E"
+                  formControlBackgroundColor: "#2A2648"
+                  sidebarBackgroundColor: "#121026"
+                  sidebarDividerColor: "#2A2648"
+                  sidebarItemSelectedBackgroundColor: "#1E1B36"
+                  tableBackgroundColor: "#201D3A"
+                  tableBorderColor: "#36315E"
+                  tableRowHover: "#272347"
+                  tableTitleColor: "#F8F7FC"
+                  tableSubtitleColor: "#C8C5DF"
+                  tableColumnTitleColor: "#C8C5DF"
+                  tabsLinkHoverBackgroundColor: "rgba(255, 90, 82, 0.16)"
                   appBarBackgroundScheme: dark
-                  appBarBackgroundColor: "#0B1120"
-                  appBarForegroundColor: "#F8FAFC"
+                  appBarBackgroundColor: "#121026"
+                  appBarForegroundColor: "#F8F7FC"
                 primary:
-                  main: "#60A5FA"
-                  focusVisibleBorder: "#93C5FD"
+                  main: "#FF5A52"
+                  focusVisibleBorder: "#FF5A52"
                 secondary:
-                  main: "#38BDF8"
-                  focusVisibleBorder: "#7DD3FC"
+                  main: "#E879F9"
+                  focusVisibleBorder: "#E879F9"
                 cards:
-                  headerTextColor: "#F8FAFC"
-                  headerBackgroundColor: "#1B283E"
+                  headerTextColor: "#F8F7FC"
+                  headerBackgroundColor: "#272347"
                   headerBackgroundImage: none

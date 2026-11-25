@@ -1,11 +1,12 @@
 # RHDH 1.10 Branding & "Command Centre" Bento UI Portability Guide
 
-This guide explains how to deploy our corporate Blue/Slate branding theme and the **6-Tab Command Centre Bento UI** into any customer Red Hat Developer Hub (RHDH 1.10) environment using standalone Kubernetes `ConfigMap` manifests — **without rebuilding containers or touching dynamic plugin packages**.
+This guide explains how to deploy custom enterprise branding (logos + corporate color tokens, demonstrated with our **Crimson & Deep Plum** and **Blue/Slate** palettes) and the **6-Tab Command Centre Bento UI** into any customer Red Hat Developer Hub (RHDH 1.10) environment using standalone Kubernetes `ConfigMap` manifests — **without rebuilding containers or touching dynamic plugin packages**.
 
 Ready-to-apply cluster manifests live in [`examples/branding-and-bento-ui/`](../examples/branding-and-bento-ui/):
-1. [`01-configmap-branding.example.yaml`](../examples/branding-and-bento-ui/01-configmap-branding.example.yaml) — Corporate Royal Blue & Clean Slate theme (Light + Dark mode)
-2. [`02-configmap-command-centre-bento.example.yaml`](../examples/branding-and-bento-ui/02-configmap-command-centre-bento.example.yaml) — Default Bento Overview Grid + 6-Tab Command Centre layout
-3. [`03-backstage-cr-patch.example.yaml`](../examples/branding-and-bento-ui/03-backstage-cr-patch.example.yaml) — `Backstage` CR `appConfig.configMaps` wiring snippet
+1. [`01-configmap-branding.example.yaml`](../examples/branding-and-bento-ui/01-configmap-branding.example.yaml) — **Crimson & Deep Plum** Enterprise Theme (`#DA1710` / `#1F1C4F` / `#621A4B`) + Custom Light/Dark `fullLogo` & `iconLogo` SVGs
+2. [`01b-configmap-branding-blue-slate.example.yaml`](../examples/branding-and-bento-ui/01b-configmap-branding-blue-slate.example.yaml) — Alternate **Royal Blue & Slate** Theme (`#2563EB` / `#0F172A` / `#1E3A8A`)
+3. [`02-configmap-command-centre-bento.example.yaml`](../examples/branding-and-bento-ui/02-configmap-command-centre-bento.example.yaml) — Default Bento Overview Grid + 6-Tab Command Centre layout
+4. [`03-backstage-cr-patch.example.yaml`](../examples/branding-and-bento-ui/03-backstage-cr-patch.example.yaml) — `Backstage` CR `appConfig.configMaps` wiring snippet
 
 ---
 
@@ -29,13 +30,50 @@ Ready-to-apply cluster manifests live in [`examples/branding-and-bento-ui/`](../
 
 ---
 
-## 2. What These Two ConfigMaps Solve Under the Hood
+## 2. What Changes Are Needed to Apply a Customer's Logo & Brand Colors?
 
-### A. Corporate Blue/Slate Branding (`01-configmap-branding.example.yaml`)
-- **Full Light & Dark Mode RHDH v1.10 Tokens:** Overrides not only MUI `primary`/`secondary`, but also RHDH 1.10's custom `palette.rhdh.general` (`pageInset: 1rem`, `sidebarBackgroundColor`, `cardBorderColor`, `tableRowHover`, `appBarBackgroundColor`) and `palette.rhdh.cards` (`headerBackgroundImage: none`).
-- **Header Tab Contrast Fix (`options.tabs: mui`):** Fixes RHDH 1.10's default `BackstageHeaderTabs` CSS bug (`color: unset`) that otherwise renders unselected tabs low-contrast against dark navy/blue gradient headers.
+Swapping to a customer's corporate identity requires editing **only `ConfigMap/app-config-rhdh-branding`** — zero external image hosting, zero CSS/JS bundles, and zero plugin changes:
 
-### B. Command Centre Bento Layout (`02-configmap-command-centre-bento.example.yaml`)
+### Step A: Encode the Customer's Logos (`fullLogo` + `iconLogo`)
+RHDH 1.10 natively accepts inline Base64 Data URIs (`data:image/svg+xml;base64,...` or `data:image/png;base64,...`) and supports **separate `light:` and `dark:` wordmarks** so dark-text logos work on light sidebars and white-text logos work on dark sidebars:
+
+```bash
+# 1. Expanded sidebar wordmark (~170-210px wide SVG/PNG) — Light & Dark variants:
+echo "data:image/svg+xml;base64,$(base64 -i brand-logo-light.svg | tr -d '\n')"
+echo "data:image/svg+xml;base64,$(base64 -i brand-logo-dark.svg | tr -d '\n')"
+
+# 2. Collapsed sidebar square mark (~32x32 or 36x36 SVG/PNG):
+echo "data:image/svg+xml;base64,$(base64 -i brand-icon.svg | tr -d '\n')"
+```
+
+Place those three strings under `app.branding` in `app-config-rhdh-branding`:
+```yaml
+app:
+  title: "Customer Developer Portal"
+  branding:
+    fullLogoWidth: "172px"
+    fullLogo:
+      light: "data:image/svg+xml;base64,<LIGHT_SIDEBAR_LOGO_B64>"
+      dark: "data:image/svg+xml;base64,<DARK_SIDEBAR_LOGO_B64>"
+    iconLogo: "data:image/svg+xml;base64,<COLLAPSED_ICON_B64>"
+```
+
+### Step B: Update the Brand Color Tokens (Crimson & Deep Plum Reference Map)
+In [`01-configmap-branding.example.yaml`](../examples/branding-and-bento-ui/01-configmap-branding.example.yaml) (and live in `charts/developer-hub/values.yaml`), these are the exact tokens mapped for a **Crimson Red (`#DA1710`) + Deep Plum/Indigo (`#1F1C4F` / `#621A4B`)** enterprise brand:
+
+| UI Surface | Light Mode Hex | Dark Mode Hex | Config Key(s) |
+| :--- | :---: | :---: | :--- |
+| **Primary Brand Action / Active Tab / Sidebar Bar** | `#DA1710` | `#FF5A52` | `palette.primary.main`, `tabbar.indicator`, `navigation.indicator`, `navigation.selectedColor`, `rhdh.primary.main` |
+| **Secondary Brand Accent** | `#621A4B` | `#E879F9` | `palette.secondary.main`, `rhdh.secondary.main` |
+| **Page Banner Gradient (Start → End)** | `#1F1C4F` → `#621A4B` | `#121026` → `#4A153B` | `pageTheme.default.backgroundColor` (`fontColor: "#FFFFFF"`) |
+| **Sidebar & Outer Frame (`pageInset`)** | `#F9F8FC` | `#121026` | `navigation.background`, `rhdh.general.sidebarBackgroundColor`, `pageInsetBackgroundColor` |
+| **Main Page Canvas** | `#F3F2F7` | `#17152B` | `background.default`, `rhdh.general.mainSectionBackgroundColor` |
+| **Cards & Tables** | `#FFFFFF` (border `#D8D5E2`) | `#201D3A` (border `#36315E`) | `background.paper`, `rhdh.general.cardBackgroundColor`, `cardBorderColor` |
+| **Primary & Secondary Text** | `#181636` / `#524F6E` | `#F8F7FC` / `#C8C5DF` | `palette.text.primary`, `palette.text.secondary` |
+
+> **Header Tab Contrast Fix (`options.tabs: mui`):** Always keep `options.tabs: mui` under both `light:` and `dark:` — it fixes RHDH 1.10's default `BackstageHeaderTabs` CSS bug (`color: unset`) so unselected tabs remain crisp against the `#1F1C4F → #621A4B` gradient banner.
+
+### C. Command Centre Bento Layout (`02-configmap-command-centre-bento.example.yaml`)
 1. **Breakpoint-Aligned Bento Grid (`gridColumnEnd`):**
    - Backstage's built-in `About` and `Links` cards use MUI v4 breakpoints (`lg = 1280px`, occupying 6 of 12 columns on 1280px laptops and 4 of 12 columns on `>=1536px` monitors), while RHDH dynamic plugin cards use MUI v5 `sx` breakpoints (`lg = 1200px`).
    - Pairing `xl: "span 4"` (`xl: "span 8"` for Argo CD) with `lg: "span 6"` and `md: "span 6"` guarantees cards pack cleanly beside `About + Links` with **zero empty white-space gaps** on both laptop and widescreen displays.
@@ -104,11 +142,16 @@ commandCentreLayout:
 branding:
   enabled: true
   pageInset: "1rem"
+  logo:
+    fullLogoWidth: "172px"
+    fullLogoLight: "data:image/svg+xml;base64,..."
+    fullLogoDark: "data:image/svg+xml;base64,..."
+    iconLogo: "data:image/svg+xml;base64,..."
   light:
-    primaryColor: "#2563EB"
-    secondaryColor: "#0284C7"
-    headerStart: "#0F172A"
-    headerEnd: "#1E3A8A"
+    primaryColor: "#DA1710"
+    secondaryColor: "#621A4B"
+    headerStart: "#1F1C4F"
+    headerEnd: "#621A4B"
     # ... (override any hex token per customer brand guidelines)
 ```
 
