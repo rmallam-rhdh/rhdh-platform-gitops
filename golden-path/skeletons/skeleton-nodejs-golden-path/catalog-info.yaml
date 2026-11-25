@@ -56,6 +56,7 @@ metadata:
     # 7. Operations, Alerting & ITSM (Overview Bento + Operations Tab: Dynatrace + PagerDuty + Jira + ServiceNow)
     dynatrace.com/dynatrace-entity-id: ${{ values.dynatraceEntityId | default("SERVICE-39720C1E0047A5C0") | dump }}
     pagerduty.com/service-id: ${{ values.pagerDutyServiceId | default("P123456") | dump }}
+    pagerduty.com/account: "default"
     jira/project-key: ${{ values.jiraProjectKey | default("SCRUM") | dump }}
     # Please update the entity-id that match to servicenow. By default, entity-id will match to servicenow u_backstage_entity_id
     servicenow.com/entity-id: ${{ values.serviceNowEntityId | default("demo") | dump }}

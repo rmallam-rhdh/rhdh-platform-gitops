@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pagerduty-test-service
+  description: Sample Component to verify PagerDuty plugin connectivity (Scoped OAuth / REST API Token)
+  tags:
+    - pagerduty
+    - operations
+  annotations:
+    # Replace P123456 with the actual 7-character PagerDuty Service ID from PagerDuty (Service Directory -> Service URL)
+    pagerduty.com/service-id: "P123456"
+    # Required when app-config.yaml uses `pagerDuty.accounts:` with a single account (`id: default`)
+    # so @pagerduty/backstage-plugin-backend@0.12.0 resolves EndpointConfig["default"] directly
+    pagerduty.com/account: "default"
+    # Optional: Events API v2 Integration Key (only required if using the "Create New Incident" button in the UI)
+    # pagerduty.com/integration-key: "<32-char-events-api-v2-integration-key>"
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/developers

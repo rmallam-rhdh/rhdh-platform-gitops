@@ -40,6 +40,7 @@ metadata:
     # 5. Operations, Alerting & ITSM (Dynatrace + PagerDuty + ServiceNow)
     dynatrace.com/dynatrace-entity-id: ${{ values.dynatraceEntityId | default("SERVICE-39720C1E0047A5C0") | dump }}
     pagerduty.com/service-id: ${{ values.pagerDutyServiceId | default("P123456") | dump }}
+    pagerduty.com/account: "default"
     servicenow.com/entity-id: ${{ values.serviceNowCiName | default(values.appName) | dump }}
     servicenow.com/support-group: ${{ values.supportGroup | default("platform-engineering") | dump }}
 
