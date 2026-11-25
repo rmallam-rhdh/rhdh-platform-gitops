@@ -59,6 +59,10 @@ spec:
           containers:
             - {{ .Values.httpProxy.initContainer | quote }}
         {{- end }}
+    # Explicit empty list ensures Server-Side Apply removes any legacy subPath extraFiles mounts.
+    extraFiles:
+      mountPath: /opt/app-root/src
+      configMaps: []
     route:
       enabled: {{ .Values.instance.route.enabled }}
   database:
@@ -100,7 +104,7 @@ spec:
               {{- if .Values.instance.extraFiles.rbacPolicies }}
               # Directory mount (no subPath) so kubelet live-updates rbac-policies in-place
               # and RHDH hot-reloads new teamGroups with zero pod restarts!
-              - name: rbac-policies
+              - name: rbac-policies-dir
                 configMap:
                   name: rbac-policies
               {{- end }}
@@ -187,7 +191,7 @@ spec:
                 {{- if or .Values.instance.extraFiles.rbacPolicies .Values.catalog.demoKitchenSink.enabled (and .Values.tls .Values.tls.extraCaCerts .Values.tls.extraCaCerts.enabled) }}
                 volumeMounts:
                   {{- if .Values.instance.extraFiles.rbacPolicies }}
-                  - name: rbac-policies
+                  - name: rbac-policies-dir
                     mountPath: /opt/app-root/src/rbac
                     readOnly: true
                   {{- end }}
