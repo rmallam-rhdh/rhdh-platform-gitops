@@ -4,10 +4,27 @@
 
 In Red Hat Developer Hub (RHDH 1.10), when developers log in to RHDH using an enterprise SSO provider (such as Microsoft Entra ID / OIDC) and run a Golden Path Software Template to scaffold a new repository in **Bitbucket Data Center (Bitbucket Server)**, RHDH supports two authentication models:
 
-| Model | How It Works | Bitbucket Audit Trail & Permissions |
-| :--- | :--- | :--- |
-| **Per-User OAuth 2.0 (Recommended for Repo Creation)** | Uses `auth.providers.bitbucketServer` + `requestUserCredentials` in the template's `RepoUrlPicker` to obtain the logged-in developer's personal Bitbucket OAuth token (`secrets.USER_OAUTH_TOKEN`). | Repositories and commits are created under the **logged-in developer's own Bitbucket identity** and enforce their personal Bitbucket Project permissions. |
-| **Static Service Account (`integrations.bitbucketServer`)** | Uses a shared Bitbucket HTTP Access Token configured in `app-config.yaml`. | Required in the background for **Catalog Discovery / Ingestion** (`catalog-info.yaml` reads), where no interactive user browser session exists. |
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>How It Works</th>
+      <th>Bitbucket Audit Trail &amp; Permissions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Per-User OAuth 2.0 (Recommended for Repo Creation)</strong></td>
+      <td>Uses <code>auth.providers.bitbucketServer</code> + <code>requestUserCredentials</code> in the template's <code>RepoUrlPicker</code> to obtain the logged-in developer's personal Bitbucket OAuth token (<code>secrets.USER_OAUTH_TOKEN</code>).</td>
+      <td>Repositories and commits are created under the <strong>logged-in developer's own Bitbucket identity</strong> and enforce their personal Bitbucket Project permissions.</td>
+    </tr>
+    <tr>
+      <td><strong>Static Service Account (<code>integrations.bitbucketServer</code>)</strong></td>
+      <td>Uses a shared Bitbucket HTTP Access Token configured in <code>app-config.yaml</code>.</td>
+      <td>Required in the background for <strong>Catalog Discovery / Ingestion</strong> (<code>catalog-info.yaml</code> reads), where no interactive user browser session exists.</td>
+    </tr>
+  </tbody>
+</table>
 
 ### Key Per-User OAuth Behaviors
 1. **Prompted Only Once (First Run)**:
@@ -41,13 +58,48 @@ To enable OAuth 2.0 in Bitbucket Data Center (Bitbucket Server 7.14+ / 8.x / 9.x
 
 When the Golden Path template creates a **new repository** (`publish:bitbucketServer`), the Bitbucket Data Center OAuth app **must** have **Project Admin (`PROJECT_ADMIN`)** and **Repository Write (`REPO_WRITE`)** (along with the default read scopes):
 
-| Bitbucket Data Center Scope Name | RHDH / API Scope ID | Required? | Why RHDH Requires This Scope |
-| :--- | :--- | :--- | :--- |
-| **Project Admin** | `PROJECT_ADMIN` | **Yes (Required to create repos)** | `publish:bitbucketServer` calls `POST /rest/api/1.0/projects/{projectKey}/repos`. In Bitbucket Data Center's REST API permission model, creating a new repository inside a Bitbucket Project requires `PROJECT_ADMIN` (Repository Write alone only allows pushing to an *existing* repo). |
-| **Repository Admin** | `REPO_ADMIN` | **Yes** *(included with Project Admin)* | Required if the template enables Git LFS (`PUT /rest/git-lfs/admin/projects/{project}/repos/{repo}/enabled`), configures branch permissions, or manages webhooks. |
-| **Repository Write** | `REPO_WRITE` | **Yes** | Requested by Backstage `ScmAuth.forBitbucketServer` (`repoWrite: true`) to push the initial Golden Path skeleton commit (`git push`) and to open Pull Requests (`publish:bitbucketServer:pull-request`). |
-| **Repository Read** | `REPO_READ` | **Yes** | Requested by `ScmAuth.forBitbucketServer` default scopes (`["PUBLIC_REPOS", "REPO_READ"]`) so `BitbucketRepoPicker` can list available projects, repositories, and branches in the template UI. |
-| **Public Repositories** | `PUBLIC_REPOS` | **Yes** | Hardcoded in Backstage's `ScmAuth.forBitbucketServer` default scope list (`["PUBLIC_REPOS", "REPO_READ"]`). If this checkbox is not enabled on the Bitbucket Application Link, Bitbucket rejects the OAuth popup with `invalid_scope`. |
+<table>
+  <thead>
+    <tr>
+      <th>Bitbucket Data Center Scope Name</th>
+      <th>RHDH / API Scope ID</th>
+      <th>Required?</th>
+      <th>Why RHDH Requires This Scope</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Project Admin</strong></td>
+      <td><code>PROJECT_ADMIN</code></td>
+      <td><strong>Yes (Required to create repos)</strong></td>
+      <td><code>publish:bitbucketServer</code> calls <code>POST /rest/api/1.0/projects/{projectKey}/repos</code>. In Bitbucket Data Center's REST API permission model, creating a new repository inside a Bitbucket Project requires <code>PROJECT_ADMIN</code> (Repository Write alone only allows pushing to an <em>existing</em> repo).</td>
+    </tr>
+    <tr>
+      <td><strong>Repository Admin</strong></td>
+      <td><code>REPO_ADMIN</code></td>
+      <td><strong>Yes</strong> <em>(included with Project Admin)</em></td>
+      <td>Required if the template enables Git LFS (<code>PUT /rest/git-lfs/admin/projects/{project}/repos/{repo}/enabled</code>), configures branch permissions, or manages webhooks.</td>
+    </tr>
+    <tr>
+      <td><strong>Repository Write</strong></td>
+      <td><code>REPO_WRITE</code></td>
+      <td><strong>Yes</strong></td>
+      <td>Requested by Backstage <code>ScmAuth.forBitbucketServer</code> (<code>repoWrite: true</code>) to push the initial Golden Path skeleton commit (<code>git push</code>) and to open Pull Requests (<code>publish:bitbucketServer:pull-request</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>Repository Read</strong></td>
+      <td><code>REPO_READ</code></td>
+      <td><strong>Yes</strong></td>
+      <td>Requested by <code>ScmAuth.forBitbucketServer</code> default scopes (<code>["PUBLIC_REPOS", "REPO_READ"]</code>) so <code>BitbucketRepoPicker</code> can list available projects, repositories, and branches in the template UI.</td>
+    </tr>
+    <tr>
+      <td><strong>Public Repositories</strong></td>
+      <td><code>PUBLIC_REPOS</code></td>
+      <td><strong>Yes</strong></td>
+      <td>Hardcoded in Backstage's <code>ScmAuth.forBitbucketServer</code> default scope list (<code>["PUBLIC_REPOS", "REPO_READ"]</code>). If this checkbox is not enabled on the Bitbucket Application Link, Bitbucket rejects the OAuth popup with <code>invalid_scope</code>.</td>
+    </tr>
+  </tbody>
+</table>
 
 > **Important Note on User Permissions in Bitbucket Data Center:**
 > OAuth 2.0 delegates the intersection of the **Application Link scopes** and the **logged-in user's own Bitbucket permissions**. An OAuth app with `PROJECT_ADMIN` does **not** elevate a read-only user to admin — the developer running the template must also have permission in Bitbucket Data Center to create repositories in the target Bitbucket Project (or, if developers do not have Project Admin rights in Bitbucket, repo creation can fall back to a dedicated service account token while PR creation uses the developer's OAuth token).
