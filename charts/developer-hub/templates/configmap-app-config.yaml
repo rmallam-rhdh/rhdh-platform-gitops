@@ -144,7 +144,7 @@ data:
             users:
               - dn: {{ .Values.catalog.ldap.usersDn | quote }}
                 options:
-                  filter: (objectClass=inetOrgPerson)
+                  filter: {{ .Values.catalog.ldap.userFilter | default "(objectClass=inetOrgPerson)" | quote }}
                   paged: true
                 map:
                   rdn: uid
@@ -156,7 +156,7 @@ data:
             groups:
               - dn: {{ .Values.catalog.ldap.groupsDn | quote }}
                 options:
-                  filter: (objectClass=groupOfNames)
+                  filter: {{ .Values.catalog.ldap.groupFilter | default "(objectClass=groupOfNames)" | quote }}
                   paged: true
                 map:
                   rdn: cn

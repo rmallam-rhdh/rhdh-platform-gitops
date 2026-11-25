@@ -91,7 +91,11 @@ catalog:
     bindDn: cn=admin,dc=acme,dc=demo
     bindSecret: "${LDAP_BIND_PASSWORD}"
     usersDn: ou=people,dc=acme,dc=demo
+    # Syncs ONLY users who are direct members of the flat `rhdh-users` portal login group:
+    userFilter: "(&(objectClass=inetOrgPerson)(memberOf=cn=rhdh-users,ou=groups,dc=acme,dc=demo))"
     groupsDn: ou=groups,dc=acme,dc=demo
+    # Syncs 2-level team RBAC groups while excluding the flat `rhdh-users` login gate group:
+    groupFilter: "(&(objectClass=groupOfNames)(!(cn=rhdh-users)))"
   keycloak:
     enabled: false
     baseUrl: https://keycloak.apps.example.com
