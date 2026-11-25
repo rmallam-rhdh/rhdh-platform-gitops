@@ -1,0 +1,21 @@
+# Example Backstage CR snippet showing how to wire both Branding and the Command Centre
+# Bento UI ConfigMaps into an existing RHDH 1.10 instance with ZERO plugin changes.
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: developer-hub
+  namespace: rhdh
+spec:
+  application:
+    appConfig:
+      mountPath: /opt/app-root/src
+      configMaps:
+        # 1. Core RHDH app-config (auth, catalog, integrations, RBAC, proxies)
+        - name: app-config-rhdh
+        # 2. Blue/Slate Corporate Theme (Light & Dark mode + MUI tab contrast fix)
+        - name: app-config-rhdh-branding
+        # 3. Default Bento Overview Grid + 6-Tab Command Centre layout for all Catalog entities
+        - name: app-config-command-centre
+    dynamicPluginsConfigMapName: dynamic-plugins-rhdh
+    route:
+      enabled: true
