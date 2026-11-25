@@ -42,8 +42,8 @@ Enterprise 3-Level AD / OpenLDAP Hierarchy
    - Added under `permission.teamGroups.readOnly` (`role:default/team-viewer`) and `permission.teamGroups.readWrite` (`role:default/team-editor`) in `values.yaml` — hot-reloaded in memory with **zero pod restarts**.
 
 > **Two Critical Guardrails for the 3-Level Model:**
-> 1. **Never set `spec.owner: group:default/rhdh-users` on team entities (and never bind `RHDH-users` to an RBAC role):** Because `includeTransitiveGroupOwnership: true` walks all ancestor groups, *every* onboarded user inherits `group:default/rhdh-users` in `$ownerRefs`. Keeping `RHDH-users` strictly for LDAP/SSO admission guarantees `payments` and `retail` stay 100% isolated from each other.
-> 2. **Microsoft Entra ID "User Assignment Required" Check:** If your corporate Entra ID Enterprise App has *"Assignment required = Yes"*, verify whether your Entra ID tier expands nested groups 2 levels deep (`RHDH-users -> rhdh-payments-users -> rhdh-payments-ro`). If it only expands 1 level, either turn off *"Assignment required"* in Entra ID (RHDH's `signIn.resolvers` will still strictly block anyone not in `RHDH-users`!) or assign the team groups directly in Entra ID.
+> 1. **Never set `spec.owner: group:default/rhdh-users` on team entities (and never bind `RHDH-users` to an RBAC role):** Because `includeTransitiveGroupOwnership: true` walks all ancestor groups, *every* onboarded user inherits `group:default/rhdh-users` in `$ownerRefs`. Keeping `RHDH-users` strictly for LDAP Catalog sync admission guarantees `payments` and `retail` stay 100% isolated from each other.
+> 2. **Mandatory Entra ID Application Assignment (*"Assignment required? = Yes"*):** Because Microsoft Entra ID Enterprise Application assignment does **not** expand nested groups, you keep the 3-level nested hierarchy in Active Directory (for RHDH `ldapOrg` sync and `spec.owner`) **and** assign each team's leaf `-ro` and `-rw` groups **directly** to the RHDH Enterprise Application in Entra ID (where users are direct 1st-level members). Section 2 below shows the exact end-to-end wiring.
 
 ### Why This Is the Enterprise Best Practice
 - **Only 2 RBAC roles ever exist in RHDH:** `role:default/team-viewer` and `role:default/team-editor`.
@@ -53,15 +53,86 @@ Enterprise 3-Level AD / OpenLDAP Hierarchy
 
 ---
 
-## 2. How Application Teams Log In (LDAP Catalog Sync + OIDC/Entra Sign-In Resolvers)
+## 2. End-to-End Blueprint: How AD, Entra ID (*Assignment Required = Yes*), and RHDH Tie Together
 
-LDAP (`ldapOrg`) is **not** an interactive login protocol in RHDH — instead, RHDH separates **Identity Hydration** (Catalog Sync) from **Interactive Authentication** (SSO):
+When corporate security requires **"Assignment required? = Yes"** on the Microsoft Entra ID Enterprise Application, four systems cooperate cleanly — each doing one specific job:
 
-1. **LDAP Catalog Provider (`catalog.providers.ldapOrg`):** Periodically syncs `inetOrgPerson` / `user` entries and nested `groupOfNames` / `group` hierarchies from OpenLDAP or Active Directory into the RHDH Software Catalog (`user:default/alice`, `group:default/team-payments-rw`, `group:default/team-payments`).
-2. **SSO Auth Provider (`microsoft`, `oidc` / Keycloak / Ping / Okta):** Authenticates the user in the browser and uses a **Sign-In Resolver** (`emailMatchingUserEntityProfileEmail` or `preferredUsernameMatchingUserEntityName`) to match the SSO claim (`email` or `preferred_username`) to the LDAP-synced `User` entity in the Catalog.
-3. **Transitive Ownership Claim Issuance (`includeTransitiveGroupOwnership: true`):** At sign-in, RHDH's `TransitiveGroupOwnershipResolver` walks `memberOf` and `childOf` relations in the Catalog and embeds **both** the direct child group (`group:default/team-payments-ro`) and the parent umbrella group (`group:default/team-payments`) into the user's signed Backstage JWT (`ent` / `$ownerRefs`).
+```mermaid
+flowchart TD
+    subgraph AD["1. Active Directory (Source of Truth)"]
+        G1["CN=RHDH-users (Level 1: LDAP Sync Scope)"]
+        G2["CN=rhdh-payments-users (Level 2: Team Umbrella)"]
+        G3RO["CN=rhdh-payments-ro (Level 3: Direct member = bob)"]
+        G3RW["CN=rhdh-payments-rw (Level 3: Direct member = alice)"]
+        G1 -->|member| G2
+        G2 -->|member| G3RO
+        G2 -->|member| G3RW
+    end
 
-> **Production Security Rule:** In production (`values.yaml`), **do not** set `dangerouslyAllowSignInWithoutUserInCatalog: true`. Leaving it `false` (the default) ensures that only users who exist in your synced corporate LDAP groups can log in to RHDH.
+    subgraph ENTRA["2. Microsoft Entra ID (SSO Front-Door Gate)"]
+        EAPP["RHDH Enterprise Application<br/>Properties: Assignment required = YES"]
+        UAG["Users and groups:<br/>- rhdh-platform-admins<br/>- rhdh-payments-ro (direct)<br/>- rhdh-payments-rw (direct)"]
+        EAPP --- UAG
+    end
+
+    subgraph RHDH["3. Red Hat Developer Hub (Catalog + RBAC)"]
+        LDAP["ldapOrg Provider (every 5-15m)<br/>Recursive AD filter on CN=RHDH-users"]
+        RESOLVER["Sign-In Resolver + Transitive Ownership<br/>includeTransitiveGroupOwnership: true"]
+        RBAC["Zero-Restart RBAC (/opt/app-root/src/rbac)<br/>readOnly -> team-viewer<br/>readWrite -> team-editor"]
+    end
+
+    subgraph REPO["4. App Team Repo (catalog-info.yaml)"]
+        COMP["Component: payments-checkout-service<br/>spec.owner: group:default/rhdh-payments-users"]
+    end
+
+    AD -->|"Entra Connect Sync<br/>(syncs groups + users)"| ENTRA
+    AD -->|"LDAPS (636/3269)"| LDAP
+    ENTRA -->|"1. Checks direct membership in -ro/-rw<br/>2. Sends verified email claim"| RESOLVER
+    LDAP -->|"Hydrates Users + Nested Groups"| RESOLVER
+    RESOLVER -->|"JWT $ownerRefs includes:<br/>rhdh-payments-ro + rhdh-payments-users"| RBAC
+    COMP -->|"IS_ENTITY_OWNER matches<br/>rhdh-payments-users"| RBAC
+```
+
+### Master Matrix: What Gets Created, Where, and Why
+
+#### Phase A — One-Time Platform Setup (Done Once)
+
+| Where (System) | Owner | Exact Object / Setting to Create | Purpose |
+| :--- | :--- | :--- | :--- |
+| **1. Active Directory** | AD / IAM Team | • Group `CN=RHDH-users`<br>• Group `CN=rhdh-platform-admins` (nested inside `RHDH-users`)<br>• Read-only service account (`bindDn`) | `RHDH-users` scopes RHDH's LDAP sync so RHDH never scans the entire company directory; `rhdh-platform-admins` holds platform super-admins. |
+| **2. Microsoft Entra ID** | Entra / SSO Team | • **App Registration** (`Redirect URI`: `https://<rhdh-route>/api/auth/microsoft/handler/frame`)<br>• **Enterprise Application → Properties:** Set **"Assignment required?" = `Yes`**<br>• **Enterprise Application → Users and groups:** Assign `rhdh-platform-admins` | Enforces mandatory Entra front-door assignment before redirecting any user to RHDH. |
+| **3. RHDH GitOps (`charts/developer-hub`)** | Platform Team | • `includeTransitiveGroupOwnership: true` (root of `app-config.yaml`)<br>• `auth.providers.microsoft.production` with `emailMatchingUserEntityProfileEmail` (`dangerouslyAllowSignInWithoutUserInCatalog` **omitted/`false`**)<br>• `ldapOrg` recursive filter on `CN=RHDH-users`<br>• `adminGroups` / `superUsers`: `group:default/rhdh-platform-admins`<br>• Static `team-viewer` & `team-editor` roles + conditional policies in `/opt/app-root/src/rbac` | Connects SSO login to LDAP-synced `User` entities, resolves parent team ownership, and enforces 2-role conditional RBAC. |
+
+---
+
+#### Phase B — Repeatable Onboarding for Every New Application Team (e.g. `payments`)
+
+| Step | Where (System) | Owner | Exact Action | Why It Is Needed |
+| :---: | :--- | :--- | :--- | :--- |
+| **1** | **Active Directory** | AD / IAM Team | 1. Create `rhdh-payments-ro` (add Read-Only users directly).<br>2. Create `rhdh-payments-rw` (add Read-Write users directly).<br>3. Create `rhdh-payments-users` and add **`rhdh-payments-ro`** + **`rhdh-payments-rw`** as members.<br>4. Add **`rhdh-payments-users`** as a member of **`RHDH-users`**. | • Putting users directly into `-ro` / `-rw` satisfies Entra's flat group check.<br>• Nesting `-ro` / `-rw` under `rhdh-payments-users` gives RHDH a single `spec.owner` for the team.<br>• Nesting `rhdh-payments-users` under `RHDH-users` makes RHDH's `ldapOrg` filter automatically pick up all 3 groups and their users! |
+| **2** | **Microsoft Entra ID** | Entra / SSO Team | Wait for Entra Connect sync, then open **Enterprise Applications → `<RHDH App>` → Users and groups → Add user/group** and assign:<br>• **`rhdh-payments-ro`**<br>• **`rhdh-payments-rw`**<br>*(Do **not** assign `RHDH-users` or `rhdh-payments-users` here.)* | Because Entra App Assignment does **not** follow nested groups, assigning the leaf `-ro` and `-rw` groups directly lets `bob` and `alice` pass Entra's `Assignment required = Yes` check (since they are direct 1st-level members of `-ro` / `-rw`). |
+| **3** | **RHDH GitOps (`values.yaml`)** | Platform Team | Add the 2 leaf group names under `permission.teamGroups` and merge PR:<br>`readOnly: [rhdh-payments-ro]`<br>`readWrite: [rhdh-payments-rw]` | Argo CD updates `ConfigMap/rbac-policies` and RHDH hot-reloads the new Casbin bindings in ~60 seconds with **zero pod restarts**. |
+| **4** | **Bitbucket / App Repo (`catalog-info.yaml`)** | App Team (`-rw`) | Set `spec.owner: group:default/rhdh-payments-users` on all team Components, Systems, and APIs. | Matches `IS_ENTITY_OWNER ($ownerRefs)` for both `rhdh-payments-ro` (view-only) and `rhdh-payments-rw` (edit/unregister/scaffold) while hiding those items from every other team. |
+
+---
+
+### End-to-End Login Walkthrough: What Happens When `bob` (`rhdh-payments-ro`) Clicks "Sign In"
+
+1. **Browser → Microsoft Entra ID (Gate 1 — Entra Assignment Check):**
+   - `bob` clicks **Sign In with Microsoft** on RHDH.
+   - Entra ID authenticates `bob` and checks *Enterprise Application → Users and groups* (`Assignment required = Yes`).
+   - Because `rhdh-payments-ro` is assigned directly to the Entra Enterprise App and `bob` is a **direct member** of `rhdh-payments-ro`, **Entra passes `bob`** (no nested group lookup required in Entra!) and returns an ID token with `email: bob@corp.example.com` to RHDH.
+   - *(Any corporate user NOT in an assigned `-ro`/`-rw` group is stopped right here at Microsoft's login screen with `AADSTS50105`.)*
+2. **RHDH Auth Backend (Gate 2 — Catalog Identity Resolution):**
+   - RHDH's `emailMatchingUserEntityProfileEmail` resolver looks up `bob@corp.example.com` in the RHDH Catalog (populated every 5–15 minutes by `ldapOrg` from `CN=RHDH-users` in AD) and resolves `user:default/bob`.
+3. **RHDH Transitive Ownership Resolver (`includeTransitiveGroupOwnership: true`):**
+   - RHDH reads `user:default/bob` → `memberOf: group:default/rhdh-payments-ro` → `childOf: group:default/rhdh-payments-users` → `childOf: group:default/rhdh-users`.
+   - RHDH signs a Backstage JWT whose `$ownerRefs` (`ent` claim) contains:
+     `["user:default/bob", "group:default/rhdh-payments-ro", "group:default/rhdh-payments-users", "group:default/rhdh-users"]`.
+4. **RHDH RBAC Engine (Catalog & Action Enforcement):**
+   - Casbin matches `group:default/rhdh-payments-ro` → **`role:default/team-viewer`**.
+   - Conditional policy `IS_ENTITY_OWNER ($ownerRefs)` matches `spec.owner: group:default/rhdh-payments-users` → `bob` sees **only** Payments components/systems (plus shared `Template`/`User`/`Group` entities), cannot see Retail components, and all delete/unregister/scaffolder execution actions are **DENIED**.
+   - When `alice` (`rhdh-payments-rw`) signs in through the exact same flow, Casbin matches `group:default/rhdh-payments-rw` → **`role:default/team-editor`**, granting read + update/delete on Payments entities and Golden Path template execution.
 
 ---
 
@@ -391,17 +462,23 @@ This setup is deployed and verified live on the ROSA lab cluster (`namespace: rh
 | **`guest`** | `superUsers` | `user:default/guest` (Super-Admin bypass) | `role:default/rbac_admin` + `superUsers` | **All Components** (`payments-checkout-service`, `retail-inventory-service`, `orders-api`, `demo`) | **ALLOW** | **ALLOW** | **ALLOW** | **ALLOW** |
 
 ### Onboarding Checklist for Adding a New Application Team (`payments`)
-1. **AD / LDAP Team:** Create `rhdh-payments-ro`, `rhdh-payments-rw`, nest both inside `rhdh-payments-users`, and nest `rhdh-payments-users` inside `RHDH-users` (wait up to 5 minutes for `ldapOrg` sync).
-2. **Platform GitOps (`values.yaml`):** Add the two group names under `permission.teamGroups` (hot-reloads automatically in ~60 seconds with **zero pod restarts**):
-   ```yaml
-   permission:
-     teamGroups:
-       readOnly:
-         - rhdh-payments-ro
-       readWrite:
-         - rhdh-payments-rw
-   ```
-3. **App Team (`catalog-info.yaml` / Template):** Set `spec.owner: group:default/rhdh-payments-users`.
+1. **Active Directory Team:**
+   - Create `rhdh-payments-ro` (add Read-Only users directly) and `rhdh-payments-rw` (add Read-Write users directly).
+   - Create `rhdh-payments-users`, add `rhdh-payments-ro` + `rhdh-payments-rw` as members, and add `rhdh-payments-users` into `RHDH-users`.
+2. **Microsoft Entra ID Team (*Assignment required = Yes*):**
+   - Once synced via Entra Connect, open **Enterprise Applications → `<RHDH App>` → Users and groups** and assign **`rhdh-payments-ro`** and **`rhdh-payments-rw`** directly to the Enterprise Application.
+3. **Platform GitOps (`values.yaml`):**
+   - Add the two leaf group names under `permission.teamGroups` (hot-reloads automatically in ~60 seconds with **zero pod restarts**):
+     ```yaml
+     permission:
+       teamGroups:
+         readOnly:
+           - rhdh-payments-ro
+         readWrite:
+           - rhdh-payments-rw
+     ```
+4. **App Team (`catalog-info.yaml` / Template):**
+   - Set `spec.owner: group:default/rhdh-payments-users`.
 
 ---
 
@@ -422,7 +499,7 @@ Before implementing this 3-level model in a customer environment, review these e
 
 | # | Question to Ask | Why It Matters & How It Shapes Config |
 | :- | :--- | :--- |
-| **5** | **"On the RHDH SSO App Registration / Enterprise Application, is *'User Assignment Required'* enabled, and if so, does your IdP evaluate 2-level nested groups (`RHDH-users` → team → `-ro`/`-rw`)?"** | **Critical catch:** Microsoft Entra ID Enterprise App assignment often does **not** expand multi-level nested groups! If it does not: either **(a)** set *"Assignment required = No"* in Entra ID and let RHDH enforce login strictly via `RHDH-users` Catalog membership (`dangerouslyAllowSignInWithoutUserInCatalog: false`), or **(b)** assign the team groups directly to the Enterprise App. |
+| **5** | **"What is the Entra Connect sync interval from on-prem AD to Entra ID (typically 30 minutes), so we set expectations when assigning new `-ro`/`-rw` groups to the RHDH Enterprise Application?"** | Because *"User Assignment Required = Yes"* is enforced in Entra ID and Entra does not expand nested groups, the IAM workflow assigns each team's leaf `-ro` and `-rw` groups directly to the Entra Enterprise App once Entra Connect syncs them from AD. |
 | **6** | **"Which claim in the OIDC / Entra ID token is guaranteed to match the LDAP `User` entity (`email`, `upn`, or `preferred_username`)?"** | Determines whether `signIn.resolvers` should use `emailMatchingUserEntityProfileEmail` (matches `spec.profile.email`) or `preferredUsernameMatchingUserEntityName` (matches `metadata.name`). |
 
 ### C. Questions for the Platform / Security Governance Team
