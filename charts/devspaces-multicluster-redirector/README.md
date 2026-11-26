@@ -185,6 +185,19 @@ venafi:
       - California
 ```
 
+## Enterprise OpenShift Group List Tuning & Netty 4.2 Workaround
+
+In enterprise OpenShift clusters synced with Active Directory (thousands of OpenShift `Group` objects), `GET /apis/user.openshift.io/v1/groups` returns a large multi-megabyte payload. In addition, `multicluster-redirector-rhel9:3.31` pairs Quarkus `3.39.5` with Netty `4.2.18` on OpenJDK 17 (`quarkusio/quarkus#53309`), which throws `CleanerJava9.INVOKE_CLEANER is null` on direct-buffer cleanup unless `DirectCleaner` is unlocked.
+
+`templates/deployment.yaml` sets the following environment variables on the **`redirector` Java container** (not `oauth-proxy`), configurable under `kubernetesClient` in `values.yaml`:
+
+```yaml
+kubernetesClient:
+  requestTimeoutMs: 60000
+  connectionTimeoutMs: 30000
+  javaToolOptions: "--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=268435456"
+```
+
 ## Deploy
 
 1. Cluster-admin: apply `manifests/devspaces-multicluster-redirector/rbac.yaml` (and ensure the target namespace and `VaultAuth` / secret store exist).

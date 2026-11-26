@@ -66,6 +66,12 @@ for pat in \
   "termination: edge" \
   "oauth-redirectreference.primary" \
   "targetPort: 8443" \
+  "name: KUBERNETES_REQUEST_TIMEOUT" \
+  "value: \"60000\"" \
+  "name: KUBERNETES_CONNECTION_TIMEOUT" \
+  "value: \"30000\"" \
+  "name: JAVA_TOOL_OPTIONS" \
+  "--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=268435456" \
   "path: /hello" \
   "path: /oauth/healthz" \
   "allowPrivilegeEscalation: false" \
