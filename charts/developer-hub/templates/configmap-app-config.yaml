@@ -110,6 +110,17 @@ data:
               resolvers:
                 - resolver: usernameMatchingUserEntityName
         {{- end }}
+        {{- if and .Values.auth.bitbucketServer .Values.auth.bitbucketServer.enabled }}
+        bitbucketServer:
+          development:
+            host: {{ .Values.auth.bitbucketServer.host | quote }}
+            clientId: {{ .Values.auth.bitbucketServer.clientId | quote }}
+            clientSecret: {{ .Values.auth.bitbucketServer.clientSecret | quote }}
+          production:
+            host: {{ .Values.auth.bitbucketServer.host | quote }}
+            clientId: {{ .Values.auth.bitbucketServer.clientId | quote }}
+            clientSecret: {{ .Values.auth.bitbucketServer.clientSecret | quote }}
+        {{- end }}
     integrations:
       {{- if .Values.integrations.github.enabled }}
       github:
@@ -124,6 +135,7 @@ data:
       {{- if .Values.integrations.bitbucketServer.enabled }}
       bitbucketServer:
         - host: {{ .Values.integrations.bitbucketServer.host | quote }}
+          apiBaseUrl: {{ .Values.integrations.bitbucketServer.apiBaseUrl | default (printf "https://%s/rest/api/1.0" .Values.integrations.bitbucketServer.host) | quote }}
           token: {{ .Values.integrations.bitbucketServer.token | quote }}
       {{- end }}
     catalog:

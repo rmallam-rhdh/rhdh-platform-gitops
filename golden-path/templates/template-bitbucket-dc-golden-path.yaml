@@ -1,0 +1,79 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: bitbucket-datacenter-golden-path
+  title: Bitbucket Data Center Golden Path Service (OAuth 2.0)
+  description: Scaffolds a new service repository in Bitbucket Data Center using the logged-in developer's OAuth 2.0 credentials (PROJECT_ADMIN + REPO_WRITE)
+  tags:
+    - bitbucket
+    - datacenter
+    - oauth2
+    - golden-path
+spec:
+  owner: group:default/platform-team
+  type: service
+
+  parameters:
+    - title: 1. Bitbucket Data Center Repository & OAuth 2.0 Login
+      required:
+        - repoUrl
+        - appDescription
+      properties:
+        repoUrl:
+          title: Bitbucket Data Center Repository Location
+          description: Select your Bitbucket Data Center Project (PLAT, PAY, or RET) and repository name. RHDH will prompt for Bitbucket Data Center OAuth 2.0 consent on first use.
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - bitbucket-dc.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
+            allowedProjects:
+              - PLAT
+              - PAY
+              - RET
+            requestUserCredentials:
+              secretsKey: USER_OAUTH_TOKEN
+              additionalScopes:
+                bitbucket:
+                  - PROJECT_ADMIN
+                  - REPO_WRITE
+        appDescription:
+          title: Service Description
+          type: string
+          default: Enterprise Golden Path microservice scaffolded in Bitbucket Data Center via RHDH OAuth 2.0
+        ownerGroup:
+          title: Owner Squad Group
+          type: string
+          default: group:default/team-payments
+          enum:
+            - group:default/team-payments
+            - group:default/team-retail
+            - group:default/developers
+
+  steps:
+    - id: fetch-skeleton
+      name: 1. Render Golden Path Application Skeleton
+      action: fetch:template
+      input:
+        url: ../skeletons/skeleton-nodejs-website
+        values:
+          appName: ${{ (parameters.repoUrl | parseRepoUrl).repo }}
+          appDescription: ${{ parameters.appDescription }}
+          owner: ${{ parameters.ownerGroup }}
+
+    - id: publish-bitbucket-dc
+      name: 2. Create Repository & Push Code to Bitbucket Data Center (Using User OAuth 2.0 Token)
+      action: publish:bitbucketServer
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        description: ${{ parameters.appDescription }}
+        defaultBranch: main
+        repoVisibility: private
+        token: ${{ secrets.USER_OAUTH_TOKEN }}
+
+  output:
+    links:
+      - title: Open Repository in Bitbucket Data Center
+        url: ${{ steps['publish-bitbucket-dc'].output.repoContentsUrl }}
+      - title: Bitbucket Data Center OAuth Audit Dashboard
+        url: https://bitbucket-dc.apps.rosa.rosa-rwx5g.f8y9.p3.openshiftapps.com
