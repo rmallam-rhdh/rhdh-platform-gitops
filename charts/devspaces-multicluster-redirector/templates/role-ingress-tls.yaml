@@ -1,4 +1,4 @@
-{{- if and .Values.venafi.enabled .Values.venafi.attachToRoute }}
+{{- if eq (include "mcr.venafiAttachToRoute" .) "true" }}
 # Allows the OpenShift Ingress Router (openshift-ingress/router) to read and hot-reload
 # the TLS Secret minted by cert-manager when referenced via Route spec.tls.externalCertificate.
 apiVersion: rbac.authorization.k8s.io/v1

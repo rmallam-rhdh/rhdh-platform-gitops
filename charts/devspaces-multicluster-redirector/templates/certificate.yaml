@@ -1,4 +1,4 @@
-{{- if .Values.venafi.enabled }}
+{{- if (.Values.venafi).enabled }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -11,7 +11,7 @@ metadata:
         {"name": "Environment", "value": {{ include "mcr.venafiEnvironment" . | quote }}},
         {"name": "Application Name", "value": {{ include "mcr.venafiApplicationName" . | quote }}}
       ]
-    {{- with .Values.venafi.annotations }}
+    {{- with (.Values.venafi).annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
   labels:
@@ -25,19 +25,19 @@ spec:
     {{- if ne (include "mcr.environmentName" .) "edev" }}
     - {{ include "mcr.gslbhostname" . | quote }}
     {{- end }}
-  duration: {{ .Values.venafi.duration | default "17520h" }}
+  duration: {{ (.Values.venafi).duration | default "17520h" }}
   issuerRef:
-    kind: {{ .Values.venafi.issuerKind | default "Issuer" }}
+    kind: {{ (.Values.venafi).issuerKind | default "Issuer" }}
     name: {{ include "mcr.venafiIssuerName" . }}
   privateKey:
-    rotationPolicy: {{ .Values.venafi.privateKeyRotationPolicy | default "Always" }}
-  renewBefore: {{ .Values.venafi.renewBefore | default "17448h" }}
+    rotationPolicy: {{ (.Values.venafi).privateKeyRotationPolicy | default "Always" }}
+  renewBefore: {{ (.Values.venafi).renewBefore | default "17448h" }}
   secretName: {{ include "mcr.tlsCertificateSecretName" . }}
-  {{- with .Values.venafi.secretTemplate }}
+  {{- with (.Values.venafi).secretTemplate }}
   secretTemplate:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with .Values.venafi.subject }}
+  {{- with (.Values.venafi).subject }}
   subject:
     {{- if .countries }}
     countries:

@@ -403,6 +403,35 @@ if grep -Fq "devspaces-multicluster-redirector-router-tls" "$NO_CERT"; then
 fi
 rm -f "$NO_CERT"
 
+# Minimal/null venafi sub-fields (e.g. customer values.yaml omitting certificateName, customFields, attachToRoute) must not fail on nil | trim.
+MIN_VENAFI="$(mktemp)"
+MIN_VALS="$(mktemp)"
+cat >"$MIN_VALS" <<'EOF'
+venafi:
+  enabled: true
+  certificateName: null
+  customFields: null
+  annotations: null
+  secretTemplate: null
+  subject: null
+  hostname: redirector.apps.example.com
+  issuerName: venafi-issuer
+  tlsCertificateSecretName: redirector-tls
+EOF
+helm template devspacesmcr "$CHART" \
+  -f "$MIN_VALS" \
+  --namespace devspaces-redirector >"$MIN_VENAFI"
+for pat in \
+  "kind: Certificate" \
+  "name: devspaces-redirector" \
+  "commonName: \"redirector.apps.example.com\"" \
+  "secretName: redirector-tls" \
+  "name: devspaces-multicluster-redirector-router-tls"
+do
+  grep -Fq -- "$pat" "$MIN_VENAFI" || { echo "FAIL minimal venafi render missing: $pat"; fail=1; }
+done
+rm -f "$MIN_VENAFI" "$MIN_VALS"
+
 if [[ "$fail" -ne 0 ]]; then
   echo "FAIL chart tests"
   exit 1

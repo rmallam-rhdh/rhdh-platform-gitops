@@ -14,10 +14,10 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  {{- if .Values.route.host }}
-  host: {{ .Values.route.host | quote }}
-  {{- else if and .Values.venafi.enabled .Values.venafi.hostname }}
-  host: {{ .Values.venafi.hostname | quote }}
+  {{- if (.Values.route).host }}
+  host: {{ (.Values.route).host | quote }}
+  {{- else if and (.Values.venafi).enabled (.Values.venafi).hostname }}
+  host: {{ (.Values.venafi).hostname | quote }}
   {{- end }}
   to:
     kind: Service
@@ -26,13 +26,13 @@ spec:
   port:
     targetPort: https
   tls:
-    termination: {{ .Values.route.tls.termination }}
-    insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy }}
-    {{- if and .Values.venafi.enabled .Values.venafi.attachToRoute }}
+    termination: {{ ((.Values.route).tls).termination | default "edge" }}
+    insecureEdgeTerminationPolicy: {{ ((.Values.route).tls).insecureEdgeTerminationPolicy | default "Redirect" }}
+    {{- if eq (include "mcr.venafiAttachToRoute" .) "true" }}
     externalCertificate:
       name: {{ include "mcr.tlsCertificateSecretName" . }}
-    {{- else if .Values.route.tls.externalCertificateSecretName }}
+    {{- else if ((.Values.route).tls).externalCertificateSecretName }}
     externalCertificate:
-      name: {{ .Values.route.tls.externalCertificateSecretName }}
+      name: {{ ((.Values.route).tls).externalCertificateSecretName }}
     {{- end }}
   wildcardPolicy: None

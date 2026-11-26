@@ -1,10 +1,10 @@
 {{- define "mcr.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- default .Chart.Name .Values.nameOverride | toString | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "mcr.fullname" -}}
 {{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- .Values.fullnameOverride | toString | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
 {{- include "mcr.name" . -}}
 {{- end -}}
@@ -41,8 +41,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "mcr.sessionSecretMode" -}}
-{{- $mode := .Values.sessionSecret.mode | default "vaultStaticSecret" -}}
-{{- if not .Values.sessionSecret.create -}}
+{{- $mode := (.Values.sessionSecret).mode | default "vaultStaticSecret" | toString | trim -}}
+{{- if eq ((.Values.sessionSecret).create | toString) "false" -}}
 {{- $mode = "external" -}}
 {{- end -}}
 {{- if not (has $mode (list "vaultStaticSecret" "eso" "external" "secret")) -}}
@@ -52,7 +52,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "mcr.sessionSecretKey" -}}
-{{- $key := .Values.sessionSecret.secretKey | default "session_secret" | trim -}}
+{{- $key := ((.Values.sessionSecret).secretKey | default "session_secret") | toString | trim -}}
 {{- if not $key -}}
 {{- fail "sessionSecret.secretKey must not be empty" -}}
 {{- end -}}
@@ -62,44 +62,44 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "mcr.sessionSecretName" -}}
 {{- $mode := include "mcr.sessionSecretMode" . -}}
 {{- if eq $mode "external" -}}
-{{- if not .Values.sessionSecret.existingSecret -}}
+{{- if not (.Values.sessionSecret).existingSecret -}}
 {{- fail "sessionSecret mode=external (or create=false) requires sessionSecret.existingSecret" -}}
 {{- end -}}
-{{- .Values.sessionSecret.existingSecret -}}
+{{- (.Values.sessionSecret).existingSecret -}}
 {{- else if eq $mode "vaultStaticSecret" -}}
-{{- .Values.sessionSecret.vaultStaticSecret.destinationSecretName | default .Values.sessionSecret.existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
+{{- ((.Values.sessionSecret).vaultStaticSecret).destinationSecretName | default (.Values.sessionSecret).existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
 {{- else if eq $mode "eso" -}}
-{{- .Values.sessionSecret.eso.targetSecretName | default .Values.sessionSecret.existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
+{{- ((.Values.sessionSecret).eso).targetSecretName | default (.Values.sessionSecret).existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
 {{- else -}}
 {{ include "mcr.fullname" . }}-session-secret
 {{- end -}}
 {{- end -}}
 
 {{- define "mcr.oauthCallbackUrl" -}}
-{{- if .Values.route.oauthCallbackUrl -}}
-{{- if not (regexMatch "^https?://" .Values.route.oauthCallbackUrl) -}}
+{{- if (.Values.route).oauthCallbackUrl -}}
+{{- if not (regexMatch "^https?://" (.Values.route).oauthCallbackUrl) -}}
 {{- fail "route.oauthCallbackUrl must start with http:// or https://" -}}
 {{- end -}}
-{{- .Values.route.oauthCallbackUrl -}}
-{{- else if .Values.route.host -}}
-https://{{ .Values.route.host }}/oauth/callback
-{{- else if and .Values.venafi.enabled .Values.venafi.hostname -}}
-https://{{ .Values.venafi.hostname }}/oauth/callback
+{{- (.Values.route).oauthCallbackUrl -}}
+{{- else if (.Values.route).host -}}
+https://{{ (.Values.route).host }}/oauth/callback
+{{- else if and (.Values.venafi).enabled (.Values.venafi).hostname -}}
+https://{{ (.Values.venafi).hostname }}/oauth/callback
 {{- else -}}
 {{- fail "route.oauthRedirectReference=false requires route.oauthCallbackUrl, route.host, or venafi.hostname" -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "mcr.namespace" -}}
-{{- default .Release.Namespace .Values.namespace -}}
+{{- (default .Release.Namespace .Values.namespace) | toString | trim -}}
 {{- end -}}
 
 {{- define "mcr.environmentName" -}}
-{{- .Values.environmentName | default .Values.venafi.environmentName | default "edev" | trim -}}
+{{- (.Values.environmentName | default (.Values.venafi).environmentName | default "edev") | toString | trim -}}
 {{- end -}}
 
 {{- define "mcr.hostname" -}}
-{{- $host := .Values.venafi.hostname | default .Values.route.host | trim -}}
+{{- $host := ((.Values.venafi).hostname | default (.Values.route).host | default "") | toString | trim -}}
 {{- if not $host -}}
 {{- fail "venafi.enabled=true requires venafi.hostname or route.host" -}}
 {{- end -}}
@@ -107,7 +107,7 @@ https://{{ .Values.venafi.hostname }}/oauth/callback
 {{- end -}}
 
 {{- define "mcr.gslbhostname" -}}
-{{- $gslb := .Values.venafi.gslbHostname | trim -}}
+{{- $gslb := ((.Values.venafi).gslbHostname | default (.Values.venafi).gslbhostname | default .Values.gslbHostname | default .Values.gslbhostname | default "") | toString | trim -}}
 {{- if not $gslb -}}
 {{- fail "venafi.enabled=true with environmentName != \"edev\" requires venafi.gslbHostname" -}}
 {{- end -}}
@@ -115,11 +115,12 @@ https://{{ .Values.venafi.hostname }}/oauth/callback
 {{- end -}}
 
 {{- define "mcr.certificateName" -}}
-{{- default (include "mcr.namespace" .) (.Values.venafi.certificateName | trim) -}}
+{{- $certName := ((.Values.venafi).certificateName | default "") | toString | trim -}}
+{{- default (include "mcr.namespace" .) $certName -}}
 {{- end -}}
 
 {{- define "mcr.venafiIssuerName" -}}
-{{- $issuer := .Values.venafi.issuerName | trim -}}
+{{- $issuer := ((.Values.venafi).issuerName | default "") | toString | trim -}}
 {{- if not $issuer -}}
 {{- fail "venafi.enabled=true requires venafi.issuerName" -}}
 {{- end -}}
@@ -127,7 +128,7 @@ https://{{ .Values.venafi.hostname }}/oauth/callback
 {{- end -}}
 
 {{- define "mcr.tlsCertificateSecretName" -}}
-{{- $sec := .Values.venafi.tlsCertificateSecretName | trim -}}
+{{- $sec := ((.Values.venafi).tlsCertificateSecretName | default "") | toString | trim -}}
 {{- if not $sec -}}
 {{- fail "venafi.enabled=true requires venafi.tlsCertificateSecretName" -}}
 {{- end -}}
@@ -135,7 +136,8 @@ https://{{ .Values.venafi.hostname }}/oauth/callback
 {{- end -}}
 
 {{- define "mcr.venafiTechnicalOwner" -}}
-{{- $owner := .Values.venafi.customFields.technicalOwner | trim -}}
+{{- $cf := (.Values.venafi).customFields | default dict -}}
+{{- $owner := ($cf.technicalOwner | default (.Values.venafi).technicalOwner | default (.Values.venafi).venafiTechnicalOwner | default .Values.venafiTechnicalOwner | default "Platform Engineering") | toString | trim -}}
 {{- if not $owner -}}
 {{- fail "venafi.enabled=true requires venafi.customFields.technicalOwner" -}}
 {{- end -}}
@@ -143,9 +145,22 @@ https://{{ .Values.venafi.hostname }}/oauth/callback
 {{- end -}}
 
 {{- define "mcr.venafiEnvironment" -}}
-{{- .Values.venafi.customFields.environment | default (include "mcr.environmentName" .) | trim -}}
+{{- $cf := (.Values.venafi).customFields | default dict -}}
+{{- ($cf.environment | default (.Values.venafi).environment | default (.Values.venafi).venafiEnvironment | default .Values.venafiEnvironment | default (include "mcr.environmentName" .)) | toString | trim -}}
 {{- end -}}
 
 {{- define "mcr.venafiApplicationName" -}}
-{{- .Values.venafi.customFields.applicationName | default (include "mcr.fullname" .) | trim -}}
+{{- $cf := (.Values.venafi).customFields | default dict -}}
+{{- ($cf.applicationName | default (.Values.venafi).applicationName | default (.Values.venafi).venafiApplicationName | default .Values.venafiApplicationName | default (include "mcr.fullname" .)) | toString | trim -}}
+{{- end -}}
+
+{{- define "mcr.venafiAttachToRoute" -}}
+{{- $venafi := .Values.venafi | default dict -}}
+{{- if not $venafi.enabled -}}
+false
+{{- else if hasKey $venafi "attachToRoute" -}}
+{{- ternary "true" "false" (eq ($venafi.attachToRoute | toString) "true") -}}
+{{- else -}}
+true
+{{- end -}}
 {{- end -}}
