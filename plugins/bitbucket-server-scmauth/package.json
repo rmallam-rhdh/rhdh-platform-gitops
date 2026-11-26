@@ -1,0 +1,15 @@
+{
+  "name": "@internal/plugin-bitbucket-server-scmauth-dynamic",
+  "version": "0.1.0",
+  "description": "RHDH 1.10 ScmAuth API Factory override adding Bitbucket Data Center (bitbucketServer) OAuth popup support to RepoUrlPicker",
+  "license": "Apache-2.0",
+  "main": "dist-scalprum/internal.plugin-bitbucket-server-scmauth.js",
+  "files": [
+    "dist-scalprum"
+  ],
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "bitbucket-server-scmauth",
+    "supported-versions": "1.49.4"
+  }
+}
