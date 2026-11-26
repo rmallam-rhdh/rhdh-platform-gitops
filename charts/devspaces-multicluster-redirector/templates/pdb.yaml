@@ -3,7 +3,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ include "mcr.fullname" . }}
-  namespace: {{ .Values.namespace }}
+  namespace: {{ include "mcr.namespace" . }}
   labels:
     {{- include "mcr.labels" . | nindent 4 }}
   annotations:

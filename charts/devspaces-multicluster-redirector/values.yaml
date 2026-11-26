@@ -1,7 +1,7 @@
-# Workload namespace (must already exist, or let Argo CreateNamespace create it).
+# Optional namespace override (defaults automatically to `.Release.Namespace`).
 # ClusterRoleBinding in manifests/devspaces-multicluster-redirector/rbac.yaml
-# must reference this same namespace + ServiceAccount name.
-namespace: devspaces-redirector
+# must reference the target namespace + ServiceAccount name (`<release>`).
+namespace: ""
 
 nameOverride: ""
 fullnameOverride: ""
@@ -15,7 +15,6 @@ image:
 
 # OpenShift OAuth Proxy sidecar. Listens HTTP on :8443; Route does edge TLS
 # (matches upstream openshift/deployment.yaml — no in-pod TLS secret).
-# Digested image keeps GitOps reproducible with pullPolicy IfNotPresent.
 oauthProxy:
   image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9@sha256:4da6381f4f79de6a6024554aa99129e9b79b7ad7fdde0b0bebbcb87421a97d7c
   pullPolicy: IfNotPresent
@@ -50,46 +49,19 @@ resources:
 # Define each Dev Spaces datacenter/cluster URL once (`url`), optional base
 # entitlement AD group (`requiredGroup` for Pattern B `AND` logic), and a simple
 # list of team/squad AD `groups` routed to that datacenter.
-#
-# How it renders into `group-mapping.json`:
-#   - When `requiredGroup` is empty (""):
-#       Each entry `<team>` in `groups` renders as:
-#         "<team>": "<url>"
-#   - When `requiredGroup` is set (e.g. "corp_nprd_devspaces_users"):
-#       Each entry `<team>` in `groups` renders with comma-separated AND logic:
-#         "corp_nprd_devspaces_users,<team>": "<url>"
-#       (If an entry in `groups` equals `requiredGroup` or already contains a comma,
-#       it is kept as-is without duplicating `requiredGroup`.)
-#
-# Example (configure in values-deploy.yaml):
-#   datacenters:
-#     dc1:
-#       url: https://devspaces.apps.dc1.corp.example.com
-#       requiredGroup: ""   # Or set e.g. "corp_nprd_devspaces_users" for AND logic
-#       groups:
-#         - corp_nprd_devspaces_admin
-#         - corp_nprd_payments_devs
-#         - corp_nprd_channels_devs
-#     dc2:
-#       url: https://devspaces.apps.dc2.corp.example.com
-#       requiredGroup: ""
-#       groups:
-#         - corp_nprd_lending_devs
-#         - corp_nprd_wealth_devs
 datacenters: {}
 
 # Direct key -> URL overrides (merged with `datacenters` above; useful for one-off rules).
 groupMapping: {}
 
-# Deployment environment name (`edev`, `nprd`, `prd`).
+# Deployment environment (`edev`, `nprd`, `prd`).
 # When `venafi.enabled: true` and `environmentName != "edev"`, `venafi.gslbHostname`
-# is automatically added as a second SAN in `spec.dnsNames` on the Certificate.
+# is automatically added as a second SAN in `spec.dnsNames` on `<release>-cert`.
 environmentName: edev
 
 route:
-  # Empty host → OpenShift assigns <name>-<ns>.apps.<cluster> (or falls back to venafi.hostname when venafi.enabled=true).
+  # Empty host → OpenShift assigns <release>-<ns>.apps.<cluster> (or falls back to venafi.hostname when venafi.enabled=true).
   host: ""
-  # Set after the Route host is known (or set host above and leave empty to derive).
   # Used for SA oauth-redirecturi when oauthRedirectReference is false.
   oauthCallbackUrl: ""
   # Prefer Route reference annotation (GitOps-friendly). Set false to use oauthCallbackUrl.
@@ -97,34 +69,67 @@ route:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    # Optional existing TLS Secret name for Route spec.tls.externalCertificate when venafi.enabled=false.
-    externalCertificateSecretName: ""
 
-# Venafi / cert-manager Certificate (`cert-manager.io/v1`) for the Redirector Route & GSLB endpoint.
+# Venafi TPP Issuer + Certificate (`cert-manager.io/v1`).
+# All resource & Secret names are generated automatically from `.Release.Name` (zero manual naming required):
+#   - Issuer credentials Secret / VaultStaticSecret: <release>-venafi-credentials
+#   - Issuer:                                        <release>-issuer
+#   - Certificate:                                   <release>-cert
+#   - Certificate TLS Secret (mounted on Route):     <release>-tls
+#   - OpenShift Router TLS Role & RoleBinding:       <release>-router-tls
+#   - Venafi Custom Field `Application Name`:        <release>
 venafi:
   enabled: false
-  # Optional Certificate CR name (defaults to `namespace`, e.g. `devspaces-redirector`).
-  certificateName: ""
   # Cluster-specific Route hostname (used as commonName and first SAN; falls back to route.host if empty).
   hostname: ""
   # GSLB / GTM multi-cluster vanity hostname (added to dnsNames whenever environmentName != "edev").
   gslbHostname: ""
-  issuerKind: Issuer
-  issuerName: venafi-tpp-issuer
-  tlsCertificateSecretName: devspaces-redirector-tls
+  # Venafi TPP policy folder / zone path (e.g. "VED\\Policy\\Certificates\\DevSpaces").
+  zone: ""
+  tpp:
+    # Venafi TPP WebSDK URL (e.g. "https://tpp.example.com/vedsdk").
+    url: ""
+    # Optional custom CA trust for the TPP server (base64 PEM `caBundle` or existing Secret `caBundleSecretRef`):
+    caBundle: ""
+    caBundleSecretRef:
+      name: ""
+      key: ca.crt
+  issuer:
+    create: true
+    kind: Issuer
+  # Provisions `<release>-venafi-credentials` for `Issuer.spec.venafi.tpp.credentialsRef`:
+  #   vaultStaticSecret — HashiCorp Vault Secrets Operator (VaultStaticSecret -> Secret)
+  #   eso               — External Secrets Operator (ExternalSecret -> Secret)
+  #   secret            — Chart-created Secret from `accessToken` (or `username`/`password`)
+  #   external          — Pre-existing Secret `<release>-venafi-credentials` (or `existingSecret`)
+  credentialsSecret:
+    mode: vaultStaticSecret
+    vaultStaticSecret:
+      type: kv-v2
+      mount: secrets
+      path: venafi/tpp
+      vaultAuthRef: default
+      vaultNamespace: ""
+      refreshAfter: 1h
+      hmacSecretData: true
+      overwrite: true
+    eso:
+      storeName: vault-secret-store
+      storeKind: ClusterSecretStore
+      refreshInterval: 1h
+      remoteKey: venafi/tpp
+      remoteProperty: access-token
+    accessToken: ""
+    username: ""
+    password: ""
   duration: 17520h
   renewBefore: 17448h
   privateKeyRotationPolicy: Always
-  # When true, wires `spec.tls.externalCertificate.name` on the OpenShift Route and creates a
-  # namespace-scoped Role/RoleBinding allowing `openshift-ingress/router` to read the TLS Secret.
+  # Wires `Route.spec.tls.externalCertificate.name` to `<release>-tls` and creates `<release>-router-tls` Role/RoleBinding.
   attachToRoute: true
   annotations: {}
   customFields:
     technicalOwner: "Platform Engineering"
-    # Defaults to `environmentName` when empty.
-    environment: ""
-    # Defaults to chart fullname (`devspaces-multicluster-redirector`) when empty.
-    applicationName: "devspaces-multicluster-redirector"
   secretTemplate:
     labels:
       app.kubernetes.io/part-of: idp-platform
@@ -141,7 +146,7 @@ venafi:
     provinces:
       - California
 
-# OAuth-proxy cookie encryption secret (must be >= 16 bytes; share the same Vault
+# OAuth-proxy cookie encryption secret (`<release>-session-secret`; >= 16 bytes; share the same Vault
 # secret across Primary and DR redirector instances behind a GTM / load balancer).
 # Supported modes:
 #   vaultStaticSecret — HashiCorp Vault Secrets Operator (VaultStaticSecret -> Secret)
@@ -150,53 +155,31 @@ venafi:
 #   secret            — Chart-generated Kubernetes Secret via Helm lookup (lab/standalone only)
 sessionSecret:
   mode: vaultStaticSecret
-  # Key inside the Kubernetes Secret mounted at /etc/proxy/secrets/<secretKey>.
   secretKey: session_secret
-
-  # Used when mode=vaultStaticSecret (secrets.hashicorp.com/v1beta1 VaultStaticSecret).
-  # Expects Vault KV secret at <mount>/<path> with key matching `secretKey` (default `session_secret`),
-  # e.g.: vault kv put secrets/devspaces-redirector/session session_secret="$(openssl rand -hex 16)"
   vaultStaticSecret:
-    # Optional custom VaultStaticSecret CR name (defaults to destination Secret name).
-    name: ""
-    # Optional destination Kubernetes Secret name (defaults to <fullname>-session-secret).
-    destinationSecretName: ""
     type: kv-v2
     mount: secrets
     path: devspaces-redirector/session
-    # Name of the VaultAuth CR in the namespace (or operator default namespace). Leave "" to use VSO default.
     vaultAuthRef: default
-    # Optional HashiCorp Vault Enterprise namespace (e.g. "admin/platform").
     vaultNamespace: ""
-    # Optional pinned KV version (0 = latest version).
     version: 0
     refreshAfter: 1h
     hmacSecretData: true
-    # Rolling-restarts the redirector Deployment when Vault rotates the session secret.
     rolloutRestart: true
     overwrite: true
-    # Optional VSO destination transformation (e.g. to rename/template keys from Vault).
     transformation: {}
-
-  # Used when mode=eso (external-secrets.io/v1 ExternalSecret).
   eso:
     storeName: vault-secret-store
     storeKind: ClusterSecretStore
     refreshInterval: 1h
     remoteKey: devspaces-redirector/session
     remoteProperty: session_secret
-    targetSecretName: ""
-
-  # Used when mode=external (or legacy create=false): name of pre-existing Kubernetes Secret.
   existingSecret: ""
-  # Legacy toggle kept for backwards compatibility: setting create=false forces mode=external.
   create: true
-  # Only used when mode=secret and no Secret exists yet (ignored on upgrade if Secret present).
   value: ""
 
 networkPolicy:
   enabled: true
 
-# Optional labels for shard / LB selection.
 routeLabels: {}
 routeAnnotations: {}

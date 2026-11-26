@@ -6,8 +6,13 @@
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | toString | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
-{{- include "mcr.name" . -}}
+{{- .Release.Name | toString | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "mcr.namespace" -}}
+{{- $ns := (.Values.namespace | default "") | toString | trim -}}
+{{- default .Release.Namespace $ns | toString | trim -}}
 {{- end -}}
 
 {{- define "mcr.labels" -}}
@@ -24,24 +29,24 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "mcr.serviceAccountName" -}}
-{{ include "mcr.fullname" . }}
+{{- include "mcr.fullname" . -}}
 {{- end -}}
 
 {{- define "mcr.image" -}}
-{{- if not .Values.image.repository -}}
+{{- if not (.Values.image).repository -}}
 {{- fail "image.repository is required" -}}
 {{- end -}}
-{{- if .Values.image.digest -}}
-{{ .Values.image.repository }}@{{ .Values.image.digest }}
-{{- else if .Values.image.tag -}}
-{{ .Values.image.repository }}:{{ .Values.image.tag }}
+{{- if (.Values.image).digest -}}
+{{ (.Values.image).repository }}@{{ (.Values.image).digest }}
+{{- else if (.Values.image).tag -}}
+{{ (.Values.image).repository }}:{{ (.Values.image).tag }}
 {{- else -}}
 {{- fail "either image.tag or image.digest must be set" -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "mcr.sessionSecretMode" -}}
-{{- $mode := (.Values.sessionSecret).mode | default "vaultStaticSecret" | toString | trim -}}
+{{- $mode := ((.Values.sessionSecret).mode | default "vaultStaticSecret") | toString | trim -}}
 {{- if eq ((.Values.sessionSecret).create | toString) "false" -}}
 {{- $mode = "external" -}}
 {{- end -}}
@@ -61,17 +66,19 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "mcr.sessionSecretName" -}}
 {{- $mode := include "mcr.sessionSecretMode" . -}}
+{{- $defaultName := printf "%s-session-secret" (include "mcr.fullname" .) -}}
 {{- if eq $mode "external" -}}
-{{- if not (.Values.sessionSecret).existingSecret -}}
+{{- $ext := ((.Values.sessionSecret).existingSecret | default "") | toString | trim -}}
+{{- if not $ext -}}
 {{- fail "sessionSecret mode=external (or create=false) requires sessionSecret.existingSecret" -}}
 {{- end -}}
-{{- (.Values.sessionSecret).existingSecret -}}
+{{- $ext -}}
 {{- else if eq $mode "vaultStaticSecret" -}}
-{{- ((.Values.sessionSecret).vaultStaticSecret).destinationSecretName | default (.Values.sessionSecret).existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
+{{- (((.Values.sessionSecret).vaultStaticSecret).destinationSecretName | default (.Values.sessionSecret).existingSecret | default $defaultName) | toString | trim -}}
 {{- else if eq $mode "eso" -}}
-{{- ((.Values.sessionSecret).eso).targetSecretName | default (.Values.sessionSecret).existingSecret | default (printf "%s-session-secret" (include "mcr.fullname" .)) -}}
+{{- (((.Values.sessionSecret).eso).targetSecretName | default (.Values.sessionSecret).existingSecret | default $defaultName) | toString | trim -}}
 {{- else -}}
-{{ include "mcr.fullname" . }}-session-secret
+{{- $defaultName -}}
 {{- end -}}
 {{- end -}}
 
@@ -88,10 +95,6 @@ https://{{ (.Values.venafi).hostname }}/oauth/callback
 {{- else -}}
 {{- fail "route.oauthRedirectReference=false requires route.oauthCallbackUrl, route.host, or venafi.hostname" -}}
 {{- end -}}
-{{- end -}}
-
-{{- define "mcr.namespace" -}}
-{{- (default .Release.Namespace .Values.namespace) | toString | trim -}}
 {{- end -}}
 
 {{- define "mcr.environmentName" -}}
@@ -115,24 +118,68 @@ https://{{ (.Values.venafi).hostname }}/oauth/callback
 {{- end -}}
 
 {{- define "mcr.certificateName" -}}
-{{- $certName := ((.Values.venafi).certificateName | default "") | toString | trim -}}
-{{- default (include "mcr.namespace" .) $certName -}}
+{{- $override := ((.Values.venafi).certificateName | default "") | toString | trim -}}
+{{- default (printf "%s-cert" (include "mcr.fullname" .)) $override | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "mcr.venafiCreateIssuer" -}}
+{{- $issuerCfg := (.Values.venafi).issuer | default dict -}}
+{{- if not (.Values.venafi).enabled -}}
+false
+{{- else if hasKey $issuerCfg "create" -}}
+{{- ternary "true" "false" (eq ($issuerCfg.create | toString) "true") -}}
+{{- else -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "mcr.venafiIssuerKind" -}}
+{{- $issuerCfg := (.Values.venafi).issuer | default dict -}}
+{{- ($issuerCfg.kind | default (.Values.venafi).issuerKind | default "Issuer") | toString | trim -}}
 {{- end -}}
 
 {{- define "mcr.venafiIssuerName" -}}
-{{- $issuer := ((.Values.venafi).issuerName | default "") | toString | trim -}}
-{{- if not $issuer -}}
-{{- fail "venafi.enabled=true requires venafi.issuerName" -}}
-{{- end -}}
-{{- $issuer -}}
+{{- $issuerCfg := (.Values.venafi).issuer | default dict -}}
+{{- $override := ($issuerCfg.existingName | default (.Values.venafi).issuerName | default "") | toString | trim -}}
+{{- default (printf "%s-issuer" (include "mcr.fullname" .)) $override | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "mcr.tlsCertificateSecretName" -}}
-{{- $sec := ((.Values.venafi).tlsCertificateSecretName | default "") | toString | trim -}}
-{{- if not $sec -}}
-{{- fail "venafi.enabled=true requires venafi.tlsCertificateSecretName" -}}
+{{- $override := ((.Values.venafi).tlsCertificateSecretName | default "") | toString | trim -}}
+{{- default (printf "%s-tls" (include "mcr.fullname" .)) $override | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
-{{- $sec -}}
+
+{{- define "mcr.venafiCredentialsSecretMode" -}}
+{{- $credCfg := (.Values.venafi).credentialsSecret | default dict -}}
+{{- $mode := ($credCfg.mode | default "vaultStaticSecret") | toString | trim -}}
+{{- if not (has $mode (list "vaultStaticSecret" "eso" "secret" "external")) -}}
+{{- fail (printf "venafi.credentialsSecret.mode %q must be one of: vaultStaticSecret, eso, secret, external" $mode) -}}
+{{- end -}}
+{{- $mode -}}
+{{- end -}}
+
+{{- define "mcr.venafiCredentialsSecretName" -}}
+{{- $credCfg := (.Values.venafi).credentialsSecret | default dict -}}
+{{- $defaultName := printf "%s-venafi-credentials" (include "mcr.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- $override := ($credCfg.existingSecret | default "") | toString | trim -}}
+{{- default $defaultName $override -}}
+{{- end -}}
+
+{{- define "mcr.venafiZone" -}}
+{{- $zone := ((.Values.venafi).zone | default "") | toString | trim -}}
+{{- if not $zone -}}
+{{- fail "venafi.enabled=true with venafi.issuer.create=true requires venafi.zone" -}}
+{{- end -}}
+{{- $zone -}}
+{{- end -}}
+
+{{- define "mcr.venafiTppUrl" -}}
+{{- $tpp := (.Values.venafi).tpp | default dict -}}
+{{- $url := ($tpp.url | default "") | toString | trim -}}
+{{- if not $url -}}
+{{- fail "venafi.enabled=true with venafi.issuer.create=true requires venafi.tpp.url" -}}
+{{- end -}}
+{{- $url -}}
 {{- end -}}
 
 {{- define "mcr.venafiTechnicalOwner" -}}

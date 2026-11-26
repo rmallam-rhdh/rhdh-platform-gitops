@@ -1,30 +1,35 @@
 # Per-cluster overrides. Edit in place — do not add values-<cluster>.yaml.
-#
+# All resource, Issuer, Certificate, and Secret names are automatically derived from `.Release.Name`.
+
 # Environment (`edev` omits GSLB SAN; `nprd` / `prd` includes both cluster hostname + gslbHostname SANs).
 environmentName: nprd
 
-# After first sync, set route.host (or oauthCallbackUrl) to the Route URL so
-# OAuth works if oauthRedirectReference is disabled.
 route:
   host: ""
   oauthCallbackUrl: ""
 
-# Venafi / cert-manager Certificate (`cert-manager.io/v1`) for the Redirector Route & GSLB endpoint.
+# Venafi TPP Issuer (`<release>-issuer`), Credentials (`<release>-venafi-credentials`),
+# Certificate (`<release>-cert`), and Route TLS Secret (`<release>-tls`).
 venafi:
   enabled: true
   hostname: devspaces-redirector.apps.dc1.example.com
   gslbHostname: devspaces-redirector.example.com
-  issuerKind: Issuer
-  issuerName: venafi-tpp-issuer
-  tlsCertificateSecretName: devspaces-redirector-tls
-  duration: 17520h
-  renewBefore: 17448h
-  privateKeyRotationPolicy: Always
-  attachToRoute: true
+  zone: "VED\\Policy\\Certificates\\DevSpaces"
+  tpp:
+    url: https://tpp.example.com/vedsdk
+    # Optional custom CA trust if TPP uses an internal enterprise CA:
+    # caBundleSecretRef:
+    #   name: enterprise-ca-bundle
+    #   key: ca.crt
+  credentialsSecret:
+    mode: vaultStaticSecret
+    vaultStaticSecret:
+      type: kv-v2
+      mount: secrets
+      path: venafi/tpp
+      vaultAuthRef: default
   customFields:
     technicalOwner: "Platform Engineering"
-    environment: "nprd"
-    applicationName: "devspaces-multicluster-redirector"
   subject:
     countries:
       - US
@@ -37,11 +42,9 @@ venafi:
     provinces:
       - California
 
-# Pull oauth-proxy session cookie secret from HashiCorp Vault via VaultStaticSecret.
+# Pull oauth-proxy session cookie secret (`<release>-session-secret`) from HashiCorp Vault via VaultStaticSecret.
 # Seed in Vault once (use the SAME secret across Primary and DR clusters):
 #   vault kv put secrets/devspaces-redirector/session session_secret="$(openssl rand -hex 16)"
-#
-# Other supported modes: `eso` (ExternalSecret), `external` (existing Secret), `secret` (lab only).
 sessionSecret:
   mode: vaultStaticSecret
   vaultStaticSecret:
@@ -49,15 +52,8 @@ sessionSecret:
     mount: secrets
     path: devspaces-redirector/session
     vaultAuthRef: default
-    # vaultNamespace: ""   # Set if using HashiCorp Vault Enterprise namespaces
 
-# Structured Datacenter / Cluster Routing (IDP Team just adds AD group names under `groups:` for each DC):
-#   - url: Target Dev Spaces (CheCluster) dashboard URL for this DC/cluster.
-#   - requiredGroup: (Optional) Base AD group for Pattern B `AND` logic.
-#       * Leave "" to map each group in `groups:` directly ("<group>": "<url>").
-#       * Set e.g. "corp_nprd_devspaces_users" to require BOTH the base group AND
-#         the squad group ("corp_nprd_devspaces_users,<group>": "<url>").
-#   - groups: List of AD / OpenShift groups routed to this DC's Dev Spaces URL.
+# Structured Datacenter / Cluster Routing:
 datacenters:
   dc1:
     url: https://devspaces.apps.dc1.example.com
@@ -75,5 +71,4 @@ datacenters:
       - corp_nprd_lending_devs
       - corp_nprd_wealth_devs
 
-# Optional direct key -> URL overrides (merged with `datacenters` above):
 groupMapping: {}

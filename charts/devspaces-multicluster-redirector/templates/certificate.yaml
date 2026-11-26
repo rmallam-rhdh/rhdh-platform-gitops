@@ -27,7 +27,7 @@ spec:
     {{- end }}
   duration: {{ (.Values.venafi).duration | default "17520h" }}
   issuerRef:
-    kind: {{ (.Values.venafi).issuerKind | default "Issuer" }}
+    kind: {{ include "mcr.venafiIssuerKind" . }}
     name: {{ include "mcr.venafiIssuerName" . }}
   privateKey:
     rotationPolicy: {{ (.Values.venafi).privateKeyRotationPolicy | default "Always" }}

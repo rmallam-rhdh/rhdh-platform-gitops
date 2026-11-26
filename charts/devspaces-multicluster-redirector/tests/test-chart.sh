@@ -8,9 +8,9 @@ helm lint "$CHART" -f "$CHART/values.yaml" -f "$CHART/values-deploy.yaml"
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT
 
-# Default customer render (values.yaml + values-deploy.yaml) pulls session secret
-# from HashiCorp Vault via VaultStaticSecret.
-helm template mcr "$CHART" \
+# Default customer render (values.yaml + values-deploy.yaml) pulls session + Venafi
+# secrets from HashiCorp Vault via VaultStaticSecret and names all resources after .Release.Name.
+helm template devspaces-multicluster-redirector "$CHART" \
   -f "$CHART/values.yaml" \
   -f "$CHART/values-deploy.yaml" \
   --namespace devspaces-redirector >"$OUT"
@@ -21,7 +21,13 @@ for pat in \
   "kind: Service" \
   "kind: Route" \
   "apiVersion: cert-manager.io/v1" \
+  "kind: Issuer" \
   "kind: Certificate" \
+  "name: devspaces-multicluster-redirector-venafi-credentials" \
+  "name: devspaces-multicluster-redirector-issuer" \
+  "name: devspaces-multicluster-redirector-cert" \
+  "zone: \"VED\\\\Policy\\\\Certificates\\\\DevSpaces\"" \
+  "url: \"https://tpp.example.com/vedsdk\"" \
   "venafi.cert-manager.io/custom-fields:" \
   "\"name\": \"Technical Owner\"" \
   "\"name\": \"Environment\"" \
@@ -32,10 +38,9 @@ for pat in \
   "duration: 17520h" \
   "renewBefore: 17448h" \
   "rotationPolicy: Always" \
-  "name: venafi-tpp-issuer" \
-  "secretName: devspaces-redirector-tls" \
+  "secretName: devspaces-multicluster-redirector-tls" \
   "externalCertificate:" \
-  "name: devspaces-redirector-tls" \
+  "name: devspaces-multicluster-redirector-tls" \
   "name: devspaces-multicluster-redirector-router-tls" \
   "kind: ConfigMap" \
   "apiVersion: secrets.hashicorp.com/v1beta1" \
@@ -388,47 +393,60 @@ if helm template mcr "$CHART" \
   fail=1
 fi
 
-# Venafi disabled (base values.yaml or lab Argo override) must not render Certificate or router-tls Role.
+# Venafi disabled (base values.yaml or lab Argo override) must not render Issuer, Certificate, or router-tls Role.
 NO_CERT="$(mktemp)"
 helm template mcr "$CHART" \
   -f "$CHART/values.yaml" \
   --namespace devspaces-redirector >"$NO_CERT"
-if grep -Eq '^kind: Certificate$' "$NO_CERT"; then
-  echo "FAIL Certificate must not render when venafi.enabled=false"
+if grep -Eq '^kind: (Certificate|Issuer)$' "$NO_CERT"; then
+  echo "FAIL Issuer/Certificate must not render when venafi.enabled=false"
   fail=1
 fi
-if grep -Fq "devspaces-multicluster-redirector-router-tls" "$NO_CERT"; then
+if grep -Fq "mcr-router-tls" "$NO_CERT"; then
   echo "FAIL router-tls Role/RoleBinding must not render when venafi.enabled=false"
   fail=1
 fi
 rm -f "$NO_CERT"
 
-# Minimal/null venafi sub-fields (e.g. customer values.yaml omitting certificateName, customFields, attachToRoute) must not fail on nil | trim.
+# Release-name auto-naming (`helm upgrade --install devspacesmcr . -n devspaces`) + null/minimal venafi sub-fields:
+# Every resource, Issuer, Certificate, and Secret must derive from `.Release.Name` (`devspacesmcr`) and `.Release.Namespace` (`devspaces`).
 MIN_VENAFI="$(mktemp)"
 MIN_VALS="$(mktemp)"
 cat >"$MIN_VALS" <<'EOF'
 venafi:
   enabled: true
-  certificateName: null
   customFields: null
   annotations: null
   secretTemplate: null
   subject: null
   hostname: redirector.apps.example.com
-  issuerName: venafi-issuer
-  tlsCertificateSecretName: redirector-tls
+  zone: "VED\\Policy\\Certificates\\DevSpaces"
+  tpp:
+    url: https://tpp.example.com/vedsdk
+    caBundleSecretRef:
+      name: corp-ca-bundle
+  credentialsSecret:
+    mode: secret
+    accessToken: test-venafi-access-token
 EOF
 helm template devspacesmcr "$CHART" \
   -f "$MIN_VALS" \
-  --namespace devspaces-redirector >"$MIN_VENAFI"
+  --namespace devspaces >"$MIN_VENAFI"
 for pat in \
-  "kind: Certificate" \
-  "name: devspaces-redirector" \
+  "namespace: devspaces" \
+  "name: devspacesmcr-venafi-credentials" \
+  "name: devspacesmcr-issuer" \
+  "caBundleSecretRef:" \
+  "name: corp-ca-bundle" \
+  "name: devspacesmcr-cert" \
+  "\"value\": \"devspacesmcr\"" \
   "commonName: \"redirector.apps.example.com\"" \
-  "secretName: redirector-tls" \
-  "name: devspaces-multicluster-redirector-router-tls"
+  "secretName: devspacesmcr-tls" \
+  "name: devspacesmcr-router-tls" \
+  "name: devspacesmcr-group-mapping" \
+  "name: devspacesmcr-session-secret"
 do
-  grep -Fq -- "$pat" "$MIN_VENAFI" || { echo "FAIL minimal venafi render missing: $pat"; fail=1; }
+  grep -Fq -- "$pat" "$MIN_VENAFI" || { echo "FAIL release-derived render missing: $pat"; fail=1; }
 done
 rm -f "$MIN_VENAFI" "$MIN_VALS"
 

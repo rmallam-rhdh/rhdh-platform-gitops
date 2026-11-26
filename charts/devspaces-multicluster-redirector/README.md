@@ -6,18 +6,23 @@ Helm chart for the [Red Hat Multicluster Redirector](https://catalog.redhat.com/
 Routes authenticated users to a Dev Spaces dashboard URL based on OpenShift group membership.
 Upstream OpenShift manifests (no official Helm chart): [redhat-developer/devspaces-multicluster-redirector](https://github.com/redhat-developer/devspaces-multicluster-redirector/tree/main/openshift).
 
-## What the chart creates (namespace-scoped)
+## What the chart creates (namespace-scoped, all named from `.Release.Name`)
 
-| Resource | Purpose |
-|---|---|
-| Deployment | Quarkus redirector (`/hello` HTTP probes) + oauth-proxy (`/oauth/healthz` HTTP probes) with `restricted-v2` securityContext and anti-affinity |
-| PodDisruptionBudget | Keeps at least `pdb.minAvailable` (default `1`) pod available when `replicas > 1` |
-| Service + Route (edge TLS) | Public entry (supports `externalCertificate` from Venafi / cert-manager) |
-| Certificate + Role/RoleBinding | Optional `cert-manager.io/v1` `Certificate` (Venafi `custom-fields`, cluster + GSLB SANs, X.509 `subject`) and `openshift-ingress/router` TLS Secret reader RBAC (`venafi.enabled`) |
-| ConfigMap | `group-mapping.json` at `/etc/config` |
-| VaultStaticSecret / ExternalSecret / Secret | oauth-proxy session cookie secret (controlled by `sessionSecret.mode`; defaults to `vaultStaticSecret` from HashiCorp Vault) |
-| ServiceAccount | OAuth client + redirect URI / Route reference |
-| NetworkPolicy | Ingress 8443 (optional) |
+Every resource and Secret name is derived automatically from `.Release.Name` (for example `helm upgrade --install devspacesmcr .` creates `devspacesmcr-*`), so you never have to hardcode resource/secret names in `values.yaml` or collide with an existing `devspaces` installation in the same namespace:
+
+| Resource | Generated Name (`<release>` = `.Release.Name`) | Purpose |
+|---|---|---|
+| Deployment | `<release>` | Quarkus redirector (`/hello` HTTP probes) + oauth-proxy (`/oauth/healthz` HTTP probes) with `restricted-v2` securityContext and anti-affinity |
+| PodDisruptionBudget | `<release>` | Keeps at least `pdb.minAvailable` (default `1`) pod available when `replicas > 1` |
+| Service + Route (edge TLS) | `<release>` | Public entry (automatically mounts `<release>-tls` via `externalCertificate` when `venafi.enabled=true`) |
+| ConfigMap | `<release>-group-mapping` | `group-mapping.json` at `/etc/config` |
+| Session Secret / VaultStaticSecret / ExternalSecret | `<release>-session-secret` | oauth-proxy session cookie secret (`sessionSecret.mode`) |
+| Venafi Credentials Secret / VaultStaticSecret / ExternalSecret | `<release>-venafi-credentials` | Venafi TPP credentials referenced by `<release>-issuer` (`venafi.credentialsSecret.mode`) |
+| Issuer | `<release>-issuer` | Namespace-scoped `cert-manager.io/v1` Venafi TPP `Issuer` (`venafi.enabled`) |
+| Certificate + TLS Secret | `<release>-cert` → `<release>-tls` | `cert-manager.io/v1` `Certificate` (Venafi `custom-fields`, cluster + GSLB SANs, X.509 `subject`) |
+| Role + RoleBinding | `<release>-router-tls` | Grants `openshift-ingress/router` read/watch access on `<release>-tls` for automatic renewal reload |
+| ServiceAccount | `<release>` | OAuth client + redirect URI / Route reference |
+| NetworkPolicy | `<release>` | Ingress 8443 (optional) |
 
 Cluster-scoped RBAC is **not** in the chart. Apply once as cluster-admin:
 
@@ -139,16 +144,14 @@ sessionSecret:
   mode: secret
 ```
 
-## TLS Certificate (Venafi + cert-manager + GSLB SAN)
+## TLS Issuer & Certificate (Venafi TPP + cert-manager + GSLB SAN)
 
-When `venafi.enabled: true` (configured in `values-deploy.yaml`), the chart renders `templates/certificate.yaml` (`cert-manager.io/v1` `Certificate`) with:
+When `venafi.enabled: true`, the chart automatically creates all PKI resources named after `.Release.Name` (zero manual secret/issuer/certificate names required in `values.yaml`):
 
-* **`venafi.cert-manager.io/custom-fields` JSON annotation:** `Technical Owner`, `Environment`, and `Application Name`.
-* **Automatic `edev` vs `nprd`/`prd` SANs (`spec.dnsNames`):**
-  * Always includes `venafi.hostname` (cluster Route hostname, used as `commonName`).
-  * Whenever `environmentName != "edev"` (for example `nprd` or `prd`), automatically appends `venafi.gslbHostname` (the GSLB / F5 GTM vanity hostname shared across Primary and DR clusters).
-* **Rotation & Renewal:** Defaults to `duration: 17520h`, `renewBefore: 17448h`, and `privateKey.rotationPolicy: Always`.
-* **OpenShift Route `externalCertificate` Wiring (`venafi.attachToRoute: true`):** References `venafi.tlsCertificateSecretName` on `Route.spec.tls.externalCertificate` and creates a namespace-scoped `Role` + `RoleBinding` allowing `system:serviceaccount:openshift-ingress:router` to watch and hot-reload the TLS Secret on renewal. Set `venafi.attachToRoute: false` if TLS is terminated externally or copied via `cert-utils-operator`.
+1. **`<release>-venafi-credentials`** (`VaultStaticSecret`, `ExternalSecret`, or `Secret` via `venafi.credentialsSecret.mode`).
+2. **`<release>-issuer`** (`templates/issuer.yaml` — `cert-manager.io/v1` `Issuer` pointing at `venafi.zone` and `venafi.tpp.url`).
+3. **`<release>-cert` → `<release>-tls`** (`templates/certificate.yaml` — `cert-manager.io/v1` `Certificate` with `venafi.cert-manager.io/custom-fields`, `Application Name` defaulted to `<release>`, cluster `hostname` SAN, plus `gslbHostname` SAN whenever `environmentName != "edev"`).
+4. **`<release>-router-tls` + `Route.spec.tls.externalCertificate`** (`venafi.attachToRoute: true` — allows `system:serviceaccount:openshift-ingress:router` to watch `<release>-tls` and hot-reload on renewal).
 
 ```yaml
 environmentName: nprd
@@ -157,17 +160,18 @@ venafi:
   enabled: true
   hostname: devspaces-redirector.apps.dc1.example.com
   gslbHostname: devspaces-redirector.example.com
-  issuerKind: Issuer
-  issuerName: venafi-tpp-issuer
-  tlsCertificateSecretName: devspaces-redirector-tls
-  duration: 17520h
-  renewBefore: 17448h
-  privateKeyRotationPolicy: Always
-  attachToRoute: true
+  zone: "VED\\Policy\\Certificates\\DevSpaces"
+  tpp:
+    url: https://tpp.example.com/vedsdk
+  credentialsSecret:
+    mode: vaultStaticSecret
+    vaultStaticSecret:
+      type: kv-v2
+      mount: secrets
+      path: venafi/tpp
+      vaultAuthRef: default
   customFields:
     technicalOwner: "Platform Engineering"
-    environment: "nprd"
-    applicationName: "devspaces-multicluster-redirector"
   subject:
     countries:
       - US
