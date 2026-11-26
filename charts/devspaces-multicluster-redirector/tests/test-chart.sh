@@ -223,8 +223,8 @@ helm template mcr "$CHART" \
   --set "groupMapping.payments-devs\,pci-cleared=https://devspaces.apps.pci.example.com" \
   --namespace devspaces-redirector >"$GRP_OUT"
 for pat in \
-  '"cluster-a-devs":"https://devspaces.apps.cluster-a.example.com"' \
-  '"payments-devs,pci-cleared":"https://devspaces.apps.pci.example.com"'
+  '"cluster-a-devs": "https://devspaces.apps.cluster-a.example.com"' \
+  '"payments-devs,pci-cleared": "https://devspaces.apps.pci.example.com"'
 do
   grep -Fq -- "$pat" "$GRP_OUT" || { echo "FAIL groupMapping missing: $pat"; fail=1; }
 done
@@ -242,9 +242,9 @@ helm template mcr "$CHART" \
   --set "datacenters.dc2.groups[0]=corp_nprd_lending_devs" \
   --namespace devspaces-redirector >"$DC_OUT"
 for pat in \
-  '"corp_nprd_devspaces_users,corp_nprd_payments_devs":"https://devspaces.apps.dc1.example.com"' \
-  '"corp_nprd_devspaces_users,corp_nprd_channels_devs":"https://devspaces.apps.dc1.example.com"' \
-  '"corp_nprd_lending_devs":"https://devspaces.apps.dc2.example.com"'
+  '"corp_nprd_devspaces_users,corp_nprd_payments_devs": "https://devspaces.apps.dc1.example.com"' \
+  '"corp_nprd_devspaces_users,corp_nprd_channels_devs": "https://devspaces.apps.dc1.example.com"' \
+  '"corp_nprd_lending_devs": "https://devspaces.apps.dc2.example.com"'
 do
   grep -Fq -- "$pat" "$DC_OUT" || { echo "FAIL datacenters rendering missing: $pat"; fail=1; }
 done
