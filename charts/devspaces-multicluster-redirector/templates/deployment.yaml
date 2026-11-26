@@ -50,6 +50,11 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+          env:
+            - name: KUBERNETES_REQUEST_TIMEOUT
+              value: {{ ((.Values.kubernetesClient).requestTimeoutMs | default 60000) | toString | quote }}
+            - name: KUBERNETES_CONNECTION_TIMEOUT
+              value: {{ ((.Values.kubernetesClient).connectionTimeoutMs | default 30000) | toString | quote }}
           readinessProbe:
             httpGet:
               path: /hello

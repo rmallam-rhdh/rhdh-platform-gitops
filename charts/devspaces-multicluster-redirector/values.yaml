@@ -32,11 +32,11 @@ pdb:
 resources:
   redirector:
     requests:
-      cpu: 50m
-      memory: 128Mi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: "2"
+      memory: 1Gi
   oauthProxy:
     requests:
       cpu: 20m
@@ -44,6 +44,12 @@ resources:
     limits:
       cpu: 200m
       memory: 128Mi
+
+# Fabric8 Kubernetes/OpenShift client timeouts (ms) for `GET /apis/user.openshift.io/v1/groups`.
+# Enterprise clusters with thousands of AD-synced OpenShift Groups can exceed Fabric8's 10000ms default.
+kubernetesClient:
+  requestTimeoutMs: 60000
+  connectionTimeoutMs: 30000
 
 # Structured Datacenter / Cluster Routing (Recommended for IDP Teams):
 # Define each Dev Spaces datacenter/cluster URL once (`url`), optional base
