@@ -45,11 +45,13 @@ resources:
       cpu: 200m
       memory: 128Mi
 
-# Fabric8 Kubernetes/OpenShift client timeouts (ms) for `GET /apis/user.openshift.io/v1/groups`.
-# Enterprise clusters with thousands of AD-synced OpenShift Groups can exceed Fabric8's 10000ms default.
+# Fabric8 Kubernetes/OpenShift client timeouts (ms) + Netty 4.2 / Quarkus 3.39 CleanerJava9 workaround (quarkusio/quarkus#53309).
+# `--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true` activates Netty's `DirectCleaner`
+# instead of the broken `CleanerJava9` fallback on Java 17, and `-Dio.netty.noPreferDirect=true` prefers heap buffers.
 kubernetesClient:
   requestTimeoutMs: 60000
   connectionTimeoutMs: 30000
+  javaToolOptions: "--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true -Dio.netty.noPreferDirect=true -Dio.netty.maxDirectMemory=268435456"
 
 # Structured Datacenter / Cluster Routing (Recommended for IDP Teams):
 # Define each Dev Spaces datacenter/cluster URL once (`url`), optional base
