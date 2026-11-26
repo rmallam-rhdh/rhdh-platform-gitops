@@ -1,10 +1,41 @@
 # Per-cluster overrides. Edit in place — do not add values-<cluster>.yaml.
 #
+# Environment (`edev` omits GSLB SAN; `nprd` / `prd` includes both cluster hostname + gslbHostname SANs).
+environmentName: nprd
+
 # After first sync, set route.host (or oauthCallbackUrl) to the Route URL so
 # OAuth works if oauthRedirectReference is disabled.
 route:
   host: ""
   oauthCallbackUrl: ""
+
+# Venafi / cert-manager Certificate (`cert-manager.io/v1`) for the Redirector Route & GSLB endpoint.
+venafi:
+  enabled: true
+  hostname: devspaces-redirector.apps.dc1.example.com
+  gslbHostname: devspaces-redirector.example.com
+  issuerKind: Issuer
+  issuerName: venafi-tpp-issuer
+  tlsCertificateSecretName: devspaces-redirector-tls
+  duration: 17520h
+  renewBefore: 17448h
+  privateKeyRotationPolicy: Always
+  attachToRoute: true
+  customFields:
+    technicalOwner: "Platform Engineering"
+    environment: "nprd"
+    applicationName: "devspaces-multicluster-redirector"
+  subject:
+    countries:
+      - US
+    localities:
+      - San Francisco
+    organizationalUnits:
+      - Platform Engineering
+    organizations:
+      - Acme Corp
+    provinces:
+      - California
 
 # Pull oauth-proxy session cookie secret from HashiCorp Vault via VaultStaticSecret.
 # Seed in Vault once (use the SAME secret across Primary and DR clusters):

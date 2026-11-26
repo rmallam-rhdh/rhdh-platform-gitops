@@ -23,6 +23,8 @@ spec:
       parameters:
         - name: sessionSecret.mode
           value: secret
+        - name: venafi.enabled
+          value: "false"
   destination:
     server: https://kubernetes.default.svc
     namespace: devspaces-redirector

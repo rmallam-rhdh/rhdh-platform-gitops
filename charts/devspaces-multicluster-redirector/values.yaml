@@ -81,8 +81,13 @@ datacenters: {}
 # Direct key -> URL overrides (merged with `datacenters` above; useful for one-off rules).
 groupMapping: {}
 
+# Deployment environment name (`edev`, `nprd`, `prd`).
+# When `venafi.enabled: true` and `environmentName != "edev"`, `venafi.gslbHostname`
+# is automatically added as a second SAN in `spec.dnsNames` on the Certificate.
+environmentName: edev
+
 route:
-  # Empty host → OpenShift assigns <name>-<ns>.apps.<cluster>.
+  # Empty host → OpenShift assigns <name>-<ns>.apps.<cluster> (or falls back to venafi.hostname when venafi.enabled=true).
   host: ""
   # Set after the Route host is known (or set host above and leave empty to derive).
   # Used for SA oauth-redirecturi when oauthRedirectReference is false.
@@ -92,6 +97,49 @@ route:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+    # Optional existing TLS Secret name for Route spec.tls.externalCertificate when venafi.enabled=false.
+    externalCertificateSecretName: ""
+
+# Venafi / cert-manager Certificate (`cert-manager.io/v1`) for the Redirector Route & GSLB endpoint.
+venafi:
+  enabled: false
+  # Optional Certificate CR name (defaults to `namespace`, e.g. `devspaces-redirector`).
+  certificateName: ""
+  # Cluster-specific Route hostname (used as commonName and first SAN; falls back to route.host if empty).
+  hostname: ""
+  # GSLB / GTM multi-cluster vanity hostname (added to dnsNames whenever environmentName != "edev").
+  gslbHostname: ""
+  issuerKind: Issuer
+  issuerName: venafi-tpp-issuer
+  tlsCertificateSecretName: devspaces-redirector-tls
+  duration: 17520h
+  renewBefore: 17448h
+  privateKeyRotationPolicy: Always
+  # When true, wires `spec.tls.externalCertificate.name` on the OpenShift Route and creates a
+  # namespace-scoped Role/RoleBinding allowing `openshift-ingress/router` to read the TLS Secret.
+  attachToRoute: true
+  annotations: {}
+  customFields:
+    technicalOwner: "Platform Engineering"
+    # Defaults to `environmentName` when empty.
+    environment: ""
+    # Defaults to chart fullname (`devspaces-multicluster-redirector`) when empty.
+    applicationName: "devspaces-multicluster-redirector"
+  secretTemplate:
+    labels:
+      app.kubernetes.io/part-of: idp-platform
+      app.kubernetes.io/component: multicluster-redirector
+  subject:
+    countries:
+      - US
+    localities:
+      - San Francisco
+    organizationalUnits:
+      - Platform Engineering
+    organizations:
+      - Acme Corp
+    provinces:
+      - California
 
 # OAuth-proxy cookie encryption secret (must be >= 16 bytes; share the same Vault
 # secret across Primary and DR redirector instances behind a GTM / load balancer).

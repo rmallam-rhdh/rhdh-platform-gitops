@@ -2,7 +2,7 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: {{ include "mcr.fullname" . }}
-  namespace: {{ .Values.namespace }}
+  namespace: {{ include "mcr.namespace" . }}
   labels:
     {{- include "mcr.labels" . | nindent 4 }}
     {{- with .Values.routeLabels }}
@@ -16,6 +16,8 @@ metadata:
 spec:
   {{- if .Values.route.host }}
   host: {{ .Values.route.host | quote }}
+  {{- else if and .Values.venafi.enabled .Values.venafi.hostname }}
+  host: {{ .Values.venafi.hostname | quote }}
   {{- end }}
   to:
     kind: Service
@@ -26,4 +28,11 @@ spec:
   tls:
     termination: {{ .Values.route.tls.termination }}
     insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy }}
+    {{- if and .Values.venafi.enabled .Values.venafi.attachToRoute }}
+    externalCertificate:
+      name: {{ include "mcr.tlsCertificateSecretName" . }}
+    {{- else if .Values.route.tls.externalCertificateSecretName }}
+    externalCertificate:
+      name: {{ .Values.route.tls.externalCertificateSecretName }}
+    {{- end }}
   wildcardPolicy: None

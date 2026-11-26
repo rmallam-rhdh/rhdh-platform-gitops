@@ -1,0 +1,42 @@
+{{- if and .Values.venafi.enabled .Values.venafi.attachToRoute }}
+# Allows the OpenShift Ingress Router (openshift-ingress/router) to read and hot-reload
+# the TLS Secret minted by cert-manager when referenced via Route spec.tls.externalCertificate.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mcr.fullname" . }}-router-tls
+  namespace: {{ include "mcr.namespace" . }}
+  labels:
+    {{- include "mcr.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - {{ include "mcr.tlsCertificateSecretName" . }}
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mcr.fullname" . }}-router-tls
+  namespace: {{ include "mcr.namespace" . }}
+  labels:
+    {{- include "mcr.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "mcr.fullname" . }}-router-tls
+subjects:
+  - kind: ServiceAccount
+    name: router
+    namespace: openshift-ingress
+{{- end }}

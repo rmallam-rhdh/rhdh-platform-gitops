@@ -12,7 +12,8 @@ Upstream OpenShift manifests (no official Helm chart): [redhat-developer/devspac
 |---|---|
 | Deployment | Quarkus redirector (`/hello` HTTP probes) + oauth-proxy (`/oauth/healthz` HTTP probes) with `restricted-v2` securityContext and anti-affinity |
 | PodDisruptionBudget | Keeps at least `pdb.minAvailable` (default `1`) pod available when `replicas > 1` |
-| Service + Route (edge TLS) | Public entry |
+| Service + Route (edge TLS) | Public entry (supports `externalCertificate` from Venafi / cert-manager) |
+| Certificate + Role/RoleBinding | Optional `cert-manager.io/v1` `Certificate` (Venafi `custom-fields`, cluster + GSLB SANs, X.509 `subject`) and `openshift-ingress/router` TLS Secret reader RBAC (`venafi.enabled`) |
 | ConfigMap | `group-mapping.json` at `/etc/config` |
 | VaultStaticSecret / ExternalSecret / Secret | oauth-proxy session cookie secret (controlled by `sessionSecret.mode`; defaults to `vaultStaticSecret` from HashiCorp Vault) |
 | ServiceAccount | OAuth client + redirect URI / Route reference |
@@ -136,6 +137,48 @@ Generates a Kubernetes `Secret` via Helm `lookup` (paired with `ignoreDifference
 ```yaml
 sessionSecret:
   mode: secret
+```
+
+## TLS Certificate (Venafi + cert-manager + GSLB SAN)
+
+When `venafi.enabled: true` (configured in `values-deploy.yaml`), the chart renders `templates/certificate.yaml` (`cert-manager.io/v1` `Certificate`) with:
+
+* **`venafi.cert-manager.io/custom-fields` JSON annotation:** `Technical Owner`, `Environment`, and `Application Name`.
+* **Automatic `edev` vs `nprd`/`prd` SANs (`spec.dnsNames`):**
+  * Always includes `venafi.hostname` (cluster Route hostname, used as `commonName`).
+  * Whenever `environmentName != "edev"` (for example `nprd` or `prd`), automatically appends `venafi.gslbHostname` (the GSLB / F5 GTM vanity hostname shared across Primary and DR clusters).
+* **Rotation & Renewal:** Defaults to `duration: 17520h`, `renewBefore: 17448h`, and `privateKey.rotationPolicy: Always`.
+* **OpenShift Route `externalCertificate` Wiring (`venafi.attachToRoute: true`):** References `venafi.tlsCertificateSecretName` on `Route.spec.tls.externalCertificate` and creates a namespace-scoped `Role` + `RoleBinding` allowing `system:serviceaccount:openshift-ingress:router` to watch and hot-reload the TLS Secret on renewal. Set `venafi.attachToRoute: false` if TLS is terminated externally or copied via `cert-utils-operator`.
+
+```yaml
+environmentName: nprd
+
+venafi:
+  enabled: true
+  hostname: devspaces-redirector.apps.dc1.example.com
+  gslbHostname: devspaces-redirector.example.com
+  issuerKind: Issuer
+  issuerName: venafi-tpp-issuer
+  tlsCertificateSecretName: devspaces-redirector-tls
+  duration: 17520h
+  renewBefore: 17448h
+  privateKeyRotationPolicy: Always
+  attachToRoute: true
+  customFields:
+    technicalOwner: "Platform Engineering"
+    environment: "nprd"
+    applicationName: "devspaces-multicluster-redirector"
+  subject:
+    countries:
+      - US
+    localities:
+      - San Francisco
+    organizationalUnits:
+      - Platform Engineering
+    organizations:
+      - Acme Corp
+    provinces:
+      - California
 ```
 
 ## Deploy

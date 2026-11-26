@@ -20,6 +20,23 @@ for pat in \
   "kind: Deployment" \
   "kind: Service" \
   "kind: Route" \
+  "apiVersion: cert-manager.io/v1" \
+  "kind: Certificate" \
+  "venafi.cert-manager.io/custom-fields:" \
+  "\"name\": \"Technical Owner\"" \
+  "\"name\": \"Environment\"" \
+  "\"name\": \"Application Name\"" \
+  "commonName: \"devspaces-redirector.apps.dc1.example.com\"" \
+  "- \"devspaces-redirector.apps.dc1.example.com\"" \
+  "- \"devspaces-redirector.example.com\"" \
+  "duration: 17520h" \
+  "renewBefore: 17448h" \
+  "rotationPolicy: Always" \
+  "name: venafi-tpp-issuer" \
+  "secretName: devspaces-redirector-tls" \
+  "externalCertificate:" \
+  "name: devspaces-redirector-tls" \
+  "name: devspaces-multicluster-redirector-router-tls" \
   "kind: ConfigMap" \
   "apiVersion: secrets.hashicorp.com/v1beta1" \
   "kind: VaultStaticSecret" \
@@ -342,6 +359,49 @@ if ! grep -Fq 'Allow all egress' "$OUT"; then
   echo "FAIL NetworkPolicy egress comment must describe allow-all"
   fail=1
 fi
+
+# Venafi Certificate: edev omits gslbHostname SAN; non-edev requires gslbHostname.
+EDEV_CERT="$(mktemp)"
+helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  -f "$CHART/values-deploy.yaml" \
+  --set environmentName=edev \
+  --set venafi.gslbHostname="" \
+  --namespace devspaces-redirector >"$EDEV_CERT"
+if ! grep -Fq 'commonName: "devspaces-redirector.apps.dc1.example.com"' "$EDEV_CERT"; then
+  echo "FAIL edev Certificate missing commonName"
+  fail=1
+fi
+if grep -Fq 'devspaces-redirector.example.com' "$EDEV_CERT"; then
+  echo "FAIL edev Certificate must omit gslbHostname SAN"
+  fail=1
+fi
+rm -f "$EDEV_CERT"
+
+if helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  -f "$CHART/values-deploy.yaml" \
+  --set environmentName=nprd \
+  --set venafi.gslbHostname="" \
+  --namespace devspaces-redirector >/dev/null 2>&1; then
+  echo "FAIL expected template error when environmentName!=edev and venafi.gslbHostname is empty"
+  fail=1
+fi
+
+# Venafi disabled (base values.yaml or lab Argo override) must not render Certificate or router-tls Role.
+NO_CERT="$(mktemp)"
+helm template mcr "$CHART" \
+  -f "$CHART/values.yaml" \
+  --namespace devspaces-redirector >"$NO_CERT"
+if grep -Eq '^kind: Certificate$' "$NO_CERT"; then
+  echo "FAIL Certificate must not render when venafi.enabled=false"
+  fail=1
+fi
+if grep -Fq "devspaces-multicluster-redirector-router-tls" "$NO_CERT"; then
+  echo "FAIL router-tls Role/RoleBinding must not render when venafi.enabled=false"
+  fail=1
+fi
+rm -f "$NO_CERT"
 
 if [[ "$fail" -ne 0 ]]; then
   echo "FAIL chart tests"

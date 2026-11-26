@@ -83,7 +83,69 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .Values.route.oauthCallbackUrl -}}
 {{- else if .Values.route.host -}}
 https://{{ .Values.route.host }}/oauth/callback
+{{- else if and .Values.venafi.enabled .Values.venafi.hostname -}}
+https://{{ .Values.venafi.hostname }}/oauth/callback
 {{- else -}}
-{{- fail "route.oauthRedirectReference=false requires route.oauthCallbackUrl or route.host" -}}
+{{- fail "route.oauthRedirectReference=false requires route.oauthCallbackUrl, route.host, or venafi.hostname" -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "mcr.namespace" -}}
+{{- default .Release.Namespace .Values.namespace -}}
+{{- end -}}
+
+{{- define "mcr.environmentName" -}}
+{{- .Values.environmentName | default .Values.venafi.environmentName | default "edev" | trim -}}
+{{- end -}}
+
+{{- define "mcr.hostname" -}}
+{{- $host := .Values.venafi.hostname | default .Values.route.host | trim -}}
+{{- if not $host -}}
+{{- fail "venafi.enabled=true requires venafi.hostname or route.host" -}}
+{{- end -}}
+{{- $host -}}
+{{- end -}}
+
+{{- define "mcr.gslbhostname" -}}
+{{- $gslb := .Values.venafi.gslbHostname | trim -}}
+{{- if not $gslb -}}
+{{- fail "venafi.enabled=true with environmentName != \"edev\" requires venafi.gslbHostname" -}}
+{{- end -}}
+{{- $gslb -}}
+{{- end -}}
+
+{{- define "mcr.certificateName" -}}
+{{- default (include "mcr.namespace" .) (.Values.venafi.certificateName | trim) -}}
+{{- end -}}
+
+{{- define "mcr.venafiIssuerName" -}}
+{{- $issuer := .Values.venafi.issuerName | trim -}}
+{{- if not $issuer -}}
+{{- fail "venafi.enabled=true requires venafi.issuerName" -}}
+{{- end -}}
+{{- $issuer -}}
+{{- end -}}
+
+{{- define "mcr.tlsCertificateSecretName" -}}
+{{- $sec := .Values.venafi.tlsCertificateSecretName | trim -}}
+{{- if not $sec -}}
+{{- fail "venafi.enabled=true requires venafi.tlsCertificateSecretName" -}}
+{{- end -}}
+{{- $sec -}}
+{{- end -}}
+
+{{- define "mcr.venafiTechnicalOwner" -}}
+{{- $owner := .Values.venafi.customFields.technicalOwner | trim -}}
+{{- if not $owner -}}
+{{- fail "venafi.enabled=true requires venafi.customFields.technicalOwner" -}}
+{{- end -}}
+{{- $owner -}}
+{{- end -}}
+
+{{- define "mcr.venafiEnvironment" -}}
+{{- .Values.venafi.customFields.environment | default (include "mcr.environmentName" .) | trim -}}
+{{- end -}}
+
+{{- define "mcr.venafiApplicationName" -}}
+{{- .Values.venafi.customFields.applicationName | default (include "mcr.fullname" .) | trim -}}
 {{- end -}}

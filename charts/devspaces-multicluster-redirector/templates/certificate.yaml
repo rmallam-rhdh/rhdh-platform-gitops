@@ -1,0 +1,73 @@
+{{- if .Values.venafi.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    venafi.cert-manager.io/custom-fields: |-
+      [
+        {"name": "Technical Owner", "value": {{ include "mcr.venafiTechnicalOwner" . | quote }}},
+        {"name": "Environment", "value": {{ include "mcr.venafiEnvironment" . | quote }}},
+        {"name": "Application Name", "value": {{ include "mcr.venafiApplicationName" . | quote }}}
+      ]
+    {{- with .Values.venafi.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "mcr.labels" . | nindent 4 }}
+  name: {{ include "mcr.certificateName" . }}
+  namespace: {{ include "mcr.namespace" . }}
+spec:
+  commonName: {{ include "mcr.hostname" . | quote }}
+  dnsNames:
+    - {{ include "mcr.hostname" . | quote }}
+    {{- if ne (include "mcr.environmentName" .) "edev" }}
+    - {{ include "mcr.gslbhostname" . | quote }}
+    {{- end }}
+  duration: {{ .Values.venafi.duration | default "17520h" }}
+  issuerRef:
+    kind: {{ .Values.venafi.issuerKind | default "Issuer" }}
+    name: {{ include "mcr.venafiIssuerName" . }}
+  privateKey:
+    rotationPolicy: {{ .Values.venafi.privateKeyRotationPolicy | default "Always" }}
+  renewBefore: {{ .Values.venafi.renewBefore | default "17448h" }}
+  secretName: {{ include "mcr.tlsCertificateSecretName" . }}
+  {{- with .Values.venafi.secretTemplate }}
+  secretTemplate:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.venafi.subject }}
+  subject:
+    {{- if .countries }}
+    countries:
+      {{- range .countries }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
+    {{- if .localities }}
+    localities:
+      {{- range .localities }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
+    {{- if .organizationalUnits }}
+    organizationalUnits:
+      {{- range .organizationalUnits }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
+    {{- if .organizations }}
+    organizations:
+      {{- range .organizations }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
+    {{- if .provinces }}
+    provinces:
+      {{- range .provinces }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
