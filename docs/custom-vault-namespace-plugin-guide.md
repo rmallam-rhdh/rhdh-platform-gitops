@@ -2,6 +2,8 @@
 
 This guide covers how to build, package, deploy, and configure the custom Red Hat Developer Hub (RHDH) **Vault Enterprise Namespace** dynamic plugins (`@internal/plugin-vault-namespace` and `@internal/plugin-vault-namespace-backend`) stored in [`plugins/`](../plugins/), as well as how to configure **HashiCorp Vault Enterprise Kubernetes Auth**, **least-privilege `kv/metadata/*` HCL policies**, and **`catalog-info.yaml` entity annotations**.
 
+> **Customer Bitbucket Fork Option:** If you cannot copy pre-built `.tgz` archives into a customer environment and must fork `@backstage-community/plugin-vault@0.19.0` into customer Bitbucket and apply the changes in source code, follow the complete copy-paste guide in [`docs/vault-plugin-bitbucket-fork-guide.md`](./vault-plugin-bitbucket-fork-guide.md).
+
 ---
 
 ## 1. Architecture Overview & Comparison
