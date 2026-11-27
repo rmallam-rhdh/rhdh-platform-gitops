@@ -130,274 +130,249 @@ const providers = [
 Without overriding `scmAuthApiRef` (`core.scmauth`), using `requestUserCredentials` in `RepoUrlPicker` for a Bitbucket Data Center host fails in the browser with:
 `No auth provider available for 'https://bitbucket.example.com', see https://backstage.io/link?scm-auth`
 
-Because RHDH 1.10's `DynamicRoot.tsx` allows any dynamic frontend plugin to register `apiFactories` that replace built-in API refs by ID (`core.scmauth`), we can add Bitbucket Data Center OAuth popup support cleanly via a **zero-dependency dynamic frontend plugin** (`@internal/plugin-bitbucket-server-scmauth-dynamic`) — **no rebuild of the RHDH container image is required**.
+Because RHDH 1.10's `DynamicRoot.tsx` allows any dynamic frontend plugin to register `apiFactories` that replace built-in API refs by ID (`core.scmauth`), we add Bitbucket Data Center OAuth popup support cleanly via a **standard Backstage `1.49.2` TypeScript dynamic frontend plugin** (`@internal/plugin-bitbucket-server-scmauth`) built and exported with `@red-hat-developer-hub/cli@1.10.8` — **the exact same workflow used for Snyk, DX, and custom enterprise RHDH plugins, with zero rebuild of the RHDH container image**.
 
 ---
 
-### 3.2 Step-by-Step: Create the Plugin Files from Scratch on Any Workstation or CI Runner
+### 3.2 Plugin Source Code & Build Workflow (Alongside Snyk / DX or Standalone)
 
-You do **not** need a full Backstage monorepo or TypeScript compiler to build this plugin because it is a self-contained Webpack/Scalprum entry bundle (`__load_plugin_entry__`) with zero external npm runtime dependencies. Only `npm` (or `tar`) and `openssl` are required.
+The full, compile-tested TypeScript source lives in [`plugins/bitbucket-server-scmauth/`](../plugins/bitbucket-server-scmauth/) in this repository.
 
-#### Step 1: Create the Directory Structure
-```bash
-mkdir -p plugins/bitbucket-server-scmauth/dist-scalprum plugins/dist
-```
+- **Recommended (Customer Already Packages Snyk & DX Plugins):** Copy the `plugins/bitbucket-server-scmauth/` folder directly into `plugins/bitbucket-server-scmauth/` of your existing Backstage `1.49.x` / RHDH `1.10` dynamic-plugin packaging repository so CI builds, tests, exports, and packages it alongside Snyk and DX in one pipeline.
+- **Alternative (Standalone Repository):** Include the 4 workspace root files (`plugins/backstage.json`, `plugins/.yarnrc.yml`, `plugins/package.json`, `plugins/tsconfig.json`) if hosting it in its own Git repository.
 
-#### Step 2: Create `plugins/bitbucket-server-scmauth/package.json`
-```bash
-cat << 'EOF' > plugins/bitbucket-server-scmauth/package.json
+#### File 1: `plugins/bitbucket-server-scmauth/package.json`
+```json
 {
-  "name": "@internal/plugin-bitbucket-server-scmauth-dynamic",
+  "name": "@internal/plugin-bitbucket-server-scmauth",
   "version": "0.1.0",
-  "description": "RHDH 1.10 ScmAuth API Factory override adding Bitbucket Data Center (bitbucketServer) OAuth popup support to RepoUrlPicker",
+  "description": "RHDH 1.10 dynamic frontend plugin registering Bitbucket Data Center (bitbucketServer) alongside standard providers in ScmAuth",
   "license": "Apache-2.0",
-  "main": "dist-scalprum/internal.plugin-bitbucket-server-scmauth.js",
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "configSchema": "config.d.ts",
   "files": [
-    "dist-scalprum"
+    "dist",
+    "config.d.ts"
   ],
   "backstage": {
     "role": "frontend-plugin",
     "pluginId": "bitbucket-server-scmauth",
-    "supported-versions": "1.49.4"
+    "pluginPackages": [
+      "@internal/plugin-bitbucket-server-scmauth"
+    ]
+  },
+  "scalprum": {
+    "name": "internal.plugin-bitbucket-server-scmauth",
+    "exposedModules": {
+      "PluginRoot": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "backstage-cli package build",
+    "clean": "backstage-cli package clean",
+    "export-dynamic": "npx @red-hat-developer-hub/cli@1.10.8 plugin export",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test"
+  },
+  "dependencies": {
+    "@backstage/core-plugin-api": "backstage:^",
+    "@backstage/integration-react": "backstage:^"
+  },
+  "devDependencies": {
+    "@backstage/cli": "backstage:^",
+    "@backstage/config": "backstage:^",
+    "@types/react": "^18.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "peerDependencies": {
+    "react": "^16.13.1 || ^17.0.0 || ^18.0.0"
   }
 }
-EOF
 ```
 
-#### Step 3: Create `plugins/bitbucket-server-scmauth/dist-scalprum/configSchema.json`
-```bash
-cat << 'EOF' > plugins/bitbucket-server-scmauth/dist-scalprum/configSchema.json
-{}
-EOF
-```
+#### File 2: `plugins/bitbucket-server-scmauth/config.d.ts`
+Exposes optional runtime OAuth scope overrides (`@visibility frontend`) so scopes can even be adjusted in `app-config.yaml` later without modifying TypeScript or rebuilding the plugin:
+```typescript
+export interface Config {
+  auth?: {
+    bitbucketServer?: {
+      /**
+       * Optional OAuth 2.0 scope overrides for Bitbucket Data Center ScmAuth.
+       *
+       * @visibility frontend
+       */
+      scopeMapping?: {
+        /**
+         * Default read scopes requested by ScmAuth for Bitbucket Data Center.
+         * Defaults to `['PUBLIC_REPOS', 'REPO_READ']`.
+         *
+         * @visibility frontend
+         */
+        default?: string[];
 
-#### Step 4: Create `plugins/bitbucket-server-scmauth/dist-scalprum/plugin-manifest.json`
-```bash
-cat << 'EOF' > plugins/bitbucket-server-scmauth/dist-scalprum/plugin-manifest.json
-{
-  "name": "internal.plugin-bitbucket-server-scmauth",
-  "version": "0.1.0",
-  "extensions": [],
-  "registrationMethod": "callback",
-  "baseURL": "auto",
-  "loadScripts": [
-    "internal.plugin-bitbucket-server-scmauth.js"
-  ],
-  "buildHash": "bbserverscmauth010rhdh110"
+        /**
+         * Additional write scopes requested when `repoWrite: true` is set
+         * (for example, Scaffolder repository creation and Pull Requests).
+         * Defaults to `['REPO_WRITE', 'PROJECT_ADMIN']`.
+         *
+         * @visibility frontend
+         */
+        repoWrite?: string[];
+      };
+    };
+  };
 }
-EOF
 ```
 
-#### Step 5: Create `plugins/bitbucket-server-scmauth/dist-scalprum/internal.plugin-bitbucket-server-scmauth.js`
-```bash
-cat << 'EOF' > plugins/bitbucket-server-scmauth/dist-scalprum/internal.plugin-bitbucket-server-scmauth.js
-/* RHDH 1.10 ScmAuth API Factory Dynamic Frontend Plugin (Adds Bitbucket Data Center / bitbucketServer OAuth support) */
-__load_plugin_entry__(
-  "internal.plugin-bitbucket-server-scmauth",
-  (function () {
-    "use strict";
+#### File 3: `plugins/bitbucket-server-scmauth/src/plugin.ts`
+Uses upstream `@backstage/integration-react` (`ScmAuth.forBitbucketServer`, `ScmAuth.forGithub`, `ScmAuth.forGitlab`, `ScmAuth.forAzure`, `ScmAuth.forBitbucket`, `ScmAuth.merge`):
+```typescript
+import {
+  bitbucketAuthApiRef,
+  bitbucketServerAuthApiRef,
+  ConfigApi,
+  configApiRef,
+  createApiFactory,
+  createPlugin,
+  githubAuthApiRef,
+  gitlabAuthApiRef,
+  microsoftAuthApiRef,
+} from '@backstage/core-plugin-api';
+import { ScmAuth, scmAuthApiRef } from '@backstage/integration-react';
 
-    function makeApiRef(id) {
-      return {
-        id: id,
-        toString: function () {
-          return "apiRef{" + id + "}";
-        },
-      };
+const DEFAULT_BITBUCKET_SERVER_READ_SCOPES = ['PUBLIC_REPOS', 'REPO_READ'];
+const DEFAULT_BITBUCKET_SERVER_WRITE_SCOPES = ['REPO_WRITE', 'PROJECT_ADMIN'];
+
+function getConfiguredHosts(
+  configApi: ConfigApi,
+  configPaths: string[],
+  defaultHost?: string,
+): string[] {
+  const hosts = new Set<string>();
+
+  for (const path of configPaths) {
+    const entries = configApi.getOptionalConfigArray(path) ?? [];
+    for (const entry of entries) {
+      const host = entry.getOptionalString('host') ?? defaultHost;
+      if (host) {
+        hosts.add(host);
+      }
     }
+  }
 
-    var scmAuthApiRef = makeApiRef("core.scmauth");
-    var githubAuthApiRef = makeApiRef("core.auth.github");
-    var gitlabAuthApiRef = makeApiRef("core.auth.gitlab");
-    var microsoftAuthApiRef = makeApiRef("core.auth.microsoft");
-    var bitbucketAuthApiRef = makeApiRef("core.auth.bitbucket");
-    var bitbucketServerAuthApiRef = makeApiRef("core.auth.bitbucket-server");
-    var configApiRef = makeApiRef("core.config");
+  if (hosts.size === 0 && defaultHost) {
+    hosts.add(defaultHost);
+  }
 
-    function createScmAuthEntry(providerName, authApi, host, scopeMapping) {
-      return {
-        isUrlSupported: function (url) {
-          return url && url.host === host;
-        },
-        getCredentials: function (options) {
-          var additionalScope = (options && options.additionalScope) || {};
-          var restOptions = {};
-          if (options) {
-            Object.keys(options).forEach(function (k) {
-              if (k !== "url" && k !== "additionalScope") {
-                restOptions[k] = options[k];
-              }
-            });
-          }
+  return Array.from(hosts);
+}
 
-          var scopes = (scopeMapping.default || []).slice();
-          if (additionalScope.repoWrite && scopeMapping.repoWrite) {
-            scopes.push.apply(scopes, scopeMapping.repoWrite);
-          }
+export const scmAuthApi = createApiFactory({
+  api: scmAuthApiRef,
+  deps: {
+    github: githubAuthApiRef,
+    gitlab: gitlabAuthApiRef,
+    azure: microsoftAuthApiRef,
+    bitbucket: bitbucketAuthApiRef,
+    bitbucketServer: bitbucketServerAuthApiRef,
+    configApi: configApiRef,
+  },
+  factory: ({
+    github,
+    gitlab,
+    azure,
+    bitbucket,
+    bitbucketServer,
+    configApi,
+  }) => {
+    const bitbucketServerDefaultScopes =
+      configApi.getOptionalStringArray(
+        'auth.bitbucketServer.scopeMapping.default',
+      ) ?? DEFAULT_BITBUCKET_SERVER_READ_SCOPES;
 
-          var customScopes = additionalScope.customScopes || {};
-          var extra =
-            customScopes[providerName] ||
-            (providerName === "bitbucketServer" ? customScopes.bitbucket : null) ||
-            [];
-          if (extra && extra.length) {
-            scopes.push.apply(scopes, extra);
-          }
+    const bitbucketServerRepoWriteScopes =
+      configApi.getOptionalStringArray(
+        'auth.bitbucketServer.scopeMapping.repoWrite',
+      ) ?? DEFAULT_BITBUCKET_SERVER_WRITE_SCOPES;
 
-          var uniqueScopes = [];
-          scopes.forEach(function (s) {
-            if (uniqueScopes.indexOf(s) === -1) {
-              uniqueScopes.push(s);
-            }
-          });
+    const providers: ScmAuth[] = [
+      ...getConfiguredHosts(
+        configApi,
+        ['integrations.github'],
+        'github.com',
+      ).map(host => ScmAuth.forGithub(github, { host })),
 
-          return Promise.resolve(authApi.getAccessToken(uniqueScopes, restOptions)).then(
-            function (token) {
-              return {
-                token: token,
-                headers: {
-                  Authorization: "Bearer " + token,
-                },
-              };
-            }
-          );
-        },
-      };
-    }
+      ...getConfiguredHosts(
+        configApi,
+        ['integrations.gitlab'],
+        'gitlab.com',
+      ).map(host => ScmAuth.forGitlab(gitlab, { host })),
 
-    function createScmAuthMux(providers) {
-      return {
-        getCredentials: function (options) {
-          var url = new URL(options.url);
-          var match = null;
-          for (var i = 0; i < providers.length; i++) {
-            if (providers[i].isUrlSupported(url)) {
-              match = providers[i];
-              break;
-            }
-          }
-          if (!match) {
-            return Promise.reject(
-              new Error(
-                "No auth provider available for '" +
-                  options.url +
-                  "', see https://backstage.io/link?scm-auth"
-              )
-            );
-          }
-          return match.getCredentials(options);
-        },
-      };
-    }
+      ...getConfiguredHosts(
+        configApi,
+        ['integrations.azure'],
+        'dev.azure.com',
+      ).map(host => ScmAuth.forAzure(azure, { host })),
 
-    var SCOPE_MAPPINGS = {
-      github: {
-        defaultHost: "github.com",
-        default: ["repo", "read:org", "read:user"],
-        repoWrite: ["gist"],
-      },
-      gitlab: {
-        defaultHost: "gitlab.com",
-        default: ["read_user", "read_api", "read_repository"],
-        repoWrite: ["write_repository", "api"],
-      },
-      azure: {
-        defaultHost: "dev.azure.com",
-        default: [
-          "499b84ac-1321-427f-aa17-267ca6975798/vso.build",
-          "499b84ac-1321-427f-aa17-267ca6975798/vso.code",
-          "499b84ac-1321-427f-aa17-267ca6975798/vso.graph",
-          "499b84ac-1321-427f-aa17-267ca6975798/vso.project",
-          "499b84ac-1321-427f-aa17-267ca6975798/vso.profile",
-        ],
-        repoWrite: ["499b84ac-1321-427f-aa17-267ca6975798/vso.code_manage"],
-      },
-      bitbucket: {
-        defaultHost: "bitbucket.org",
-        default: ["account", "team", "pullrequest", "snippet", "issue", "project"],
-        repoWrite: ["pullrequest:write", "snippet:write", "issue:write"],
-      },
-      bitbucketServer: {
-        defaultHost: null,
-        default: ["PUBLIC_REPOS", "REPO_READ"],
-        repoWrite: ["REPO_WRITE", "PROJECT_ADMIN"],
-      },
-    };
+      ...getConfiguredHosts(
+        configApi,
+        ['integrations.bitbucketCloud', 'integrations.bitbucket'],
+        'bitbucket.org',
+      ).map(host => ScmAuth.forBitbucket(bitbucket, { host })),
 
-    var scmAuthApi = {
-      api: scmAuthApiRef,
-      deps: {
-        github: githubAuthApiRef,
-        gitlab: gitlabAuthApiRef,
-        azure: microsoftAuthApiRef,
-        bitbucket: bitbucketAuthApiRef,
-        bitbucketServer: bitbucketServerAuthApiRef,
-        configApi: configApiRef,
-      },
-      factory: function (deps) {
-        var providerDefs = [
-          { key: "github", ref: deps.github, mapping: SCOPE_MAPPINGS.github },
-          { key: "gitlab", ref: deps.gitlab, mapping: SCOPE_MAPPINGS.gitlab },
-          { key: "azure", ref: deps.azure, mapping: SCOPE_MAPPINGS.azure },
-          { key: "bitbucket", ref: deps.bitbucket, mapping: SCOPE_MAPPINGS.bitbucket },
-          {
-            key: "bitbucketServer",
-            ref: deps.bitbucketServer,
-            mapping: SCOPE_MAPPINGS.bitbucketServer,
-          },
-        ];
+      ...getConfiguredHosts(configApi, ['integrations.bitbucketServer']).map(
+        host =>
+          ScmAuth.forBitbucketServer(bitbucketServer, {
+            host,
+            scopeMapping: {
+              default: bitbucketServerDefaultScopes,
+              repoWrite: bitbucketServerRepoWriteScopes,
+            },
+          }),
+      ),
+    ];
 
-        var entries = [];
-        providerDefs.forEach(function (def) {
-          var configs =
-            deps.configApi.getOptionalConfigArray("integrations." + def.key) || [];
-          if (!configs.length) {
-            if (def.mapping.defaultHost) {
-              entries.push(
-                createScmAuthEntry(def.key, def.ref, def.mapping.defaultHost, def.mapping)
-              );
-            }
-            return;
-          }
-          configs.forEach(function (c) {
-            var host = c.getString("host");
-            entries.push(createScmAuthEntry(def.key, def.ref, host, def.mapping));
-          });
-        });
+    return ScmAuth.merge(...providers);
+  },
+});
 
-        return createScmAuthMux(entries);
-      },
-    };
-
-    var exportedModule = {
-      __esModule: true,
-      default: scmAuthApi,
-      scmAuthApi: scmAuthApi,
-    };
-
-    return {
-      init: function () {
-        return Promise.resolve();
-      },
-      get: function (module) {
-        if (module === "PluginRoot" || module === "./PluginRoot" || module === ".") {
-          return Promise.resolve(function () {
-            return exportedModule;
-          });
-        }
-        return Promise.reject(new Error("Unknown exposed module: " + module));
-      },
-    };
-  })()
-);
-EOF
+export const bitbucketServerScmAuthPlugin = createPlugin({
+  id: 'bitbucket-server-scmauth',
+  apis: [scmAuthApi],
+});
 ```
 
-#### Step 6: Package the `.tgz` Archive and Calculate the `sha512` Integrity Hash
-```bash
-npm pack ./plugins/bitbucket-server-scmauth --pack-destination ./plugins/dist
+#### File 4: `plugins/bitbucket-server-scmauth/src/index.ts`
+```typescript
+export { bitbucketServerScmAuthPlugin, scmAuthApi } from './plugin';
+export { scmAuthApi as default } from './plugin';
+```
 
-INTEGRITY="sha512-$(openssl dgst -sha512 -binary plugins/dist/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz | openssl base64 -A)"
+#### File 5: Compile, Test, Export & Package with `@red-hat-developer-hub/cli@1.10.8`
+Run the exact same RHDH CLI export/package steps used for Snyk and DX:
+```bash
+# 1. Install, type-check, test, and build TypeScript source
+yarn install
+yarn tsc
+yarn --cwd plugins/bitbucket-server-scmauth test --watchAll=false
+yarn --cwd plugins/bitbucket-server-scmauth build
+
+# 2. Export RHDH 1.10 dynamic frontend bundle (generates dist-dynamic/ + dist-scalprum/)
+cd plugins/bitbucket-server-scmauth
+npx @red-hat-developer-hub/cli@1.10.8 plugin export
+
+# 3A. Package as an OCI Artifact (Recommended — matches Snyk & DX workflow):
+npx @red-hat-developer-hub/cli@1.10.8 plugin package \
+  --tag quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0
+podman push quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0
+
+# 3B. Or Package as a .tgz Archive + sha512 Integrity Hash:
+npm pack ./dist-dynamic --pack-destination ../../plugins/dist
+INTEGRITY="sha512-$(openssl dgst -sha512 -binary ../../plugins/dist/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz | openssl base64 -A)"
 echo "integrity: ${INTEGRITY}"
 ```
 
@@ -405,7 +380,7 @@ echo "integrity: ${INTEGRITY}"
 
 ### 3.3 Delivering the Plugin in the Customer Environment (3 Supported Options)
 
-In the customer OpenShift environment, RHDH's `install-dynamic-plugins` initContainer supports three ways to load `internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz`:
+In the customer OpenShift environment, RHDH's `install-dynamic-plugins` initContainer supports three ways to load the exported dynamic plugin:
 
 <table>
   <thead>
@@ -417,35 +392,22 @@ In the customer OpenShift environment, RHDH's `install-dynamic-plugins` initCont
   </thead>
   <tbody>
     <tr>
-      <td><strong>Option A: Internal Artifact Repository (JFrog Artifactory / Nexus / Raw Git URL)</strong></td>
-      <td>Upload <code>internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code> to an internal generic/npm repo in Artifactory or an internal HTTP endpoint reachable by the RHDH pod without proxy auth.</td>
+      <td><strong>Option A (Recommended): Internal OCI Container Registry (Quay / Artifactory Docker Registry — Same as Snyk &amp; DX)</strong></td>
+      <td>Package with <code>npx @red-hat-developer-hub/cli@1.10.8 plugin package --tag quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0</code> and push to the internal OCI registry.</td>
+      <td><code>oci://quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0!internal-plugin-bitbucket-server-scmauth</code><br><em>(no <code>integrity:</code> field needed for <code>oci://</code>)</em></td>
+    </tr>
+    <tr>
+      <td><strong>Option B: Internal Artifact Repository (JFrog Artifactory / Nexus / Raw Git URL)</strong></td>
+      <td>Upload <code>internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code> (produced by <code>npm pack ./dist-dynamic</code>) to an internal generic/npm repo in Artifactory.</td>
       <td><code>https://artifactory.example.com/artifactory/rhdh-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code><br><em>(with <code>integrity: sha512-...</code>)</em></td>
     </tr>
     <tr>
-      <td><strong>Option B: Internal OCI Container Registry (Quay / Artifactory Docker Registry)</strong></td>
-      <td>Package the plugin folder into an OCI image and push to the internal registry:<br><code>FROM scratch</code><br><code>COPY plugins/bitbucket-server-scmauth /internal-plugin-bitbucket-server-scmauth-dynamic</code></td>
-      <td><code>oci://quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0!internal-plugin-bitbucket-server-scmauth-dynamic</code><br><em>(no <code>integrity:</code> field needed for <code>oci://</code>)</em></td>
-    </tr>
-    <tr>
-      <td><strong>Option C: Air-Gapped ConfigMap Volume Mount (Zero External Network Dependency)</strong></td>
-      <td>Store the 2 KB <code>.tgz</code> binary in an OpenShift <code>ConfigMap</code> (<code>binaryData</code>) or build it on the fly, and mount it into the <code>install-dynamic-plugins</code> initContainer at <code>/opt/app-root/src/custom-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code>.</td>
+      <td><strong>Option C: Local Volume Mount</strong></td>
+      <td>Mount <code>internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code> into the <code>install-dynamic-plugins</code> initContainer at <code>/opt/app-root/src/custom-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code>.</td>
       <td><code>/opt/app-root/src/custom-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz</code><br><em>(with <code>integrity: sha512-...</code>)</em></td>
     </tr>
   </tbody>
 </table>
-
-#### Details for Option B (Packaging as an OCI Image for Quay / Artifactory):
-If the customer prefers `oci://` plugin delivery like Red Hat's plugins:
-```bash
-cat << 'EOF' > Dockerfile.scmauth-plugin
-FROM scratch
-COPY plugins/bitbucket-server-scmauth /internal-plugin-bitbucket-server-scmauth-dynamic
-EOF
-
-podman build -f Dockerfile.scmauth-plugin \
-  -t quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0 .
-podman push quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0
-```
 
 ---
 
@@ -493,9 +455,12 @@ plugins:
     disabled: false
 
   # 3. Bitbucket Data Center ScmAuth Frontend API Factory (Enables RepoUrlPicker OAuth Popup)
-  - package: https://artifactory.example.com/artifactory/rhdh-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz
-    integrity: sha512-ZBCQBwqz7fOK3Y8k3o+Phk8uLZrJwSckcskV+zJOiC5kbj/rJ4Wmbgi9apwb3Q1aLdpYN6+Uo3lVUtcUVOKZ1w==
+  #    Option A — OCI Registry (same workflow as Snyk & DX; omit `integrity:`):
+  - package: oci://quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0!internal-plugin-bitbucket-server-scmauth
     disabled: false
+  #    (Or Option B — HTTP .tgz with sha512 integrity:
+  #     package: https://artifactory.example.com/artifactory/rhdh-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz
+  #     integrity: sha512-nuHTgkQj7TpQaN0BFQxZYNxEI/j1nyowS1coWGriY8OCeA8TN7n5XCDw9yKY/KHLRFFzfjbD1+CyQHQ6erJBPQ== )
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -579,8 +544,11 @@ plugins:
     enabled: true
     serverScaffolder: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.49.4__0.2.19
     serverCatalog: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server:bs_1.49.4__0.5.9
-    serverScmAuthFrontendPackage: https://artifactory.example.com/artifactory/rhdh-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz
-    serverScmAuthFrontendIntegrity: sha512-ZBCQBwqz7fOK3Y8k3o+Phk8uLZrJwSckcskV+zJOiC5kbj/rJ4Wmbgi9apwb3Q1aLdpYN6+Uo3lVUtcUVOKZ1w==
+    # OCI package (same as Snyk & DX — chart automatically omits `integrity:` for oci:// URLs):
+    serverScmAuthFrontendPackage: oci://quay.apps.example.com/rhdh/plugin-bitbucket-server-scmauth:0.1.0!internal-plugin-bitbucket-server-scmauth
+    # Or if using HTTP .tgz instead of oci://:
+    # serverScmAuthFrontendPackage: https://artifactory.example.com/artifactory/rhdh-plugins/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz
+    # serverScmAuthFrontendIntegrity: sha512-nuHTgkQj7TpQaN0BFQxZYNxEI/j1nyowS1coWGriY8OCeA8TN7n5XCDw9yKY/KHLRFFzfjbD1+CyQHQ6erJBPQ==
 ```
 
 ---

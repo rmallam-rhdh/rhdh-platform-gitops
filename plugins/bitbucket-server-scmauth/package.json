@@ -1,15 +1,49 @@
 {
-  "name": "@internal/plugin-bitbucket-server-scmauth-dynamic",
+  "name": "@internal/plugin-bitbucket-server-scmauth",
   "version": "0.1.0",
-  "description": "RHDH 1.10 ScmAuth API Factory override adding Bitbucket Data Center (bitbucketServer) OAuth popup support to RepoUrlPicker",
+  "description": "RHDH 1.10 dynamic frontend plugin registering Bitbucket Data Center (bitbucketServer) alongside standard providers in ScmAuth",
   "license": "Apache-2.0",
-  "main": "dist-scalprum/internal.plugin-bitbucket-server-scmauth.js",
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "configSchema": "config.d.ts",
   "files": [
-    "dist-scalprum"
+    "dist",
+    "config.d.ts"
   ],
   "backstage": {
     "role": "frontend-plugin",
     "pluginId": "bitbucket-server-scmauth",
-    "supported-versions": "1.49.4"
+    "pluginPackages": [
+      "@internal/plugin-bitbucket-server-scmauth"
+    ]
+  },
+  "scalprum": {
+    "name": "internal.plugin-bitbucket-server-scmauth",
+    "exposedModules": {
+      "PluginRoot": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "backstage-cli package build",
+    "clean": "backstage-cli package clean",
+    "export-dynamic": "npx @red-hat-developer-hub/cli@1.10.8 plugin export",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test"
+  },
+  "dependencies": {
+    "@backstage/core-plugin-api": "backstage:^",
+    "@backstage/integration-react": "backstage:^"
+  },
+  "devDependencies": {
+    "@backstage/cli": "backstage:^",
+    "@backstage/config": "backstage:^",
+    "@types/react": "^18.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "peerDependencies": {
+    "react": "^16.13.1 || ^17.0.0 || ^18.0.0"
   }
 }

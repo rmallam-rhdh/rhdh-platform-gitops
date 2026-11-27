@@ -1,0 +1,6 @@
+node_modules/
+dist-types/
+.yarn/*
+!.yarn/plugins
+bitbucket-server-scmauth/dist/
+bitbucket-server-scmauth/dist-dynamic/

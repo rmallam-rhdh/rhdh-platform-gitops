@@ -416,7 +416,7 @@ plugins:
     cloudCatalog: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud:bs_1.49.4__0.5.9
     serverCatalog: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server:bs_1.49.4__0.5.9
     serverScmAuthFrontendPackage: https://raw.githubusercontent.com/rmallam-rhdh/rhdh-platform-gitops/main/plugins/dist/internal-plugin-bitbucket-server-scmauth-dynamic-0.1.0.tgz
-    serverScmAuthFrontendIntegrity: sha512-ZBCQBwqz7fOK3Y8k3o+Phk8uLZrJwSckcskV+zJOiC5kbj/rJ4Wmbgi9apwb3Q1aLdpYN6+Uo3lVUtcUVOKZ1w==
+    serverScmAuthFrontendIntegrity: sha512-nuHTgkQj7TpQaN0BFQxZYNxEI/j1nyowS1coWGriY8OCeA8TN7n5XCDw9yKY/KHLRFFzfjbD1+CyQHQ6erJBPQ==
 
   techdocs:
     enabled: true

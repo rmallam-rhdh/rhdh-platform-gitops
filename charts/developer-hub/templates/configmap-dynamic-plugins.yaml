@@ -82,7 +82,9 @@ data:
         disabled: {{ not .Values.plugins.bitbucket.enabled }}
       {{- if and .Values.plugins.bitbucket.enabled .Values.plugins.bitbucket.serverScmAuthFrontendPackage }}
       - package: {{ .Values.plugins.bitbucket.serverScmAuthFrontendPackage | quote }}
+        {{- if and .Values.plugins.bitbucket.serverScmAuthFrontendIntegrity (not (hasPrefix "oci://" .Values.plugins.bitbucket.serverScmAuthFrontendPackage)) }}
         integrity: {{ .Values.plugins.bitbucket.serverScmAuthFrontendIntegrity | quote }}
+        {{- end }}
         disabled: false
         pluginConfig:
           dynamicPlugins:
