@@ -169,21 +169,41 @@ member: cn=team-payments-rw,ou=groups,dc=acme,dc=demo
 member: cn=team-payments-ro,ou=groups,dc=acme,dc=demo
 ```
 
-> **Active Directory Direct Filters (No Recursive Chain OID Needed!):**
-> Because `RHDH-users` is flat (direct user members) and all RHDH team groups follow a naming prefix (`rhdh-*`), `ldapOrg` uses fast, standard indexed AD filters without needing recursive OIDs:
+> **Active Directory Direct Filters & Attribute Projection (No Recursive Chain OID Needed & Prevents Loading All AD Groups!):**
+> Because `RHDH-users` is flat (direct user members) and all RHDH team groups follow a naming prefix (`rhdh-*` or `team-*`), `ldapOrg` uses fast, standard indexed AD filters without needing recursive OIDs.
+> **CRITICAL PERFORMANCE RULE:** Never leave `groups.options.filter` as a broad `(objectClass=group)` and never omit `options.attributes` in a corporate Active Directory environment! By default, Backstage requests `attributes: ["*", "+"]` (pulling every attribute, certificate, and thumbnail on every AD object). Always restrict `groups.options.filter` to your RHDH group naming prefix and explicitly list the 6 required attributes:
 > ```yaml
+> schedule:
+>   frequency: { minutes: 30 }
+>   timeout: { minutes: 10 }
+>   initialDelay: { seconds: 15 }
 > users:
 >   - dn: "OU=Users,DC=corp,DC=example,DC=com"
 >     options:
 >       # Syncs ONLY active users who are direct members of the flat RHDH-users login group:
 >       filter: "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(memberOf=CN=RHDH-users,OU=Groups,DC=corp,DC=example,DC=com))"
 >       paged: true
+>       # Fetch ONLY the attributes RHDH needs (avoids default ["*", "+"] payload bloat):
+>       attributes:
+>         - distinguishedName
+>         - objectGUID
+>         - sAMAccountName
+>         - cn
+>         - mail
+>         - memberOf
 > groups:
 >   - dn: "OU=Groups,DC=corp,DC=example,DC=com"
 >     options:
->       # Syncs ONLY RHDH team groups (e.g. rhdh-payments-users, -ro, -rw), skipping the flat RHDH-users gate group:
->       filter: "(&(objectClass=group)(cn=rhdh-*)(!(cn=RHDH-users)))"
+>       # Syncs ONLY RHDH team groups (e.g. rhdh-payments-users, -ro, -rw), skipping thousands of unrelated AD groups:
+>       filter: "(&(objectClass=group)(|(cn=rhdh-*)(cn=team-*))(!(cn=RHDH-users)))"
 >       paged: true
+>       attributes:
+>         - distinguishedName
+>         - objectGUID
+>         - cn
+>         - description
+>         - member
+>         - memberOf
 > ```
 
 ---
@@ -502,3 +522,102 @@ Before implementing this model in a customer environment, review these exact que
 | **7** | **"Which AD group owns the RHDH platform itself (Super-Admins who can see all teams and manage RBAC)?"** | Mapped to `permission.adminGroups` / `permission.superUsers` (e.g., `group:default/rhdh-platform-admins`). |
 | **8** | **"Should a team's Read-Only (`-ro`) members be able to view runtime tabs (Kubernetes pods/logs, Argo CD sync status, Jenkins/Sonar) for their team's services, or Catalog metadata only?"** | By default, `role:default/team-viewer` allows read-only runtime tab visibility (`kubernetes.resources.read`, `argocd.view.read`) ONLY on entities the user can already see in the Catalog; those lines can be removed from `policiesCsv` if `-ro` should be metadata-only. |
 | **9** | **"Are there any shared platform Systems, Domains, or APIs that *all* teams should be able to view (read-only), alongside Golden Path Templates?"** | If yes, add `Domain` or a specific tag/annotation rule (e.g., `HAS_LABEL: visibility=public`) to the `read` condition in `rbac-conditional-policies.yaml` — **never** set `spec.owner: group:default/rhdh-users`, as that would also grant `team-editor` write/delete access on those shared entities. |
+
+---
+
+## 7. Performance Tuning & Troubleshooting Guide (Large Enterprise Active Directory / LDAP)
+
+### 7.1 Why RHDH Becomes Very Slow When Loading Only ~10 Catalog Items (Thousands of Synced AD Groups)
+
+If the RHDH Catalog page takes several seconds (or 10–30+ seconds) to load even though you only have ~10 `Component` entities, check the `backstage-backend` logs and `/api/catalog/entity-facets?facet=kind`. In enterprise Active Directory environments, the #1 cause is **`ldapOrg` syncing thousands of unrelated corporate AD `Group` (or `User`) entities**.
+
+When `groups.options.filter` is left broad (e.g. `(objectClass=group)`):
+1. **Massive Graph Stitching & DB Bloat:** RHDH inserts thousands of `Group` entities into PostgreSQL (`final_entities`, `refresh_state`, `search`, `relations`) and continuously re-stitches their `parentOf` / `childOf` / `hasMember` relationships.
+2. **Default `attributes: ["*", "+"]` Payload Bloat:** In `@backstage/plugin-catalog-backend-module-ldap` (`config.cjs.js`), Backstage defaults to `options.attributes: ["*", "+"]`, which requests **every single attribute and operational attribute** on every AD object (including `userCertificate`, `thumbnailPhoto`, `ntSecurityDescriptor`, etc.).
+3. **Slow Transitive RBAC Evaluation:** On every Catalog query (`GET /api/catalog/entities/by-query`), RHDH resolves the user's `$ownerRefs` (`includeTransitiveGroupOwnership: true`) and evaluates Casbin RBAC rules across the catalog database.
+
+#### How to Fix It Immediately (4 Config Changes in `app-config.yaml`)
+
+1. **Restrict `groups.options.filter` to ONLY RHDH Team Groups:**
+   Filter by your RHDH naming prefix (e.g. `(|(cn=rhdh-*)(cn=team-*))`) or point `groups.dn` to a dedicated `OU=RHDH,OU=Groups,...`:
+   ```yaml
+   groups:
+     - dn: "OU=Groups,DC=corp,DC=example,DC=com"
+       options:
+         scope: sub
+         # Sync ONLY RHDH groups — Backstage automatically ignores all other AD groups in a user's memberOf!
+         filter: "(&(objectClass=group)(|(cn=rhdh-*)(cn=team-*))(!(cn=RHDH-users)))"
+         paged: true
+         # Fetch ONLY the 6 attributes RHDH actually uses:
+         attributes:
+           - distinguishedName
+           - objectGUID
+           - cn
+           - description
+           - member
+           - memberOf
+   ```
+   *(Because Backstage's `resolveRelations()` in `read.cjs.js` only links `user.spec.memberOf` to groups present in `groupMap`, filtering `groups` automatically strips all 100+ unrelated corporate AD groups from every user entity in RHDH!)*
+
+2. **Restrict `users.options.filter` and `users.options.attributes`:**
+   ```yaml
+   users:
+     - dn: "OU=Users,DC=corp,DC=example,DC=com"
+       options:
+         scope: sub
+         filter: "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(memberOf=CN=RHDH-users,OU=Groups,DC=corp,DC=example,DC=com))"
+         paged: true
+         attributes:
+           - distinguishedName
+           - objectGUID
+           - sAMAccountName
+           - cn
+           - mail
+           - memberOf
+   ```
+
+3. **Increase `schedule.frequency` from 5 Minutes to 15–30 Minutes:**
+   ```yaml
+   schedule:
+     frequency: { minutes: 30 }
+     timeout: { minutes: 10 }
+     initialDelay: { seconds: 15 }
+   ```
+   *(When RHDH restarts with the tighter `groups.options.filter`, the first full LDAP sync after `initialDelay: 15s` automatically prunes all non-matching `Group` entities and relations from PostgreSQL).*
+
+---
+
+### 7.2 Why Clicking a Parent Group in RHDH Does Not Show Child Groups Under It (`spec.children: []`)
+
+When you click on a parent umbrella group (e.g. `team-payments` or `rhdh-payments-users`) in RHDH, it should display the child `-ro` and `-rw` groups under **Child Groups** (`spec.children` / `relations: parentOf`). If it does not:
+
+1. **Check 1 — Inspect the Group Entity's Raw YAML in RHDH (`⋮ → Inspect entity → Raw YAML`):**
+   - Look for `backstage.io/ldap-dn` under `metadata.annotations`.
+   - **If `backstage.io/ldap-dn` is present**, RHDH's LDAP vendor detection succeeded (`distinguishedName`), which means **the child groups have not been added to the `member` attribute of the parent group in Active Directory**. Have the AD admin add the `-ro` and `-rw` groups to the **Members** tab of the parent group in AD.
+   - **If `backstage.io/ldap-dn` is missing**, the AD server blocked RootDSE auto-detection and Backstage fell back to OpenLDAP's `entryDN` attribute (causing `mapReferencesAttr()` in `read.cjs.js` to silently skip all `member` / `memberOf` links). Fix this by explicitly adding `vendor:` under `catalog.providers.ldapOrg.default`:
+     ```yaml
+     catalog:
+       providers:
+         ldapOrg:
+           default:
+             vendor:
+               dnAttributeName: distinguishedName
+               uuidAttributeName: objectGUID
+     ```
+2. **Check 2 — Sub-OU Search Scope (`options.scope`):**
+   - Backstage defaults `options.scope` to `"one"` (single-level search directly under `groups.dn`). If parent and child groups live in nested sub-OUs under `groups.dn`, set `options.scope: "sub"`.
+
+---
+
+### 7.3 Why a User in a Read-Only (`team-viewer`) Group Can Still See ALL Catalog Items
+
+In RHDH 1.10 (`@backstage-community/plugin-rbac`), **an unconditional `ALLOW` rule always wins over a `CONDITIONAL` rule**. If a user assigned to `role:default/team-viewer` can still see all 10 catalog items across other teams, check these 4 places:
+
+1. **User or Group Listed in `permission.rbac.admin.users` or `superUsers`:**
+   - Any user or group listed under `permission.rbac.admin.users` or `superUsers` is granted `role:default/rbac_admin`, which has unconditional `catalog-entity` `read` access across all teams. Remove your test user from `admin.users` / `superUsers` when testing `team-viewer`.
+2. **Unconditional `p, role:default/team-viewer, catalog-entity, read, allow` in `rbac-policies.csv`:**
+   - Make sure `rbac-policies.csv` does **NOT** contain `p, role:default/team-viewer, catalog-entity, read, allow` (or `team-editor`). Static CSV `allow` rules bypass `rbac-conditional-policies.yaml` completely. All `catalog-entity` (`read`, `update`, `delete`) permissions for `team-viewer` and `team-editor` must come **only** from `rbac-conditional-policies.yaml`.
+3. **`catalog` Missing from `permission.rbac.pluginsWithPermission`:**
+   - Verify `catalog` is listed under `permission.rbac.pluginsWithPermission` and `conditionalPoliciesFile: /opt/app-root/src/rbac/rbac-conditional-policies.yaml` is configured under `permission.rbac`.
+4. **Stale Policy Row in PostgreSQL (`casbin_rule` Table):**
+   - If an older version of `rbac-policies.csv` or a manual edit in the RHDH RBAC Admin UI previously created an unconditional `catalog-entity` `read` policy for `team-viewer`, check **Administration → RBAC → `team-viewer`** in the RHDH UI (or restart the RHDH pod after cleaning `rbac-policies.csv`) to ensure no stale unconditional `catalog-entity` rule remains in the database.
