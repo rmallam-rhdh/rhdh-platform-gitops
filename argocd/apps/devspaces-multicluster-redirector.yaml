@@ -21,8 +21,6 @@ spec:
         - values.yaml
         - values-deploy.yaml
       parameters:
-        - name: sessionSecret.mode
-          value: secret
         - name: venafi.enabled
           value: "false"
   destination:

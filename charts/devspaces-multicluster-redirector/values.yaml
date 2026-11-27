@@ -15,6 +15,9 @@ image:
 
 # OpenShift OAuth Proxy sidecar. Listens HTTP on :8443; Route does edge TLS
 # (matches upstream openshift/deployment.yaml — no in-pod TLS secret).
+# OAuth cookie encryption secret (`<release>-session-secret`) is generated automatically
+# with a random 32-character value via Helm `lookup` + `helm.sh/resource-policy: keep`
+# (zero secret material or Vault/ESO configuration in Git).
 oauthProxy:
   image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9@sha256:4da6381f4f79de6a6024554aa99129e9b79b7ad7fdde0b0bebbcb87421a97d7c
   pullPolicy: IfNotPresent
@@ -46,8 +49,6 @@ resources:
       memory: 128Mi
 
 # Fabric8 Kubernetes/OpenShift client timeouts (ms) + Netty 4.2 / Quarkus 3.39 CleanerJava9 workaround (quarkusio/quarkus#53309).
-# `--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true` activates Netty's `DirectCleaner`
-# instead of the broken `CleanerJava9` fallback on Java 17, and `-Dio.netty.noPreferDirect=true` prefers heap buffers.
 kubernetesClient:
   requestTimeoutMs: 60000
   connectionTimeoutMs: 30000
@@ -79,25 +80,21 @@ route:
     insecureEdgeTerminationPolicy: Redirect
 
 # Venafi TPP Issuer + Certificate (`cert-manager.io/v1`).
-# All resource & Secret names are generated automatically from `.Release.Name` (zero manual naming required):
-#   - Issuer credentials Secret / VaultStaticSecret: <release>-venafi-credentials
-#   - Issuer:                                        <release>-issuer
-#   - Certificate:                                   <release>-cert
-#   - Certificate TLS Secret (mounted on Route):     <release>-tls
-#   - OpenShift Router TLS Role & RoleBinding:       <release>-router-tls
-#   - Venafi Custom Field `Application Name`:        <release>
+# All resource & Secret names are generated automatically from `.Release.Name`:
+#   - Issuer:                                    <release>-issuer (references `<release>-venafi-credentials`)
+#   - Certificate:                               <release>-cert
+#   - Certificate TLS Secret (mounted on Route): <release>-tls
+#   - OpenShift Router TLS Role & RoleBinding:   <release>-router-tls
+#   - Venafi Custom Field `Application Name`:    <release>
 venafi:
   enabled: false
-  # Cluster-specific Route hostname (used as commonName and first SAN; falls back to route.host if empty).
   hostname: ""
-  # GSLB / GTM multi-cluster vanity hostname (added to dnsNames whenever environmentName != "edev").
   gslbHostname: ""
-  # Venafi TPP policy folder / zone path (e.g. "VED\\Policy\\Certificates\\DevSpaces").
   zone: ""
   tpp:
-    # Venafi TPP WebSDK URL (e.g. "https://tpp.example.com/vedsdk").
     url: ""
-    # Optional custom CA trust for the TPP server (base64 PEM `caBundle` or existing Secret `caBundleSecretRef`):
+    # Defaults to `<release>-venafi-credentials` when empty.
+    credentialsSecretName: ""
     caBundle: ""
     caBundleSecretRef:
       name: ""
@@ -105,35 +102,9 @@ venafi:
   issuer:
     create: true
     kind: Issuer
-  # Provisions `<release>-venafi-credentials` for `Issuer.spec.venafi.tpp.credentialsRef`:
-  #   vaultStaticSecret — HashiCorp Vault Secrets Operator (VaultStaticSecret -> Secret)
-  #   eso               — External Secrets Operator (ExternalSecret -> Secret)
-  #   secret            — Chart-created Secret from `accessToken` (or `username`/`password`)
-  #   external          — Pre-existing Secret `<release>-venafi-credentials` (or `existingSecret`)
-  credentialsSecret:
-    mode: vaultStaticSecret
-    vaultStaticSecret:
-      type: kv-v2
-      mount: secrets
-      path: venafi/tpp
-      vaultAuthRef: default
-      vaultNamespace: ""
-      refreshAfter: 1h
-      hmacSecretData: true
-      overwrite: true
-    eso:
-      storeName: vault-secret-store
-      storeKind: ClusterSecretStore
-      refreshInterval: 1h
-      remoteKey: venafi/tpp
-      remoteProperty: access-token
-    accessToken: ""
-    username: ""
-    password: ""
   duration: 17520h
   renewBefore: 17448h
   privateKeyRotationPolicy: Always
-  # Wires `Route.spec.tls.externalCertificate.name` to `<release>-tls` and creates `<release>-router-tls` Role/RoleBinding.
   attachToRoute: true
   annotations: {}
   customFields:
@@ -153,38 +124,6 @@ venafi:
       - Acme Corp
     provinces:
       - California
-
-# OAuth-proxy cookie encryption secret (`<release>-session-secret`; >= 16 bytes; share the same Vault
-# secret across Primary and DR redirector instances behind a GTM / load balancer).
-# Supported modes:
-#   vaultStaticSecret — HashiCorp Vault Secrets Operator (VaultStaticSecret -> Secret)
-#   eso               — External Secrets Operator (ExternalSecret -> Secret)
-#   external          — Pre-existing Kubernetes Secret (requires sessionSecret.existingSecret)
-#   secret            — Chart-generated Kubernetes Secret via Helm lookup (lab/standalone only)
-sessionSecret:
-  mode: vaultStaticSecret
-  secretKey: session_secret
-  vaultStaticSecret:
-    type: kv-v2
-    mount: secrets
-    path: devspaces-redirector/session
-    vaultAuthRef: default
-    vaultNamespace: ""
-    version: 0
-    refreshAfter: 1h
-    hmacSecretData: true
-    rolloutRestart: true
-    overwrite: true
-    transformation: {}
-  eso:
-    storeName: vault-secret-store
-    storeKind: ClusterSecretStore
-    refreshInterval: 1h
-    remoteKey: devspaces-redirector/session
-    remoteProperty: session_secret
-  existingSecret: ""
-  create: true
-  value: ""
 
 networkPolicy:
   enabled: true

@@ -8,8 +8,8 @@ helm lint "$CHART" -f "$CHART/values.yaml" -f "$CHART/values-deploy.yaml"
 OUT="$(mktemp)"
 trap 'rm -f "$OUT"' EXIT
 
-# Default customer render (values.yaml + values-deploy.yaml) pulls session + Venafi
-# secrets from HashiCorp Vault via VaultStaticSecret and names all resources after .Release.Name.
+# Default customer render (values.yaml + values-deploy.yaml) auto-generates random
+# <release>-session-secret (zero Vault/ESO sessionSecret config) and names all resources after .Release.Name.
 helm template devspaces-multicluster-redirector "$CHART" \
   -f "$CHART/values.yaml" \
   -f "$CHART/values-deploy.yaml" \
@@ -20,6 +20,9 @@ for pat in \
   "kind: Deployment" \
   "kind: Service" \
   "kind: Route" \
+  "kind: Secret" \
+  "helm.sh/resource-policy: keep" \
+  "session_secret:" \
   "apiVersion: cert-manager.io/v1" \
   "kind: Issuer" \
   "kind: Certificate" \
@@ -43,8 +46,6 @@ for pat in \
   "name: devspaces-multicluster-redirector-tls" \
   "name: devspaces-multicluster-redirector-router-tls" \
   "kind: ConfigMap" \
-  "apiVersion: secrets.hashicorp.com/v1beta1" \
-  "kind: VaultStaticSecret" \
   "kind: ServiceAccount" \
   "kind: NetworkPolicy" \
   "kind: PodDisruptionBudget" \
@@ -52,11 +53,6 @@ for pat in \
   "registry.redhat.io/devspaces/multicluster-redirector-rhel9" \
   "ose-oauth-proxy-rhel9@sha256:" \
   "group-mapping.json" \
-  "mount: \"secrets\"" \
-  "path: \"devspaces-redirector/session\"" \
-  "vaultAuthRef: \"default\"" \
-  "rolloutRestartTargets:" \
-  "create: true" \
   "secretName: devspaces-multicluster-redirector-session-secret" \
   "-http-address=:8443" \
   "-https-address=" \
@@ -82,13 +78,16 @@ do
   grep -Fq -- "$pat" "$OUT" || { echo "FAIL missing: $pat"; fail=1; }
 done
 
-# Default vaultStaticSecret mode must not render a raw Secret or ExternalSecret.
-if grep -Eq '^kind: Secret$' "$OUT"; then
-  echo "FAIL raw Secret must not render when sessionSecret.mode=vaultStaticSecret"
+# Must not render ExternalSecret or VaultStaticSecret CRs from the chart.
+if grep -Eq '^kind: (ExternalSecret|VaultStaticSecret)$' "$OUT"; then
+  echo "FAIL ExternalSecret/VaultStaticSecret must not render"
   fail=1
 fi
-if grep -Eq '^kind: ExternalSecret$' "$OUT"; then
-  echo "FAIL ExternalSecret must not render when sessionSecret.mode=vaultStaticSecret"
+
+# Verify generated session_secret decodes to a 32-char string.
+GEN_LEN="$(awk '/session_secret: /{print $2}' "$OUT" | tr -d '"' | base64 -d | wc -c | tr -d ' ')"
+if [[ "$GEN_LEN" -lt 32 ]]; then
+  echo "FAIL expected >= 32-byte random session_secret, got $GEN_LEN"
   fail=1
 fi
 
@@ -143,83 +142,6 @@ if [[ -f "$ARGO_MANIFEST" ]]; then
     grep -Fq -- "$pat" "$ARGO_MANIFEST" || { echo "FAIL argocd manifest missing: $pat"; fail=1; }
   done
 fi
-
-# VaultStaticSecret advanced options (Vault Enterprise namespace, custom secretKey, destinationSecretName).
-VSS_ADV="$(mktemp)"
-helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=vaultStaticSecret \
-  --set sessionSecret.secretKey=cookie_secret \
-  --set sessionSecret.vaultStaticSecret.vaultNamespace=admin/platform \
-  --set sessionSecret.vaultStaticSecret.destinationSecretName=custom-vso-session \
-  --set sessionSecret.vaultStaticSecret.version=2 \
-  --namespace devspaces-redirector >"$VSS_ADV"
-for pat in \
-  'namespace: "admin/platform"' \
-  'version: 2' \
-  'name: custom-vso-session' \
-  'secretName: custom-vso-session' \
-  'cookie-secret-file=/etc/proxy/secrets/cookie_secret'
-do
-  grep -Fq -- "$pat" "$VSS_ADV" || { echo "FAIL VaultStaticSecret advanced missing: $pat"; fail=1; }
-done
-rm -f "$VSS_ADV"
-
-# VaultStaticSecret validation failures.
-if helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=vaultStaticSecret \
-  --set sessionSecret.vaultStaticSecret.mount="" \
-  --namespace devspaces-redirector >/dev/null 2>&1; then
-  echo "FAIL expected template error when vaultStaticSecret.mount is empty"
-  fail=1
-fi
-if helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=vaultStaticSecret \
-  --set sessionSecret.vaultStaticSecret.path="" \
-  --namespace devspaces-redirector >/dev/null 2>&1; then
-  echo "FAIL expected template error when vaultStaticSecret.path is empty"
-  fail=1
-fi
-if helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=vaultStaticSecret \
-  --set sessionSecret.vaultStaticSecret.type=kv-v3 \
-  --namespace devspaces-redirector >/dev/null 2>&1; then
-  echo "FAIL expected template error when vaultStaticSecret.type is invalid"
-  fail=1
-fi
-if helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=vaultStaticSecret \
-  --set sessionSecret.vaultStaticSecret.rolloutRestart=true \
-  --set sessionSecret.vaultStaticSecret.hmacSecretData=false \
-  --namespace devspaces-redirector >/dev/null 2>&1; then
-  echo "FAIL expected template error when rolloutRestart=true and hmacSecretData=false"
-  fail=1
-fi
-
-# ESO mode (ExternalSecret from Vault).
-ESO_OUT="$(mktemp)"
-helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=eso \
-  --namespace devspaces-redirector >"$ESO_OUT"
-for pat in \
-  "apiVersion: external-secrets.io/v1" \
-  "kind: ExternalSecret" \
-  "name: vault-secret-store" \
-  "key: devspaces-redirector/session" \
-  "property: session_secret"
-do
-  grep -Fq -- "$pat" "$ESO_OUT" || { echo "FAIL ESO mode missing: $pat"; fail=1; }
-done
-if grep -Eq '^kind: (Secret|VaultStaticSecret)$' "$ESO_OUT"; then
-  echo "FAIL Secret/VaultStaticSecret must not render when sessionSecret.mode=eso"
-  fail=1
-fi
-rm -f "$ESO_OUT"
 
 # Multi-group and comma-separated AND groupMapping rendering.
 GRP_OUT="$(mktemp)"
@@ -305,62 +227,6 @@ if helm template mcr "$CHART" \
   fail=1
 fi
 
-# Standalone lab Secret mode + short sessionSecret.value (< 16 chars) validation.
-SEC_OUT="$(mktemp)"
-helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=secret \
-  --set sessionSecret.value=test-session-secret-32charsxx \
-  --namespace devspaces-redirector >"$SEC_OUT"
-if ! grep -Eq '^kind: Secret$' "$SEC_OUT"; then
-  echo "FAIL expected kind: Secret when sessionSecret.mode=secret"
-  fail=1
-fi
-if grep -Eq '^kind: (VaultStaticSecret|ExternalSecret)$' "$SEC_OUT"; then
-  echo "FAIL Vault CRs must not render when sessionSecret.mode=secret"
-  fail=1
-fi
-rm -f "$SEC_OUT"
-
-if helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.mode=secret \
-  --set sessionSecret.value=too-short \
-  --namespace devspaces-redirector >/dev/null 2>&1; then
-  echo "FAIL expected template error when sessionSecret.value is < 16 chars"
-  fail=1
-fi
-
-# Existing session secret path (both mode=external and legacy create=false).
-for extra_flag in "--set sessionSecret.mode=external" "--set sessionSecret.create=false"; do
-  EXT="$(mktemp)"
-  # shellcheck disable=SC2086
-  helm template mcr "$CHART" \
-    -f "$CHART/values.yaml" \
-    $extra_flag \
-    --set sessionSecret.existingSecret=my-session \
-    --namespace devspaces-redirector >"$EXT"
-  if grep -Eq '^kind: (Secret|VaultStaticSecret|ExternalSecret)$' "$EXT"; then
-    echo "FAIL no secret CR should render for $extra_flag"
-    fail=1
-  fi
-  if ! grep -Fq "secretName: my-session" "$EXT"; then
-    echo "FAIL deployment must mount existingSecret for $extra_flag"
-    fail=1
-  fi
-  rm -f "$EXT"
-done
-
-# mode=external or create=false without existingSecret must fail at template time.
-if helm template mcr "$CHART" \
-  -f "$CHART/values.yaml" \
-  --set sessionSecret.create=false \
-  --set sessionSecret.existingSecret="" \
-  --namespace devspaces-redirector >/dev/null 2>&1; then
-  echo "FAIL expected template error when existingSecret is empty"
-  fail=1
-fi
-
 # oauth-proxy must not float on :latest with IfNotPresent.
 if grep -Eq 'ose-oauth-proxy-rhel9:latest' "$OUT"; then
   echo "FAIL oauth-proxy image must be digested, not :latest"
@@ -415,7 +281,6 @@ fi
 rm -f "$NO_CERT"
 
 # Release-name auto-naming (`helm upgrade --install devspacesmcr . -n devspaces`) + null/minimal venafi sub-fields:
-# Every resource, Issuer, Certificate, and Secret must derive from `.Release.Name` (`devspacesmcr`) and `.Release.Namespace` (`devspaces`).
 MIN_VENAFI="$(mktemp)"
 MIN_VALS="$(mktemp)"
 cat >"$MIN_VALS" <<'EOF'
@@ -431,9 +296,6 @@ venafi:
     url: https://tpp.example.com/vedsdk
     caBundleSecretRef:
       name: corp-ca-bundle
-  credentialsSecret:
-    mode: secret
-    accessToken: test-venafi-access-token
 EOF
 helm template devspacesmcr "$CHART" \
   -f "$MIN_VALS" \

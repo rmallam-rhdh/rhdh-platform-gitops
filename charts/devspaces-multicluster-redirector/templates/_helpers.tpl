@@ -45,41 +45,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
-{{- define "mcr.sessionSecretMode" -}}
-{{- $mode := ((.Values.sessionSecret).mode | default "vaultStaticSecret") | toString | trim -}}
-{{- if eq ((.Values.sessionSecret).create | toString) "false" -}}
-{{- $mode = "external" -}}
-{{- end -}}
-{{- if not (has $mode (list "vaultStaticSecret" "eso" "external" "secret")) -}}
-{{- fail (printf "sessionSecret.mode %q must be one of: vaultStaticSecret, eso, external, secret" $mode) -}}
-{{- end -}}
-{{- $mode -}}
-{{- end -}}
-
 {{- define "mcr.sessionSecretKey" -}}
-{{- $key := ((.Values.sessionSecret).secretKey | default "session_secret") | toString | trim -}}
-{{- if not $key -}}
-{{- fail "sessionSecret.secretKey must not be empty" -}}
-{{- end -}}
-{{- $key -}}
+session_secret
 {{- end -}}
 
 {{- define "mcr.sessionSecretName" -}}
-{{- $mode := include "mcr.sessionSecretMode" . -}}
-{{- $defaultName := printf "%s-session-secret" (include "mcr.fullname" .) -}}
-{{- if eq $mode "external" -}}
-{{- $ext := ((.Values.sessionSecret).existingSecret | default "") | toString | trim -}}
-{{- if not $ext -}}
-{{- fail "sessionSecret mode=external (or create=false) requires sessionSecret.existingSecret" -}}
-{{- end -}}
-{{- $ext -}}
-{{- else if eq $mode "vaultStaticSecret" -}}
-{{- (((.Values.sessionSecret).vaultStaticSecret).destinationSecretName | default (.Values.sessionSecret).existingSecret | default $defaultName) | toString | trim -}}
-{{- else if eq $mode "eso" -}}
-{{- (((.Values.sessionSecret).eso).targetSecretName | default (.Values.sessionSecret).existingSecret | default $defaultName) | toString | trim -}}
-{{- else -}}
-{{- $defaultName -}}
-{{- end -}}
+{{- printf "%s-session-secret" (include "mcr.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "mcr.oauthCallbackUrl" -}}
@@ -149,19 +120,10 @@ true
 {{- default (printf "%s-tls" (include "mcr.fullname" .)) $override | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "mcr.venafiCredentialsSecretMode" -}}
-{{- $credCfg := (.Values.venafi).credentialsSecret | default dict -}}
-{{- $mode := ($credCfg.mode | default "vaultStaticSecret") | toString | trim -}}
-{{- if not (has $mode (list "vaultStaticSecret" "eso" "secret" "external")) -}}
-{{- fail (printf "venafi.credentialsSecret.mode %q must be one of: vaultStaticSecret, eso, secret, external" $mode) -}}
-{{- end -}}
-{{- $mode -}}
-{{- end -}}
-
 {{- define "mcr.venafiCredentialsSecretName" -}}
-{{- $credCfg := (.Values.venafi).credentialsSecret | default dict -}}
+{{- $tpp := (.Values.venafi).tpp | default dict -}}
 {{- $defaultName := printf "%s-venafi-credentials" (include "mcr.fullname" .) | trunc 63 | trimSuffix "-" -}}
-{{- $override := ($credCfg.existingSecret | default "") | toString | trim -}}
+{{- $override := ($tpp.credentialsSecretName | default "") | toString | trim -}}
 {{- default $defaultName $override -}}
 {{- end -}}
 

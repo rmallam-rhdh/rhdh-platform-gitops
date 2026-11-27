@@ -1,5 +1,6 @@
 # Per-cluster overrides. Edit in place — do not add values-<cluster>.yaml.
 # All resource, Issuer, Certificate, and Secret names are automatically derived from `.Release.Name`.
+# The OAuth session cookie Secret (`<release>-session-secret`) is auto-generated with a random 32-char value.
 
 # Environment (`edev` omits GSLB SAN; `nprd` / `prd` includes both cluster hostname + gslbHostname SANs).
 environmentName: nprd
@@ -8,8 +9,7 @@ route:
   host: ""
   oauthCallbackUrl: ""
 
-# Venafi TPP Issuer (`<release>-issuer`), Credentials (`<release>-venafi-credentials`),
-# Certificate (`<release>-cert`), and Route TLS Secret (`<release>-tls`).
+# Venafi TPP Issuer (`<release>-issuer`), Certificate (`<release>-cert`), and Route TLS Secret (`<release>-tls`).
 venafi:
   enabled: true
   hostname: devspaces-redirector.apps.dc1.example.com
@@ -21,13 +21,6 @@ venafi:
     # caBundleSecretRef:
     #   name: enterprise-ca-bundle
     #   key: ca.crt
-  credentialsSecret:
-    mode: vaultStaticSecret
-    vaultStaticSecret:
-      type: kv-v2
-      mount: secrets
-      path: venafi/tpp
-      vaultAuthRef: default
   customFields:
     technicalOwner: "Platform Engineering"
   subject:
@@ -41,17 +34,6 @@ venafi:
       - Acme Corp
     provinces:
       - California
-
-# Pull oauth-proxy session cookie secret (`<release>-session-secret`) from HashiCorp Vault via VaultStaticSecret.
-# Seed in Vault once (use the SAME secret across Primary and DR clusters):
-#   vault kv put secrets/devspaces-redirector/session session_secret="$(openssl rand -hex 16)"
-sessionSecret:
-  mode: vaultStaticSecret
-  vaultStaticSecret:
-    type: kv-v2
-    mount: secrets
-    path: devspaces-redirector/session
-    vaultAuthRef: default
 
 # Structured Datacenter / Cluster Routing:
 datacenters:
